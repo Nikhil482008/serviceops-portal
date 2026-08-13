@@ -48,3 +48,8 @@ credentials.txt
 /screenshot*.png
 /*.jpg
 /*.jpeg
+
+# Pushing this needs a token with the `workflow` scope, which the current one lacks.
+# Deploy runs from the gh-pages branch instead. To switch to CI builds:
+#   gh auth refresh -s workflow   then   git rm --cached -r --ignore-unmatch . && git add -A
+.github/workflows/
