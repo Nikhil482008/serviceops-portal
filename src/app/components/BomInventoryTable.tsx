@@ -11,7 +11,7 @@ const Dash = () => <span className="text-[12px] text-[#9ca3af]">—</span>;
 
 const STATUS_STYLE: Record<BomStatus, { bg: string; text: string; icon: typeof ShieldCheck }> = {
   Generated: { bg: '#ECFDF3', text: '#22A06B', icon: ShieldCheck },
-  Partial: { bg: '#FEF7E6', text: '#D97706', icon: RefreshCw },
+  'In Progress': { bg: '#FEF7E6', text: '#D97706', icon: RefreshCw },
   'Not Generated': { bg: '#F1F5F9', text: '#64748B', icon: MinusCircle },
 };
 
@@ -35,11 +35,13 @@ interface BomInventoryTableProps {
   allSelected: boolean;
   onSelectAll: (checked: boolean) => void;
   onSelect: (id: string, checked: boolean) => void;
-  /** Opens the endpoint's detail page on its BOM tab. */
-  onRowClick?: (endpoint: Endpoint) => void;
+  /** CI → the asset that owns this BOM: Asset › Hardware Asset, landed on its BOM tab. */
+  onCiClick?: (endpoint: Endpoint) => void;
+  /** End Point → the endpoint's own detail page, landed on its BOM tab. */
+  onEndpointClick?: (endpoint: Endpoint) => void;
 }
 
-export function BomInventoryTable({ rows, selected, allSelected, onSelectAll, onSelect, onRowClick }: BomInventoryTableProps) {
+export function BomInventoryTable({ rows, selected, allSelected, onSelectAll, onSelect, onCiClick, onEndpointClick }: BomInventoryTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[1500px]">
@@ -54,7 +56,7 @@ export function BomInventoryTable({ rows, selected, allSelected, onSelectAll, on
               />
             </th>
             {[
-              ['CI', ''], ['Host Name', 'min-w-[170px]'], ['IP Address', 'min-w-[130px]'], ['OS', 'min-w-[210px]'],
+              ['CI', ''], ['End Point', 'min-w-[120px]'], ['Host Name', 'min-w-[170px]'], ['IP Address', 'min-w-[130px]'], ['OS', 'min-w-[210px]'],
               ['BOM Status', 'min-w-[140px]'], ['Products', ''], ['Components', ''], ['Vulnerabilities', 'min-w-[130px]'],
               ['Crypto Assets', 'min-w-[120px]'], ['AI Models', ''], ['Last Generated', 'min-w-[140px]'],
             ].map(([h, cls]) => (
@@ -66,7 +68,7 @@ export function BomInventoryTable({ rows, selected, allSelected, onSelectAll, on
         </thead>
         <tbody className="divide-y divide-[#e5e7eb] bg-white">
           {rows.length === 0 ? (
-            <tr><td colSpan={12} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">No CIs match your search.</td></tr>
+            <tr><td colSpan={13} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">No CIs match your search.</td></tr>
           ) : rows.map(({ endpoint: e, bom }) => (
             <tr key={e.id} className="group hover:bg-[#f9fafb] transition-colors">
               <td className="px-4 py-3">
@@ -81,17 +83,27 @@ export function BomInventoryTable({ rows, selected, allSelected, onSelectAll, on
                 <span className="inline-flex items-center gap-2">
                   {/* agent-health dot, same treatment as the Endpoints listing */}
                   <span className="size-2 flex-shrink-0 rounded-full" style={{ backgroundColor: e.agentOnline ? '#22C55E' : '#EAB308' }} />
-                  {/* BOM addresses a host by its CI id — Component Intelligence is a CMDB-level
-                      view, and this column is literally "CI". */}
+                  {/* The CI is the ASSET the components hang off, so this opens
+                      Asset › Hardware Asset on its BOM tab. */}
                   <button
-                    onClick={() => onRowClick?.(e)}
+                    onClick={() => onCiClick?.(e)}
+                    title="Open the hardware asset's BOM"
                     className="inline-block rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0] transition-colors hover:bg-[#d0e8f9]"
                   >{bomCiId(e.id)}</button>
                 </span>
               </td>
+              {/* The endpoint is the machine the agent scanned — a different record from the
+                  asset above it, so it gets its own column and its own destination. */}
+              <td className="px-4 py-3 whitespace-nowrap">
+                <button
+                  onClick={() => onEndpointClick?.(e)}
+                  title="Open the endpoint's BOM"
+                  className="inline-block rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0] transition-colors hover:bg-[#d0e8f9]"
+                >{e.id}</button>
+              </td>
               <td className="px-4 py-3 whitespace-nowrap text-[12px] text-[#364658]">
                 {/* explicit size — a <button> does not inherit the cell's font-size here */}
-                <button onClick={() => onRowClick?.(e)} className="text-[12px] transition-colors hover:text-[#3D8BD0]">{e.hostName}</button>
+                <button onClick={() => onEndpointClick?.(e)} className="text-[12px] transition-colors hover:text-[#3D8BD0]">{e.hostName}</button>
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-[12px] text-[#364658]">{e.ipAddress}</td>
               <td className="px-4 py-3 whitespace-nowrap text-[12px] text-[#364658]">

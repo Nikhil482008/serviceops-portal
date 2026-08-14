@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Server, Box, Upload, Link2, Plus, Check, FileJson } from 'lucide-react';
+import { X, Server, Box, Upload, Plus, Check, FileJson, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { mockEndpoints } from './EndpointsListPage';
 
@@ -14,10 +14,35 @@ export interface IngestResult {
   ipAddress: string;
   osName: string;
   product: string;
-  /** How the document arrived — a file the browser parsed, or a URL it was pulled from. */
-  source: 'file' | 'api';
+  /** A document the browser parsed. Kept as a union so a second source can be added back
+   *  without changing every consumer. */
+  source: 'file';
   sourceLabel: string;
 }
+
+/* CI type — the CMDB's own hierarchy, so a new CI is classified the way the CMDB classifies
+ * everything else rather than by a free-text guess. Only branches carry children; a leaf with
+ * a chevron that opens nothing would be a broken affordance. */
+interface CiTypeNode { id: string; label: string; children?: CiTypeNode[] }
+const CI_TYPES: CiTypeNode[] = [
+  {
+    id: 'base-ci',
+    label: 'Base CI',
+    children: [
+      {
+        id: 'hardware',
+        label: 'Hardware',
+        children: [
+          { id: 'server', label: 'Server' },
+          { id: 'desktops', label: 'Desktops' },
+          { id: 'laptops', label: 'Laptops' },
+          { id: 'network-devices', label: 'Network Devices' },
+          { id: 'storage-devices', label: 'Storage Devices' },
+        ],
+      },
+    ],
+  },
+];
 
 interface BomIngestPanelProps {
   isOpen: boolean;
@@ -34,29 +59,33 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
   // than an inline form that pushes the rest of this one down.
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState('');
-  const [newIp, setNewIp] = useState('');
-  const [newOs, setNewOs] = useState('');
+  const [newType, setNewType] = useState<CiTypeNode | null>(null);
+  /** Declared here — it was being CALLED by the CI picker below without ever existing, which
+   *  threw a ReferenceError on every click. `vite build` strips types without checking them,
+   *  so nothing caught it before the browser did. */
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
+  const [openTypeIds, setOpenTypeIds] = useState<Set<string>>(new Set(['base-ci', 'hardware']));
   const [newTouched, setNewTouched] = useState(false);
   /** CIs created in this session, offered at the top of the picker. */
-  const [created, setCreated] = useState<{ id: string; name: string; ip: string; os: string }[]>([]);
+  const [created, setCreated] = useState<{ id: string; name: string; type: string }[]>([]);
 
   const [file, setFile] = useState<File | null>(null);
-  const [apiUrl, setApiUrl] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setCiId(''); setProduct(''); setAdding(false);
-    setNewName(''); setNewIp(''); setNewOs(''); setNewTouched(false);
-    setFile(null); setApiUrl(''); setDragOver(false);
+    setNewName(''); setNewType(null); setNewTouched(false);
+    setShowTypeMenu(false); setOpenTypeIds(new Set(['base-ci', 'hardware']));
+    setFile(null); setDragOver(false);
     setShowCiMenu(false);
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const options = [
-    ...created.map((c) => ({ id: c.id, name: c.name, sub: c.ip || 'new', isNew: true })),
+    ...created.map((c) => ({ id: c.id, name: c.name, sub: c.type || 'new', isNew: true })),
     ...mockEndpoints.slice(0, 12).map((e) => ({ id: e.id, name: e.hostName, sub: e.ipAddress, isNew: false })),
   ];
   const selected = options.find((o) => o.id === ciId);
@@ -65,31 +94,31 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
     setNewTouched(true);
     if (!newName.trim()) return;
     const id = `CI-N${created.length + 1}`;
-    setCreated((prev) => [...prev, { id, name: newName.trim(), ip: newIp.trim(), os: newOs.trim() }]);
+    setCreated((prev) => [...prev, { id, name: newName.trim(), type: newType?.label ?? '' }]);
     // Selecting it immediately is the point of creating it here.
     setCiId(id);
     setAdding(false);
-    setNewName(''); setNewIp(''); setNewOs(''); setNewTouched(false);
+    setNewName(''); setNewType(null); setNewTouched(false); setShowTypeMenu(false);
     toast.success(`${id} created and selected`);
   };
 
-  const hasSource = !!file || !!apiUrl.trim();
-  const valid = !!ciId && hasSource;
+  const valid = !!ciId && !!file;
 
   const submit = () => {
-    if (!valid) return;
+    if (!valid || !file) return;
     const c = created.find((x) => x.id === ciId);
     const e = mockEndpoints.find((x) => x.id === ciId);
     onIngest({
       ciId,
       ciName: selected?.name ?? ciId,
-      // The CI's type is classified by the CMDB, not restated here.
-      ciType: mockEndpoints.find((x) => x.id === ciId) ? 'Server' : 'Base CI',
-      ipAddress: c?.ip || e?.ipAddress || '—',
-      osName: c?.os || e?.osName || 'Unknown',
+      // A CI created here carries the type that was chosen for it; an existing one is already
+      // classified by the CMDB.
+      ciType: c?.type || (e ? 'Server' : 'Base CI'),
+      ipAddress: e?.ipAddress || '—',
+      osName: e?.osName || 'Unknown',
       product: product.trim() || 'OS / base platform',
-      source: file ? 'file' : 'api',
-      sourceLabel: file ? file.name : apiUrl.trim(),
+      source: 'file',
+      sourceLabel: file.name,
     });
   };
 
@@ -107,8 +136,13 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="min-w-0">
-            <h3 className="text-[16px] font-semibold text-[#364658]">Ingest SBOM</h3>
-            <p className="mt-0.5 text-[13px] text-[#7B8FA5]">SPDX 2.3 or CycloneDX 1.4–1.6 (JSON or XML)</p>
+            <h3 className="text-[16px] font-semibold text-[#364658]">Ingest BOM</h3>
+            {/* The drawer is named for the whole family, but only one member of it can be
+                ingested today — say which, rather than letting the title imply all three. */}
+            <p className="mt-0.5 text-[13px] text-[#7B8FA5]">
+              Only SBOMs can be ingested at the moment — SPDX 2.3 or CycloneDX 1.4–1.6 (JSON or XML).
+              CBOM and AI BOM are generated by the agent.
+            </p>
           </div>
           <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
             <X size={18} />
@@ -173,10 +207,10 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
             </button>
           </div>
 
-          {/* ── Product / application ──────────────────────────────────────── */}
+          {/* ── Product name ───────────────────────────────────────────────── */}
           <div className="mb-2 mt-6 flex items-center gap-2">
             <Box size={16} className="text-[#3D8BD0]" />
-            <h4 className="text-[14px] font-semibold text-[#364658]">Product / application</h4>
+            <h4 className="text-[14px] font-semibold text-[#364658]">Product name</h4>
           </div>
           <input
             type="text"
@@ -186,7 +220,7 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
             className={input}
           />
 
-          {/* ── Source: a file, or a URL to pull from ──────────────────────── */}
+          {/* ── Source: the document itself ────────────────────────────────── */}
           <div className="mt-6 rounded-lg bg-[#F7F9FC] p-4">
             <div
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -194,7 +228,7 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
               onDrop={(e) => {
                 e.preventDefault(); setDragOver(false);
                 const f = e.dataTransfer.files?.[0];
-                if (f) { setFile(f); setApiUrl(''); }
+                if (f) setFile(f);
               }}
               onClick={() => fileRef.current?.click()}
               className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed px-4 py-7 text-center transition-colors ${
@@ -225,43 +259,16 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
                 type="file"
                 accept=".json,.xml"
                 className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setFile(f); setApiUrl(''); } }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) setFile(f); }}
               />
             </div>
-
-            {/* The two sources are alternatives, so the rule says so out loud */}
-            <div className="my-3 flex items-center gap-3">
-              <span className="h-px flex-1 bg-[#E5E7EB]" />
-              <span className="text-[12px] font-medium uppercase tracking-wide text-[#9CA3AF]">or</span>
-              <span className="h-px flex-1 bg-[#E5E7EB]" />
-            </div>
-
-            <Field label="Pull from an API endpoint">
-              <div className="flex items-center gap-2">
-                <div className="relative min-w-0 flex-1">
-                  <Link2 size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
-                  <input
-                    type="text"
-                    value={apiUrl}
-                    onChange={(e) => { setApiUrl(e.target.value); if (e.target.value) setFile(null); }}
-                    placeholder="https://registry.internal/api/v1/sbom/payments-web"
-                    className={`${input} pl-9`}
-                  />
-                </div>
-                <button
-                  onClick={() => apiUrl.trim() && toast.success('Fetched the document from the endpoint')}
-                  disabled={!apiUrl.trim()}
-                  className="inline-flex h-9 flex-shrink-0 items-center rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA] disabled:cursor-not-allowed disabled:text-[#9CA3AF]"
-                >Fetch</button>
-              </div>
-            </Field>
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 border-t border-[#DFE5ED] px-5 py-3">
           <span className="text-[12px] text-[#7B8FA5]">
-            {!ciId ? 'Pick a CI to map the components to.' : !hasSource ? 'Add a file or an API endpoint.' : 'Ready to ingest.'}
+            {!ciId ? 'Pick a CI to map the components to.' : !file ? 'Add an SBOM file.' : 'Ready to ingest.'}
           </span>
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="inline-flex h-8 items-center rounded border border-[#DFE5ED] bg-white px-4 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]">
@@ -309,14 +316,66 @@ export function BomIngestPanel({ isOpen, onClose, onIngest }: BomIngestPanelProp
                   <p className="mt-1 text-[12px] text-[#DC2626]">A CI needs a name — it is what the components hang off.</p>
                 )}
               </Field>
+              {/* CI type — picked from the CMDB's hierarchy rather than typed, so the CI is
+                  classified the same way every other CI is. */}
               <div className="mt-4">
-                <Field label="IP address">
-                  <input type="text" value={newIp} onChange={(e) => setNewIp(e.target.value)} placeholder="10.20.40.11" className={input} />
-                </Field>
-              </div>
-              <div className="mt-4">
-                <Field label="Operating system">
-                  <input type="text" value={newOs} onChange={(e) => setNewOs(e.target.value)} placeholder="Microsoft Windows Server 2022" className={input} />
+                <Field label="CI type">
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowTypeMenu((v) => !v)}
+                      className={`${input} flex items-center justify-between gap-2 text-left`}
+                    >
+                      <span className={`truncate ${newType ? 'text-[#364658]' : 'text-[#9ca3af]'}`}>
+                        {newType?.label ?? 'Select a CI type…'}
+                      </span>
+                      <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${showTypeMenu ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showTypeMenu && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowTypeMenu(false)} />
+                        <div className="absolute left-0 top-full z-50 mt-1 max-h-[300px] w-full overflow-y-auto rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+                          {(function render(nodes: CiTypeNode[], depth: number): React.ReactNode {
+                            return nodes.map((n) => {
+                              const hasKids = !!n.children?.length;
+                              const open = openTypeIds.has(n.id);
+                              const isSel = newType?.id === n.id;
+                              return (
+                                <div key={n.id}>
+                                  <button
+                                    onClick={() => {
+                                      setNewType(n);
+                                      // A branch is selectable AND expandable — picking it also
+                                      // reveals what sits under it rather than closing the menu.
+                                      if (hasKids) {
+                                        setOpenTypeIds((p) => {
+                                          const next = new Set(p);
+                                          open ? next.delete(n.id) : next.add(n.id);
+                                          return next;
+                                        });
+                                      } else {
+                                        setShowTypeMenu(false);
+                                      }
+                                    }}
+                                    className={`flex w-full items-center gap-2 py-2 pr-3 text-left text-[13px] transition-colors ${
+                                      isSel ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
+                                    }`}
+                                    style={{ paddingLeft: 12 + depth * 18 }}
+                                  >
+                                    <span className="flex size-4 flex-shrink-0 items-center justify-center text-[#7B8FA5]">
+                                      {hasKids ? (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate">{n.label}</span>
+                                    {isSel && <Check size={15} className="flex-shrink-0 text-[#3D8BD0]" />}
+                                  </button>
+                                  {hasKids && open && render(n.children!, depth + 1)}
+                                </div>
+                              );
+                            });
+                          })(CI_TYPES, 0)}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </Field>
               </div>
             </div>

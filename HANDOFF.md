@@ -39,6 +39,67 @@ Inventory, restyled the **Compare versions** path control, mounted two prototype
 - Both follow `AdminBomModule`'s pattern: **the prototype IS the screen**, not a React
   re-implementation of it, so a rule's behaviour has one home.
 
+## BOM Inventory: two records, two destinations — and a crash nobody could have seen
+
+**A row addresses two different things, and they now have separate homes.** The listing had one
+clickable id doing double duty: the column was headed CI, so the endpoint drawer rewrote its own
+header to a CI id to stop `CI-408` landing on a page titled `EP-408`. That was a workaround for a
+missing column, not a design.
+
+| Column | Record | Opens |
+|---|---|---|
+| **CI** | the asset the components hang off | Asset › Hardware Asset, on its **BOM** tab |
+| **End Point** | the machine the agent scanned | the endpoint detail page, on its BOM tab |
+
+Both land on the same `EndpointBomTab`, so one host's Bill of Materials cannot show two different
+answers depending on the door. The asset carries `bomEndpointId` — without it the CI id would seed
+the deterministic generator and produce a second, unrelated BOM. The header rewriting in
+`EndpointDrawer` and the `displayId` rewriting in `DrawerStack` are both **deleted**: each record
+carries its own id now, which is the change the report asked for as "just the heading will change".
+
+The Hardware Asset drawer gained a **BOM tab immediately after Software** — both answer "what is
+installed on this asset", Software from the inventory agent and BOM at component depth.
+
+**Other changes in this pass.** `BomStatus` `Partial` → `In Progress` (the type, the generator and
+the pill; the many `Partial<T>` utility types in the codebase are unrelated and untouched).
+The Ingest drawer is headed **Ingest BOM** and says out loud that only SBOMs can be ingested today
+— the title names the family, so the subtext has to name the member. The **API-paste path is gone**
+(file upload is the only source, and `IngestResult.source` stays a union so a second one can return
+without touching consumers), and **Product / application → Product name**. The New CI drawer drops
+IP address and Operating system and gains a **CI type** tree (Base CI › Hardware › Server /
+Desktops / Laptops / Network Devices / Storage Devices); branches expand, leaves select, and only
+branches draw a chevron — a chevron that opens nothing is a broken affordance. On the detail page
+the **Scanned paths** control is now **Product**: it selects a product, and the path it was scanned
+at is a property of that product, so it stays in the hint where it explains rather than labels.
+
+### ⚠ The CI picker threw on every click, in the build that is deployed right now
+
+`BomIngestPanel` called `setShowTypeMenu(false)` in the CI picker's `onClick` and **never declared
+it**. Clicking the picker raised `ReferenceError: setShowTypeMenu is not defined`. It is in `HEAD`;
+it has been shipping.
+
+Nothing caught it because nothing could: **`vite build` strips types without checking them**, the
+project has no `typescript` dependency and no typecheck script, so `npx tsc` cannot even run. A
+green build is not evidence about identifiers. The fix is item 5's own state — the leftover call
+was a half-finished CI-type dropdown — so implementing what was asked for is what repaired it.
+
+**Verified by rendering, not by building.** `bomprobe.mjs` bundles the changed components with
+esbuild (`figma:asset/*` and CSS stubbed) and drives them in jsdom — 43 checks: the two columns and
+their two destinations, the status pill, the drawer's heading and subtext, the removed API field,
+the CI-type tree, the required name, the renamed control. `teeth.mjs` adds 13 more, and the first
+of them matters most: it re-bundles `BomIngestPanel` **exactly as committed** and asserts the click
+DOES throw. A check that cannot fail is not evidence, and this one was worth proving — the first
+attempt at it deleted the declaration from the CURRENT file instead, which breaks on mount rather
+than on click, so it was testing a different bug.
+
+Two things jsdom cannot answer, recorded rather than papered over:
+- The asset drawer's **tab strip is measurement-driven** (ResizeObserver splits visible/overflow),
+  and jsdom has no layout, so no tab button renders. Tab ORDER is asserted on the source; the DOM
+  is only asked what it can answer — that the drawer LANDS on BOM and renders that content.
+- Adjacent elements concatenate in `textContent` with no separator, so `SBOM` + `Product` reads as
+  `SBOMProduct` and a `\bProduct\b` test on the body is false while the label is right there.
+  **Assert on the `<label>`, not on the body text.**
+
 ## BOM Management (admin): the KPI grid, and a provenance problem
 
 **The reported bug had two causes, both in `.kpis`.** It carried no `max-width`, so the cards

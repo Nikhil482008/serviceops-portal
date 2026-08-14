@@ -423,7 +423,9 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
         <div className="flex-shrink-0">
           {/* The scope hint belongs to this field, so it sits on its label */}
           <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[#7B8FA5]">
-            Scanned paths
+            {/* The control selects a PRODUCT; the path it was scanned at is a property of that
+                product and stays in the hint, where it explains rather than labels. */}
+            Product
             <InfoHint
               text={product?.key === OS_PRODUCT_KEY
                 ? 'Everything not claimed by another product on this host rolls up here.'

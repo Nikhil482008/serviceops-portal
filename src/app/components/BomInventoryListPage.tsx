@@ -8,15 +8,20 @@ import { Pagination } from './Pagination';
 import { useDrawerStack } from './DrawerStack';
 import { mockEndpoints } from './EndpointsListPage';
 import type { Endpoint } from './EndpointsListPage';
-import { bomForEndpoint } from './bomData';
+import { bomForEndpoint, bomCiId } from './bomData';
 import type { BomRecord } from './bomData';
+import type { HardwareAsset } from './HardwareAssetsListPage';
 import { BomIngestPanel } from './BomIngestPanel';
 import type { IngestResult } from './BomIngestPanel';
 import type { Patch } from './PatchesListPage';
 
 /* BOM Inventory — the BOM module's listing. Same fleet as the Endpoints page, but every column
  * answers a BOM question (what was generated, how much of it, and how much of it is a problem).
- * Clicking a row opens that endpoint's detail page landed on its BOM tab. */
+ *
+ * The row addresses TWO different records and they have different homes:
+ *   CI        → the asset the components hang off — Asset › Hardware Asset, on its BOM tab.
+ *   End Point → the machine the agent scanned    — the endpoint detail page, on its BOM tab.
+ * Both land on the same BOM content; only which record frames it differs. */
 
 type Scope = 'all' | 'agent' | 'managed';
 
@@ -34,6 +39,25 @@ const endpointToBomShape = (e: Endpoint): Patch => ({
   category: 'Endpoint',
   endpoint: { agentOnline: e.agentOnline, systemHealth: e.systemHealth },
   bomMode: true,
+});
+
+/** Adapt an endpoint onto the HardwareAsset shape, addressed by its CI id. `bomMode` lands the
+ *  asset drawer on its BOM tab, the same way it does for the endpoint drawer. `bomEndpointId`
+ *  carries the id the BOM itself is keyed by, so the asset shows this host's BOM and not a
+ *  second one generated from the CI id. */
+const endpointToAssetShape = (e: Endpoint): HardwareAsset & { bomMode: true; bomEndpointId: string } => ({
+  id: bomCiId(e.id),
+  name: e.hostName,
+  assetType: 'Hardware',
+  status: 'In Use',
+  hostName: e.hostName,
+  ipAddress: e.ipAddress,
+  usedBy: null,
+  managedByGroup: 'IT Operations',
+  managedBy: { name: '—' },
+  serialNumber: '—',
+  bomMode: true,
+  bomEndpointId: e.id,
 });
 
 function BomToolbar({
@@ -170,7 +194,12 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
   };
 
   const { open: openInStack } = useDrawerStack();
-  const handleOpen = (e: Endpoint) => openInStack('endpoints', e.id, e.hostName, endpointToBomShape(e));
+  /** End Point → the endpoint's own detail page, on its BOM tab. */
+  const handleOpenEndpoint = (e: Endpoint) => openInStack('endpoints', e.id, e.hostName, endpointToBomShape(e));
+  /** CI → Asset › Hardware Asset, on its BOM tab. Keyed by the CI id so the two can be open
+   *  side by side in the stack without one replacing the other. */
+  const handleOpenCi = (e: Endpoint) =>
+    openInStack('hardware-assets', bomCiId(e.id), e.hostName, endpointToAssetShape(e));
 
   // Agent CIs = the fleet the agent reports on. Managed CIs carry a BOM that was ingested
   // rather than scanned, so they only exist once something has been ingested.
@@ -243,7 +272,8 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
                 allSelected={allCurrentSelected}
                 onSelectAll={handleSelectAll}
                 onSelect={handleSelect}
-                onRowClick={handleOpen}
+                onCiClick={handleOpenCi}
+                onEndpointClick={handleOpenEndpoint}
               />
             )}
           </div>

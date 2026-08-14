@@ -2093,10 +2093,10 @@ onStackMinimizedChange,
                 className="inline-block size-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: (activePatchRecord?.endpoint?.agentOnline ?? true) ? '#22C55E' : '#EAB308' }}
               />
-              {/* Opened from BOM, the record is addressed by its CI id — clicking CI-408 in the
-                  BOM listing must not land on a page headed EP-408. Opened from Patch or
-                  Vulnerability it stays the endpoint id those modules use. */}
-              <HeaderIdPill id={activePatchRecord?.bomMode ? bomCiId(activeTicket.id) : activeTicket.id} />
+              {/* Always the endpoint id. The BOM listing used to rewrite this to a CI id because
+                  CI was the only thing you could click; CI now has its own column and opens the
+                  hardware asset instead, so this page is only ever reached AS an endpoint. */}
+              <HeaderIdPill id={activeTicket.id} />
               <span className="truncate">{activeTicket.subject}</span>
             </h1>
             {/* Endpoint KPIs — System Health · Missing Patches · Reboot Required · Last Scan */}

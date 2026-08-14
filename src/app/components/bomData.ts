@@ -28,7 +28,7 @@ const seeded = (key: string) => {
 };
 
 export const bomCiId = (endpointId: string): string => endpointId.replace(/^EP-/, 'CI-');
-export type BomStatus = 'Generated' | 'Partial' | 'Not Generated';
+export type BomStatus = 'Generated' | 'In Progress' | 'Not Generated';
 
 /** Stable string hash — keeps generated data identical across renders. */
 const hash = (s: string): number => {
@@ -232,7 +232,7 @@ export const componentCount = (endpointId: string, productKey: string, type: Bom
 export const bomForEndpoint = (endpointId: string): BomRecord => {
   const h = hash(endpointId);
   // ~1 in 9 hosts has not produced a BOM yet; ~1 in 4 of the rest is mid-scan.
-  const status: BomStatus = h % 9 === 0 ? 'Not Generated' : h % 4 === 0 ? 'Partial' : 'Generated';
+  const status: BomStatus = h % 9 === 0 ? 'Not Generated' : h % 4 === 0 ? 'In Progress' : 'Generated';
 
   const appCount = status === 'Not Generated' ? 0 : h % 3; // 0-2 application products
   const products: BomProduct[] = [];
@@ -242,7 +242,7 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
     products.push({
       ...p,
       source: 'agent · directory scan',
-      status: status === 'Partial' && i === appCount - 1 ? 'Pending' : 'Scanned',
+      status: status === 'In Progress' && i === appCount - 1 ? 'Pending' : 'Scanned',
       lastScan: SCAN_DATES[(h + i) % SCAN_DATES.length],
       findings: (hash(`${endpointId}:${p.key}:find`) % 5),
       excludePaths: productExcludePaths(endpointId, p.key),

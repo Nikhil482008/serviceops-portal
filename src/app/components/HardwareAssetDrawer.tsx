@@ -109,6 +109,7 @@ import { RelSavedViews } from './RelSavedViews';
 import { AddRelationshipPanel, REL_RELATIONS } from './AddRelationshipPanel';
 import { ActiveIssuesPanel } from './ActiveIssuesPanel';
 import { RelSliderRow } from './RelSliderRow';
+import { EndpointBomTab } from './EndpointBomTab';
 
 import profileImage from 'figma:asset/346a47ed4118f690df082984fcd9c5da55898d34.png';
 import svgPaths from '../../imports/svg-vmnsig04gh';
@@ -252,7 +253,7 @@ onStackMinimizedChange,
   const [showForwardedMessage, setShowForwardedMessage] = useState(false);
   const [editingNote, setEditingNote] = useState<string | null>(null);
   const [activeConversationTab, setActiveConversationTab] = useState<'all' | 'technician'>('all');
-  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'properties' | 'hardware' | 'software' | 'baseline' | 'relationship' | 'conversation' | 'tasks' | 'approvals' | 'relations' | 'audit' | 'resolution' | 'service-request'>('overview');
+  const [activeMainTab, setActiveMainTab] = useState<'overview' | 'properties' | 'hardware' | 'software' | 'bom' | 'baseline' | 'relationship' | 'conversation' | 'tasks' | 'approvals' | 'relations' | 'audit' | 'resolution' | 'service-request'>('overview');
   // Baseline attached to this asset (max one); Variance rows are empty by default.
   const [baselines, setBaselines] = useState<{ id: string; name: string; createdOn: string; createdBy: string }[]>([
     { id: 'BAS-31', name: 'New Base Line - 64 Bit', createdOn: 'Mon, Apr 27, 2026 11:44 AM', createdBy: 'System' },
@@ -1461,7 +1462,10 @@ onStackMinimizedChange,
   const tabInitRef = useRef(false);
   useEffect(() => {
     if (!activeAsset) return;
-    const want = (stackActiveTab as typeof activeMainTab | undefined) ?? 'overview';
+    // Opened from BOM Inventory the asset lands on its BOM tab — that is the record the user
+    // clicked. A remembered tab still wins, so returning to the item does not yank them back.
+    const fromBom = (activeAsset as { bomMode?: boolean } | undefined)?.bomMode ? 'bom' : 'overview';
+    const want = (stackActiveTab as typeof activeMainTab | undefined) ?? fromBom;
     setActiveMainTab((prev) => { if (prev !== want) tabInitRef.current = true; return want; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeAssetId]);
@@ -2820,6 +2824,9 @@ onStackMinimizedChange,
                     { id: 'properties', label: 'Properties' },
                     { id: 'hardware', label: 'Hardware' },
                     { id: 'software', label: 'Software' },
+                    // Sits right after Software: both answer "what is installed on this asset",
+                    // Software from the inventory agent and BOM at component depth.
+                    { id: 'bom', label: 'BOM' },
                     { id: 'baseline', label: 'Baseline' },
                     { id: 'relationship', label: 'Relationship' },
                     { id: 'financials', label: 'Financials' },
@@ -2838,6 +2845,7 @@ onStackMinimizedChange,
                     'properties': 'Properties',
                     'hardware': 'Hardware',
                     'software': 'Software',
+                    'bom': 'BOM',
                     'baseline': 'Baseline',
                     'relationship': 'Relationship',
                     'financials': 'Financials',
@@ -4250,6 +4258,16 @@ onStackMinimizedChange,
                 </div>
               );
             })()}
+
+            {/* BOM tab — the same component the endpoint detail page renders, so the two views of
+                one host's Bill of Materials cannot drift. `bomEndpointId` is the id the BOM is
+                keyed by; without it the CI id would generate a second, unrelated BOM. */}
+            {activeMainTab === 'bom' && (
+              <EndpointBomTab
+                endpointId={(activeAsset as { bomEndpointId?: string } | undefined)?.bomEndpointId ?? activeAsset?.id ?? ''}
+                hostName={activeAsset?.hostName ?? activeAsset?.name ?? ''}
+              />
+            )}
 
             {activeMainTab === 'baseline' && (
               <div className="px-6 py-6 space-y-8">
