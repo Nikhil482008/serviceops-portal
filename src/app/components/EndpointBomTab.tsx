@@ -566,154 +566,207 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                     </Tooltip>
                   )}
                 </div>
-                  {/* What this version changed. CVEs lead (they are the reason to care), then
-                      added / updated / removed as icon + count — the labels are carried by the
-                      icons and the tooltips, so the row stays scannable. */}
-                  <div className="mt-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5">
-                    {/* With CVEs present the metric is a way in: hovering the card turns the
-                        shield into an arrow, and clicking opens this version's components with
-                        the vulnerable ones first. With none, it stays a plain read-out. */}
-                    <Tooltip delayDuration={0}>
-                      <TooltipTrigger asChild>
-                        {v.cves > 0 ? (
-                          <button
-                            onClick={() => { setComponentsCveFirst(true); setComponentsTab('CVEs'); setComponentsFor(v.v); }}
-                            className="inline-flex items-center gap-1.5 rounded text-[#DC2626] transition-colors hover:underline"
-                          >
-                            <ShieldAlert size={15} className="group-hover/card:hidden" />
-                            <ArrowRight size={15} className="hidden group-hover/card:block" />
-                            <span className="text-[12px] font-semibold">{v.cves}</span>
-                            <span className="text-[12px]">CVE</span>
-                          </button>
-                        ) : (
-                          <span className="inline-flex cursor-help items-center gap-1.5 text-[#9CA3AF]">
-                            <ShieldAlert size={15} />
-                            <span className="text-[12px] font-semibold">{v.cves}</span>
-                            <span className="text-[12px]">CVE</span>
-                          </span>
-                        )}
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        {/* The metric counts CVEs that arrived WITH this version; the tab it
-                            opens lists every vulnerable component on the host. Say both, or the
-                            two numbers look like they disagree. */}
-                        {v.cves > 0
-                          ? `${v.cves} CVE${v.cves === 1 ? '' : 's'} arrived with this version — opens every component carrying a CVE`
-                          : 'No CVEs arrived with this version'}
-                      </TooltipContent>
-                    </Tooltip>
 
-                    {/* Each count is a way in: clicking opens this version's components already
-                        on the matching tab, so the number you clicked is the list you get. */}
-                    {([
-                      [CirclePlus, '#22C55E', v.added, 'added', 'Added'],
-                      [RefreshCw, '#F59E0B', v.updated, 'updated', 'Updated'],
-                      [CircleMinus, '#EF4444', v.removed, 'removed', 'Removed'],
-                    ] as const).map(([Icon, color, n, label, tab]) => (
-                      <Tooltip key={label} delayDuration={0}>
+                  {/* One band, one way of writing a metric: the number carries the colour and
+                      the word stays quiet text beside it. That pairing was already how
+                      "19 findings" read; the severities used to be tinted pills instead, which
+                      made the breakdown shout louder than the figure it breaks down.
+
+                      THE CURRENT CARD ONLY. It is the one anybody acts on, so it carries the
+                      full band: what this scan changed, then what the host is left carrying,
+                      as four labelled groups on ONE row — nothing wraps, and if the viewport is
+                      genuinely too narrow it scrolls rather than folding.
+
+                      Superseded cards keep the row they always had (CVE count, then added /
+                      updated / removed as icon + count). They are history: a reader scanning
+                      back through them wants them uniform and small, and the carrying metrics
+                      would describe a state that is no longer true anyway. */}
+                  {v.state === 'Current' ? (() => {
+                    const st = bomVersionStats(endpointId, product?.key ?? OS_PRODUCT_KEY, type, v.v);
+                    const open = () => { setComponentsCveFirst(true); setComponentsTab('CVEs'); setComponentsFor(v.v); };
+                    const Label = ({ children }: { children: React.ReactNode }) => (
+                      <div className="whitespace-nowrap text-[11px] font-semibold text-[#364658]">{children}</div>
+                    );
+                    const Unit = ({ children }: { children: React.ReactNode }) => (
+                      <span className="whitespace-nowrap text-[10px] uppercase tracking-wider text-[#7B8FA5]">{children}</span>
+                    );
+                    const Rule = () => <span className="h-9 w-px flex-none self-center bg-[#DCEAF7]" />;
+                    /* A zero is grey whatever it counts: colour here means "there is something
+                       of this here", so spending it on nothing would be a false signal. */
+                    const Metric = ({ n, label, tone, onClick, title, size = 15 }: {
+                      n: number; label: string; tone: string; onClick?: () => void; title?: string; size?: number;
+                    }) => {
+                      const body = (
+                        <>
+                          <span
+                            className="font-bold leading-none tabular-nums"
+                            style={{ fontSize: `${size}px`, color: n ? tone : '#9CA3AF' }}
+                          >{n}</span>
+                          <Unit>{label}</Unit>
+                        </>
+                      );
+                      return onClick && n > 0 ? (
+                        <button onClick={onClick} title={title}
+                          className="flex items-baseline gap-1.5 transition-opacity hover:opacity-75">{body}</button>
+                      ) : (
+                        <span title={title} className="flex cursor-help items-baseline gap-1.5">{body}</span>
+                      );
+                    };
+                    /* overflow-y MUST be stated. CSS will not let one axis scroll while the other
+                       stays `visible` — setting overflow-x to auto silently promotes overflow-y to
+                       auto as well, and a band whose content is a rounding error taller than its
+                       box then grows a vertical scrollbar inside the card. */
+                    return (
+                      <div className="mt-3 overflow-x-auto overflow-y-hidden">
+                        <div className="flex flex-nowrap items-center gap-x-6">
+                          {/* What this scan did — first, because it is what the card is about. */}
+                          <div className="flex-none">
+                            <Label>Component changes</Label>
+                            {/* Each count is a way in: clicking opens this version's components
+                                already on the matching tab, so the number you clicked is the
+                                list you get. */}
+                            <div className="mt-1 flex flex-nowrap items-center gap-x-3">
+                              {([
+                                [CirclePlus, '#22C55E', v.added, 'added', 'Added'],
+                                [RefreshCw, '#F59E0B', v.updated, 'updated', 'Updated'],
+                                [CircleMinus, '#EF4444', v.removed, 'removed', 'Removed'],
+                              ] as const).map(([Icon, color, n, label, tab]) => (
+                                <Tooltip key={label} delayDuration={0}>
+                                  <TooltipTrigger asChild>
+                                    {n > 0 ? (
+                                      <button
+                                        onClick={() => { setComponentsCveFirst(false); setComponentsTab(tab); setComponentsFor(v.v); }}
+                                        className="inline-flex items-center gap-1.5 rounded transition-colors hover:underline"
+                                        style={{ color }}
+                                      >
+                                        <Icon size={15} />
+                                        <span className="text-[12px] font-semibold">{n}</span>
+                                      </button>
+                                    ) : (
+                                      <span className="inline-flex cursor-help items-center gap-1.5 text-[#9CA3AF]">
+                                        <Icon size={15} />
+                                        <span className="text-[12px] font-semibold">{n}</span>
+                                      </span>
+                                    )}
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    {n > 0 ? `View the ${n} component${n === 1 ? '' : 's'} ${label}` : `No components ${label}`}
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                            </div>
+                          </div>
+
+                          <Rule />
+
+                              <div className="flex-none">
+                                <Label>Vulnerabilities</Label>
+                                <div className="mt-0.5 flex flex-nowrap items-baseline gap-x-3">
+                                  <Metric
+                                    n={st.cves}
+                                    label="findings"
+                                    tone="#DC2626"
+                                    size={20}
+                                    onClick={open}
+                                    title={`${st.cves} finding${st.cves === 1 ? '' : 's'} on this host — open the vulnerable components`}
+                                  />
+                                  {BOM_SEVERITIES.map((sv) => (
+                                    <Metric
+                                      key={sv}
+                                      n={st.bySeverity[sv]}
+                                      label={sv}
+                                      tone={SEV_SOLID[sv].text}
+                                      onClick={open}
+                                      title={`${st.bySeverity[sv]} ${sv} CVE${st.bySeverity[sv] === 1 ? '' : 's'} — open the vulnerable components`}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+
+                              <Rule />
+
+                              <div className="flex-none">
+                                <Label>Packages with findings</Label>
+                                <div className="mt-0.5 flex flex-nowrap items-baseline gap-1.5">
+                                  <span className={`text-[20px] font-bold leading-none tabular-nums ${st.vulnerablePackages ? 'text-[#DC2626]' : 'text-[#364658]'}`}>{st.vulnerablePackages}</span>
+                                  <Unit>/ {st.totalPackages} packages</Unit>
+                                </div>
+                              </div>
+
+                        </div>
+                      </div>
+                    );
+                  })() : (
+                    /* Unchanged from before the current card was rebuilt. CVEs lead (they are
+                       the reason to care), then added / updated / removed as icon + count — the
+                       labels are carried by the icons and the tooltips, so the row stays
+                       scannable at a glance down a stack of old versions. */
+                    <div className="mt-2.5 flex flex-wrap items-center gap-x-6 gap-y-1.5">
+                      {/* With CVEs present the metric is a way in: hovering the card turns the
+                          shield into an arrow, and clicking opens this version's components with
+                          the vulnerable ones first. With none, it stays a plain read-out. */}
+                      <Tooltip delayDuration={0}>
                         <TooltipTrigger asChild>
-                          {n > 0 ? (
+                          {v.cves > 0 ? (
                             <button
-                              onClick={() => { setComponentsCveFirst(false); setComponentsTab(tab); setComponentsFor(v.v); }}
-                              className="inline-flex items-center gap-1.5 rounded transition-colors hover:underline"
-                              style={{ color }}
+                              onClick={() => { setComponentsCveFirst(true); setComponentsTab('CVEs'); setComponentsFor(v.v); }}
+                              className="inline-flex items-center gap-1.5 rounded text-[#DC2626] transition-colors hover:underline"
                             >
-                              <Icon size={15} />
-                              <span className="text-[12px] font-semibold">{n}</span>
+                              <ShieldAlert size={15} className="group-hover/card:hidden" />
+                              <ArrowRight size={15} className="hidden group-hover/card:block" />
+                              <span className="text-[12px] font-semibold">{v.cves}</span>
+                              <span className="text-[12px]">CVE</span>
                             </button>
                           ) : (
                             <span className="inline-flex cursor-help items-center gap-1.5 text-[#9CA3AF]">
-                              <Icon size={15} />
-                              <span className="text-[12px] font-semibold">{n}</span>
+                              <ShieldAlert size={15} />
+                              <span className="text-[12px] font-semibold">{v.cves}</span>
+                              <span className="text-[12px]">CVE</span>
                             </span>
                           )}
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          {n > 0 ? `View the ${n} component${n === 1 ? '' : 's'} ${label}` : `No components ${label}`}
+                          {/* The metric counts CVEs that arrived WITH this version; the tab it
+                              opens lists every vulnerable component on the host. Say both, or the
+                              two numbers look like they disagree. */}
+                          {v.cves > 0
+                            ? `${v.cves} CVE${v.cves === 1 ? '' : 's'} arrived with this version — opens every component carrying a CVE`
+                            : 'No CVEs arrived with this version'}
                         </TooltipContent>
                       </Tooltip>
-                    ))}
-                  </div>
 
-                  {/* The change line above says what this scan DID; this says what the host
-                      is left CARRYING. Only on the current version — on a superseded card it
-                      would describe a state that is no longer true.
-
-                      No icons: three metrics of the same kind do not need three glyphs to tell
-                      them apart when their labels already do. The hierarchy is type alone —
-                      quiet label, loud figure, quiet unit — so the numbers are what the eye
-                      lands on. */}
-                  {v.state === 'Current' && (() => {
-                    const st = bomVersionStats(endpointId, product?.key ?? OS_PRODUCT_KEY, type, v.v);
-                    const open = () => { setComponentsCveFirst(true); setComponentsTab('CVEs'); setComponentsFor(v.v); };
-                    const Label = ({ children }: { children: React.ReactNode }) => (
-                      <div className="text-[11px] font-semibold text-[#364658]">{children}</div>
-                    );
-                    const Unit = ({ children }: { children: React.ReactNode }) => (
-                      <span className="text-[10px] uppercase tracking-wider text-[#7B8FA5]">{children}</span>
-                    );
-                    const Rule = () => <span className="hidden h-9 w-px self-center bg-[#DCEAF7] lg:block" />;
-                    return (
-                      <div className="mt-3 border-t border-[#DCEAF7] pt-3">
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                          <div className="min-w-0">
-                            <Label>Vulnerabilities</Label>
-                            <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1.5">
-                              <button onClick={open} className="flex items-baseline gap-1.5 transition-opacity hover:opacity-75">
-                                <span className={`text-[20px] font-bold leading-none tabular-nums ${st.cves ? 'text-[#DC2626]' : 'text-[#364658]'}`}>{st.cves}</span>
-                                <Unit>findings</Unit>
+                      {/* Each count is a way in: clicking opens this version's components already
+                          on the matching tab, so the number you clicked is the list you get. */}
+                      {([
+                        [CirclePlus, '#22C55E', v.added, 'added', 'Added'],
+                        [RefreshCw, '#F59E0B', v.updated, 'updated', 'Updated'],
+                        [CircleMinus, '#EF4444', v.removed, 'removed', 'Removed'],
+                      ] as const).map(([Icon, color, n, label, tab]) => (
+                        <Tooltip key={label} delayDuration={0}>
+                          <TooltipTrigger asChild>
+                            {n > 0 ? (
+                              <button
+                                onClick={() => { setComponentsCveFirst(false); setComponentsTab(tab); setComponentsFor(v.v); }}
+                                className="inline-flex items-center gap-1.5 rounded transition-colors hover:underline"
+                                style={{ color }}
+                              >
+                                <Icon size={15} />
+                                <span className="text-[12px] font-semibold">{n}</span>
                               </button>
-                              {/* Solid pills, unlike the tinted ones elsewhere: this band is a
-                                  summary, and the severities are the one thing in it meant to
-                                  be read before anything else. */}
-                              <span className="flex flex-wrap items-center gap-1.5">
-                                {BOM_SEVERITIES.map((sv) => {
-                                  const n = st.bySeverity[sv];
-                                  const t = SEV_SOLID[sv];
-                                  return (
-                                    <button
-                                      key={sv}
-                                      onClick={open}
-                                      className="inline-flex items-baseline gap-1.5 transition-opacity hover:opacity-75"
-                                      title={`${n} ${sv} CVE${n === 1 ? '' : 's'} — open the vulnerable components`}
-                                    >
-                                      <span className={`text-[13px] font-bold tabular-nums ${n ? 'text-[#364658]' : 'text-[#9CA3AF]'}`}>{n}</span>
-                                      <span
-                                        className="rounded-sm px-1.5 py-0.5 text-[10px] font-medium"
-                                        style={n ? { backgroundColor: t.bg, color: t.text } : { backgroundColor: '#F8FAFC', color: '#9CA3AF' }}
-                                      >{sv}</span>
-                                    </button>
-                                  );
-                                })}
+                            ) : (
+                              <span className="inline-flex cursor-help items-center gap-1.5 text-[#9CA3AF]">
+                                <Icon size={15} />
+                                <span className="text-[12px] font-semibold">{n}</span>
                               </span>
-                            </div>
-                          </div>
-
-                          <Rule />
-
-                          <div className="min-w-0">
-                            <Label>Packages with findings</Label>
-                            <div className="mt-0.5 flex items-baseline gap-1.5">
-                              <span className={`text-[20px] font-bold leading-none tabular-nums ${st.vulnerablePackages ? 'text-[#DC2626]' : 'text-[#364658]'}`}>{st.vulnerablePackages}</span>
-                              <Unit>/ {st.totalPackages} packages</Unit>
-                            </div>
-                          </div>
-
-                          <Rule />
-
-                          <div className="min-w-0">
-                            <Label>License risk</Label>
-                            <div className="mt-0.5 flex items-baseline gap-2">
-                              <span className={`text-[20px] font-bold leading-none tabular-nums ${st.blockedLicenses ? 'text-[#D97706]' : 'text-[#364658]'}`}>{st.blockedLicenses}</span>
-                              {st.blockedLicenses > 0
-                                ? <span className="rounded-sm bg-[#FEF7E6] px-1.5 py-0.5 text-[10px] font-medium text-[#D97706]">Needs review</span>
-                                : <Unit>none flagged</Unit>}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {n > 0 ? `View the ${n} component${n === 1 ? '' : 's'} ${label}` : `No components ${label}`}
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* self-center: the card aligns its two text bands to the top, but the actions
@@ -738,7 +791,7 @@ export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
                   </div>
                   <button
                     onClick={() => { setComponentsCveFirst(false); setComponentsTab('All'); setComponentsFor(v.v); }}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
+                    className="inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3.5 text-[13px] font-medium text-[#364658] transition-colors hover:border-[#3D8BD0] hover:text-[#3D8BD0]"
                   >
                     {viewLabel(type)} · {count}
                     <ArrowRight size={14} />

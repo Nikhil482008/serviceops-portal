@@ -134,23 +134,24 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
    action. The number is the largest element on the card and carries the
    status colour; everything else is quiet. No dividers — separation is
    whitespace only. Action is pinned to the bottom on every card. */
-.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px;max-width:1500px}
 /* Cards are border-only surfaces in this system — no shadow. */
 .kpi{background:#fff;border:1px solid var(--line-tbl);border-radius:8px;
-  display:flex;flex-direction:column;padding:14px 16px;transition:border-color .14s}
+  display:flex;flex-direction:column;padding:12px 14px;transition:border-color .14s}
 .kpi:hover{border-color:#cfd8e3}
 .kpi.urgent{border-color:#F3D6D6}
 .kpi.urgent:hover{border-color:#E9BDBD}
 
-.kh{display:flex;align-items:center;gap:7px;margin-bottom:10px}
+.kh{display:flex;align-items:center;gap:7px;margin-bottom:8px}
 .kh .ic{width:16px;height:16px;flex:none;display:grid;place-items:center;color:var(--dim)}
 .kh .t{font-size:13px;font-weight:500;color:var(--dim)}
 
-/* SANCTIONED EXCEPTION to the five-size scale (§1.2): the overview
-   cards' attention number is fixed at 40px by an approved product spec.
+/* An exception to the five-size scale (§1.2) for the cards' attention number.
+   It was 40px; 26 keeps it unmistakably the largest thing on a card while
+   leaving room for the table underneath, which is what the screen is for.
    It is the only type size in this file outside 16/15/14/13/12/11. */
-.knum{font-size:40px;font-weight:600;line-height:1;letter-spacing:-1.4px;font-variant-numeric:tabular-nums}
-.klabel{font-size:13px;font-weight:500;margin-top:7px;line-height:1.3;color:var(--dim)}
+.knum{font-size:26px;font-weight:600;line-height:1;letter-spacing:-.8px;font-variant-numeric:tabular-nums}
+.klabel{font-size:13px;font-weight:500;margin-top:5px;line-height:1.3;color:var(--dim)}
 
 /* Driver breakdown — WHY the number is what it is. Compact, one line,
    bullet-separated, each driver its own deep link. Max three. Labels
@@ -254,11 +255,11 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 
 /* ── custom select (§2.2 — never a native <select>) ──────────── */
 .ddwrap{position:relative;display:inline-block}
-.ddbtn{height:36px;padding:0 10px;border:1px solid var(--line);background:#fff;border-radius:4px;
+.ddbtn{height:36px;padding:0 12px;border:1px solid var(--line);background:#fff;border-radius:4px;
   font-size:13px;color:var(--ink);display:inline-flex;align-items:center;justify-content:space-between;
   gap:8px;transition:border-color .14s}
 .ddbtn:hover{border-color:var(--brand)}
-.ddbtn.ph{color:var(--faint);font-style:italic}
+.ddbtn.ph{color:var(--faint)}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ddbtn .cv{color:var(--dim);transition:transform .16s;display:grid;place-items:center}
 .ddbtn.open .cv{transform:rotate(180deg)}
@@ -285,14 +286,14 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .dw.stack{z-index:10000}
 .dw.in{animation:dwIn .24s cubic-bezier(.22,.7,.3,1)}
 @keyframes dwIn{from{transform:translateX(100%)}to{transform:none}}
-.dw-head{display:flex;align-items:flex-start;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.dw-head{display:flex;align-items:flex-start;gap:12px;padding:12px 20px;border-bottom:1px solid var(--line)}
 .dw-head h3{margin:0;font-size:16px;font-weight:600;color:var(--ink)}
-.dw-head p{margin:3px 0 0;font-size:13px;color:var(--dim);line-height:1.45;max-width:64ch}
+.dw-head p{margin:2px 0 0;font-size:13px;color:var(--dim);line-height:1.45;max-width:64ch}
 .dw-head .x{margin-left:auto;width:32px;height:32px;border:0;background:none;border-radius:4px;flex:none;
   display:grid;place-items:center;color:var(--dim);transition:background-color .14s,color .14s}
 .dw-head .x:hover{background:#F3F4F6;color:var(--ink)}
-.dw-body{padding:18px 20px 20px;overflow-y:auto;flex:1;min-height:0}
-.dw-foot{padding:12px 20px;border-top:1px solid var(--line);background:#fff;display:flex;align-items:center;gap:10px}
+.dw-body{padding:16px 20px;overflow-y:auto;flex:1;min-height:0}
+.dw-foot{padding:12px 20px;border-top:1px solid var(--line-soft);background:#fff;display:flex;align-items:center;gap:10px}
 .dw-foot .gap{flex:1}
 .dw-div{border:0;border-top:1px solid var(--line-soft);margin:20px 0 18px}
 
@@ -422,7 +423,6 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .cb-gadd{margin-top:12px}
 .cb-empty{background:#fff;border-radius:8px;padding:28px 16px;text-align:center;
   font-size:13px;color:var(--faint)}
-.finput.ph::placeholder{font-style:italic}
 .cb-prev{margin-top:16px}
 .cb-prev-h{font-size:12px;color:var(--dim);margin-bottom:9px;background:var(--sel-blue);
   border-radius:4px;padding:9px 12px}
@@ -562,7 +562,7 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 /* Three cards, one anatomy: header, value, one line, one action. The action rows are
    pinned to the bottom AND given the same reserved space, so a text link and a real
    button leave the cards the same height instead of one stretching the row. */
-#bsSummary .kcta,#bsSummary .kact,#rtCards .kcta,#rtCards .kact,#bpSum .kcta{margin-top:auto;padding-top:12px}
+#bsSummary .kcta,#bsSummary .kact,#rtCards .kcta,#rtCards .kact,#bpSum .kcta{margin-top:auto;padding-top:9px}
 #bsSummary .kact,#rtCards .kact{display:flex}
 /* Retention has four readings, not three — the estate splits two ways and both halves
    are worth a number, so the row widens rather than the cards stacking. */
@@ -577,7 +577,7 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .kpair{display:flex;gap:22px;flex-wrap:wrap;margin-top:2px}
 .kpair-c{display:flex;flex-direction:column;gap:4px;min-width:0}
 /* The siblings' number style, scaled so two of them fit one card. */
-.knum.sm{font-size:26px;letter-spacing:-.8px}
+.knum.sm{font-size:20px;letter-spacing:-.5px}
 .knum.sm .ku{font-size:12px;margin-left:4px}
 /* A card whose subject is a STATE, not a count: same frame, same rhythm, but the
    40px number would be absurd on the word "Running". */
@@ -606,9 +606,11 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
    Colour is a family, not a rainbow: the ingested step is the SAME hue on cards 2
    and 3 because it is the same population seen twice. */
 .lcards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:0 0 16px;max-width:1500px}
-@media (max-width:1280px){.lcards{grid-template-columns:repeat(2,1fr)}}
-@media (max-width:860px){.lcards{grid-template-columns:1fr}}
-.lcard{background:#fff;border:1px solid var(--line-tbl);border-radius:14px;padding:20px 22px;
+/* Same steps as `.kpis`. At 1280 these three cards fell to two columns and left
+   the third alone on a row of its own, which is what made them look enormous. */
+@media (max-width:1180px){.lcards{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){.lcards{grid-template-columns:1fr}}
+.lcard{background:#fff;border:1px solid var(--line-tbl);border-radius:8px;padding:12px 14px;
   display:flex;flex-direction:column}
 .lc-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .lc-h .ic{width:16px;height:16px;flex:none;display:grid;place-items:center;color:var(--dim)}
@@ -684,32 +686,56 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
   color:inherit;cursor:pointer;opacity:.75}
 .fchip button:hover{opacity:1}
 .tabs-lead{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink);
-  padding:0 2px;align-self:center}
+  align-self:center}
 .tabs-lead .n{font-size:12px;font-weight:600;color:var(--neu);background:var(--chip-n2);border-radius:9999px;
   padding:1px 8px}
 .sechd{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .sechd h2{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
 .sechd .n{font-size:12px;font-weight:600;color:var(--neu);background:var(--chip-n2);border-radius:9999px;
   min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px}
-.sechd .r{margin-left:auto;display:flex;align-items:center;gap:8px}
+/* The same 10px `.tabs .right` uses — this is the same toolbar, just above the card
+   instead of inside it, so it should not space its controls differently. */
+.sechd .r{margin-left:auto;display:flex;align-items:center;gap:10px}
 
 .sc-wrap{background:#fff;border:1px solid var(--line-tbl);border-radius:8px;max-width:1500px;overflow:visible}
-.sc-table{width:100%;border-collapse:collapse}
-.sc-table th{text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--ink);
-  padding:11px 16px;border-bottom:1px solid var(--line-tbl);white-space:nowrap}
-.sc-table td{padding:14px 16px;border-bottom:1px solid var(--line-soft);vertical-align:middle;font-size:13px}
+/* The card stays overflow:visible so a row's action menu can escape it — so the card
+   cannot clip its own corners, and whatever ends it has to carry them. Same job
+   `.twrap` does for the inventory grid. Which corners depends on how much of the card
+   the table is: it ENDS the Scheduler card (the toolbar rides inside, above it), and it
+   IS the whole Policies and Retention card (their toolbar sits outside in `.sechd`).
+   `:first-child` decides that on its own, so a bulk bar or an empty state appearing
+   above the table corrects it without another rule. */
+.sc-scroll{overflow-x:auto}
+.sc-wrap .sc-scroll{border-radius:0 0 8px 8px}
+.sc-wrap > .sc-scroll:first-child{border-radius:8px}
+/* These carry their own floor. The inventory grid's 1240px used to arrive from a
+   bare `table` selector and pinned every table in the file, drawer tables included;
+   it is scoped to #grid now, so 5–8 columns size to the pane and only the genuinely
+   wide ones opt up. */
+.sc-table{width:100%;border-collapse:collapse;min-width:720px}
+.sc-table.wide{min-width:1040px}
+/* §4.2 header: 12px semibold ink, tracking-wider, px-4 py-2.5, bottom hairline only.
+   sticky/background used to arrive from the inventory's `thead th`; declared here so the
+   header does not depend on another module's selector to stay opaque while it sticks. */
+.sc-table th{position:sticky;top:0;z-index:5;background:#fff;text-align:left;
+  font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--ink);
+  padding:10px 16px;border-bottom:1px solid var(--line-tbl);white-space:nowrap}
+/* §4.2 cell: px-4 py-3, 12px ink, divided on the table line — and §3.4/§7, every
+   hover state in this product transitions. */
+.sc-table td{padding:12px 16px;border-bottom:1px solid var(--line-tbl);vertical-align:middle;
+  font-size:12px;color:var(--ink);transition:background-color .14s}
 .sc-table tr:last-child td{border-bottom:0}
 .sc-table tbody tr:hover td{background:var(--row-hover)}
 .sc-table tr.off td{background:#FCFDFE}
-.sc-name{font-size:13px;font-weight:600;color:var(--ink)}
+.sc-name{font-size:12px;font-weight:600;color:var(--ink)}
 .sc-table tr.off .sc-name{color:var(--dim)}
 .sc-id{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:3px}
-.sc-cov{border:0;background:none;padding:0;font:inherit;font-size:13px;color:var(--brand);font-weight:500}
+.sc-cov{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--brand);font-weight:500}
 .sc-cov:hover{text-decoration:underline}
-.sc-trig{font-size:13px;color:var(--ink)}
+.sc-trig{font-size:12px;color:var(--ink)}
 .sc-sub{font-size:12px;color:var(--dim);margin-top:3px;font-variant-numeric:tabular-nums}
-.sc-when{font-size:13px;font-weight:500;color:var(--ink)}
-.sc-stat{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:500;white-space:nowrap}
+.sc-when{font-size:12px;font-weight:500;color:var(--ink)}
+.sc-stat{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;white-space:nowrap}
 .sc-stat .d{width:7px;height:7px;border-radius:9999px;flex:none}
 .sc-stat.on{color:var(--ok)}
 .sc-stat.paused{color:var(--dim)}
@@ -733,7 +759,7 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 
 /* weekday chips, mode segmented control, live echo */
 .dowset{display:flex;gap:6px;flex-wrap:wrap}
-.dow{min-width:46px;height:34px;padding:0 10px;border:1px solid var(--line);background:#fff;border-radius:4px;
+.dow{min-width:46px;height:36px;padding:0 10px;border:1px solid var(--line);background:#fff;border-radius:4px;
   font-size:13px;font-weight:500;color:var(--ink);transition:background-color .14s,border-color .14s,color .14s}
 .dow:hover{background:var(--surf-hover)}
 .dow.on{background:var(--brand);border-color:var(--brand);color:#fff}
@@ -747,7 +773,7 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
   font-size:13px;color:var(--ink)}
 @media (max-width:720px){.grid3{grid-template-columns:1fr}}
 /* seat meter — a licence limit is a hard edge, so it reads as one */
-.seatbar{padding:11px 20px;border-bottom:1px solid var(--line-soft);background:var(--sel-blue)}
+.seatbar{padding:11px 16px;border-bottom:1px solid var(--line-soft);background:var(--sel-blue)}
 .seatbar.tight{background:var(--warn-soft)}
 .seatbar.over{background:var(--crit-soft)}
 .sb-t{font-size:12px;color:var(--dim);line-height:1.5}
@@ -791,13 +817,12 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .pg-e{padding:0 4px;color:var(--faint)}
 .sc-table input[type=checkbox]{accent-color:var(--brand);width:14px;height:14px;cursor:pointer}
 .sc-table tr.sel td{background:var(--sel-blue)}
-.tabs .right .search input{height:30px}
-.rulesum{font-size:13px;color:var(--ink);line-height:1.5;max-width:44ch;
+.rulesum{font-size:12px;color:var(--ink);line-height:1.5;max-width:44ch;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .rulesum.none{color:var(--faint)}
 .sc-table tr.off .rulesum{color:var(--dim)}
 /* rules-management rows — a policy list, not a data grid */
-.rrow{display:flex;align-items:flex-start;gap:14px;padding:14px 20px;border-bottom:1px solid var(--line-soft)}
+.rrow{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line-soft)}
 .rrow:last-child{border-bottom:0}
 .rrow:hover{background:var(--row-hover)}
 .rrow.off{background:#FCFDFE}
@@ -813,7 +838,7 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 /* ── rules panel at scale ─────────────────────────────────────
    Search and the master checkbox live in one strip; when rules are selected the
    same strip becomes the bulk bar, so the toolbar never shows two ways to act. */
-.rtools,.rbulk{display:flex;align-items:center;gap:10px;padding:10px 20px;
+.rtools,.rbulk{display:flex;align-items:center;gap:10px;padding:10px 16px;
   border-bottom:1px solid var(--line-tbl);background:#fff}
 .rbulk{background:var(--chip-blue);font-size:13px;color:var(--ink)}
 .rbulk b{color:var(--brand);font-weight:600}
@@ -931,19 +956,33 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 
 /* ── panel / tabs ─────────────────────────────────────────── */
 .panel{background:#fff;border:1px solid var(--line-tbl);border-radius:8px;overflow:visible}
-.tabs{display:flex;align-items:stretch;gap:2px;padding:0 20px;border-bottom:1px solid var(--line-tbl);
+/* §4.3 — 16px, the same inset as the table's cells, so a toolbar title sits directly
+   above the first column heading and a right-hand control ends on the table's edge.
+
+   `min-height` because this row must NOT take its height from its contents. It used to:
+   vertical padding is 0, so the row was only ever as tall as a `.tab` made it
+   (13 + 20 badge + 11 = 44, + this 1px border = 45). That works while the row holds
+   tabs — and the Scheduler row holds a title and controls instead, so it collapsed onto
+   the 32px search and filter and left them touching the border top and bottom. A row
+   that states its own height cannot depend on which screen is using it; on the tabbed
+   screens the value is exactly what they already measured, so nothing there moves. */
+.tabs{display:flex;align-items:stretch;gap:2px;padding:0 16px;min-height:45px;
+  border-bottom:1px solid var(--line-tbl);
   border-radius:8px 8px 0 0;background:#fff}
 .tab{position:relative;border:0;background:none;padding:13px 12px 11px;font-size:14px;font-weight:500;
   color:var(--dim);display:flex;align-items:center;gap:8px;border-radius:4px 4px 0 0;transition:color .14s}
 .tab:hover{color:var(--ink)}
-.tab[aria-selected="true"]{color:var(--brand);font-weight:600}
+/* Colour and the underline carry selection; the WEIGHT stays put. Going 500 -> 600 on
+   select re-measures the label, so every tab to its right shifts a pixel or two as you
+   move along the row. */
+.tab[aria-selected="true"]{color:var(--brand)}
 .tab[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brand)}
 /* §2 count badge — rounded-full, neutral until selected */
 .tab .n{font-size:12px;font-weight:600;color:var(--neu);background:var(--chip-n2);border-radius:9999px;
   min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;
   font-variant-numeric:tabular-nums}
 .tab[aria-selected="true"] .n{background:var(--pill-id);color:var(--brand)}
-.tabs .right{margin-left:auto;display:flex;align-items:center;gap:10px;padding-right:2px}
+.tabs .right{margin-left:auto;display:flex;align-items:center;gap:10px}
 .hint{font-size:12px;color:var(--dim)}
 
 /* ── toolbar ──────────────────────────────────────────────── */
@@ -996,7 +1035,8 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 /* ── table ────────────────────────────────────────────────── */
 /* §2.4 — borderless, hairline-divided. No zebra, no vertical rules. */
 .twrap{overflow-x:auto;border-radius:0 0 8px 8px}
-table{width:100%;border-collapse:collapse;min-width:1240px}
+table{width:100%;border-collapse:collapse}
+#grid{min-width:1240px}   /* the inventory grid only — 14 columns genuinely need it */
 thead th{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line-tbl);
   text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--ink);
   padding:10px 16px;white-space:nowrap;user-select:none}
@@ -1006,6 +1046,9 @@ thead th .ar{opacity:0;margin-left:4px;font-size:11px}
 thead th.act{color:var(--brand)}
 thead th.act .ar{opacity:1}
 tbody tr.row{border-bottom:1px solid var(--line-tbl);cursor:pointer;transition:background-color .14s}
+/* §4.2: rows are DIVIDED, so the last one draws no line — its border would sit a pixel
+   above the card's own edge and read as a doubled rule. */
+tbody tr.row:last-child{border-bottom:0}
 tbody tr.row:hover{background:var(--row-hover)}
 tbody tr.row.sel{background:var(--sel-blue)}
 tbody tr.row.sel td:first-child{box-shadow:inset 2px 0 0 var(--brand)}
@@ -1262,7 +1305,14 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
   padding-top:10px;border-top:1px solid rgba(217,119,6,.18)}
 .polimp.none .polimp-d{border-top-color:var(--line-soft)}
 
-@media (max-width:1280px){.kpis{grid-template-columns:1fr}}
+/* Stepped, not cliff-edged, and matched to `.lcards` — which is the same set of
+   reading-cards on the Licensing screen and already did this correctly. Two columns is a
+   real layout; dropping straight from three to one is what made the mounted module look
+   like a stack of banners. */
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){.kpis{grid-template-columns:1fr}}
+@media (max-width:1180px){.kpis.four{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:760px){.kpis.four{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -1445,7 +1495,7 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
     <div class="sechd">
       <h2>Policies</h2><span class="n" id="bpCount">0</span>
       <div class="r">
-        <div class="search" style="width:230px">
+        <div class="search" style="width:220px">
           <span class="mag"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4L14 14"/></svg></span>
           <input id="bpQ" type="search" placeholder="Search policies or conditions…" autocomplete="off">
         </div>
@@ -3298,7 +3348,7 @@ function renderRetention(){
   /* The count chip stays the TOTAL; the filter narrows the rows, not the fact. */
   const shown = disabledOnly ? RT_RULES.filter(r=>!r.on) : RT_RULES;
 
-  wrap.innerHTML = RT_RULES.length ? `<div style="overflow-x:auto"><table class="sc-table">
+  wrap.innerHTML = RT_RULES.length ? `<div class="sc-scroll"><table class="sc-table">
     <thead><tr>
       <th style="width:26%">Policy</th><th>Applies To</th><th>Retention Policy</th>
       <th>Status</th><th style="width:150px">Actions</th>
@@ -3811,7 +3861,7 @@ function renderStack(){
 
         <div class="cb-prev"${cbPol?' style="display:none"':""}>
           <div class="cb-prev-h" id="cbPrevH">${cbPrevLine(hits)}</div>
-          ${hits.length ? `<div style="overflow-x:auto"><table class="cbt">
+          ${hits.length ? `<div class="sc-scroll"><table class="cbt">
             <thead><tr><th>CI ID</th><th>Host Name</th><th>CI Type</th><th>Status</th><th>IP address</th></tr></thead>
             <tbody>${hits.map(c=>`<tr>
               <td class="id">${c.id}</td><td>${esc(c.host)}</td>
@@ -4393,25 +4443,23 @@ function renderScheduler(){
   document.getElementById("bsTabs").innerHTML = `
     <span class="tabs-lead">Schedule Policies <span class="n" id="bsCount">${BS_POLICIES.length}</span></span>
     <div class="right">
+      <span class="fwrap" id="bsFilter"></span>
       <div class="search" style="width:220px">
         <span class="mag"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4L14 14"/></svg></span>
         <input id="bsQ" type="search" value="${esc(BS_Q)}" placeholder="Search policies…" autocomplete="off">
       </div>
-      <span id="bsFilter"></span>
     </div>`;
 
   /* ── filter control (§5.3 — one control, never a row) ──── */
   const groups = [...new Set(BS_FILTERS.map(f=>f.g))];
   document.getElementById("bsFilter").innerHTML = `
-    <span class="fwrap">
       <button class="fbtn${BS_FILT.size?" on":""}" id="bsFBtn">${IC_FUNNEL}Filter${
         BS_FILT.size?`<span class="cnt">${BS_FILT.size}</span>`:""}</button>
-      ${BS_FOPEN ? `<span class="catcher" id="bsFCatch"></span><span class="pop" id="bsFPop">${
+      ${BS_FOPEN ? `<span class="catcher" id="bsFCatch"></span><span class="pop" id="bsFPop" style="left:auto;right:0">${
         groups.map((g,i)=>`${i?'<span class="sep"></span>':""}<span class="ph">${g}</span>` +
           BS_FILTERS.filter(f=>f.g===g).map(f=>
             `<label><input type="checkbox" data-bsf="${f.id}"${BS_FILT.has(f.id)?" checked":""}>${f.lab}</label>`).join("")
-        ).join("")}</span>` : ""}
-    </span>`;
+        ).join("")}</span>` : ""}`;
 
   /* ── policy list ───────────────────────────────────────── */
   const list = bsVisible();
@@ -4436,7 +4484,7 @@ function renderScheduler(){
       BS_FILT.clear(); BS_Q=""; renderScheduler();
     };
   } else {
-    wrap.innerHTML = `<table class="sc-table">
+    wrap.innerHTML = `<div class="sc-scroll"><table class="sc-table">
       <thead><tr>
         <th style="width:26%">Policy</th><th>Coverage</th><th>Trigger</th>
         <th>Next Run</th><th>Status</th><th style="width:190px"></th>
@@ -4485,7 +4533,7 @@ function renderScheduler(){
                 <button class="btn sm danger" data-bsdelyes="${p.id}">Delete policy</button></div>
             </div>` : ""}
           </div></td></tr>`;
-      }).join("")}</tbody></table>`;
+      }).join("")}</tbody></table></div>`;
   }
 
   /* wiring */
@@ -5327,7 +5375,7 @@ function licCiTable(rows, opts){
       <span class="gap"></span>
       <button class="clear" id="licSelNone">Clear selection</button>
       <button class="btn sm danger" id="licBulk">Remove ${LIC_SEL.size} CI${LIC_SEL.size===1?"":"s"}</button></div>` : ""}
-    <div style="overflow-x:auto"><table class="sc-table">
+    <div class="sc-scroll"><table class="sc-table wide">
       <thead><tr>
         ${bulk ? `<th style="width:38px"><input type="checkbox" id="licAll"${allSel?" checked":""} aria-label="Select the ${page.length} CIs on this page"></th>` : ""}
         <th>CI ID</th><th>End Point ID</th><th>Host Name</th><th>CI Type</th><th>IP Address</th>
@@ -6105,7 +6153,7 @@ function renderPolicies(){
   const orderWhy = q ? "Clear the search to reorder policies"
                      : "Show all policies to reorder them";
   const wrap = document.getElementById("bpWrap");
-  wrap.innerHTML = BOM_POLICIES.length ? (shown.length ? `<div style="overflow-x:auto"><table class="sc-table">
+  wrap.innerHTML = BOM_POLICIES.length ? (shown.length ? `<div class="sc-scroll"><table class="sc-table wide">
     <thead><tr>
       <th style="width:34px"><span class="vh">Order</span></th>
       <th style="width:20%">Policy</th><th style="width:20%">Conditions</th><th style="width:106px">Matching CIs</th>

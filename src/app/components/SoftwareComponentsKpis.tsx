@@ -48,11 +48,11 @@ function Card({
 }) {
   return (
     <article
-      className={`flex flex-col rounded-lg border bg-white px-4 py-3.5 transition-colors ${
+      className={`flex flex-col rounded-lg border bg-white px-4 py-2.5 transition-colors ${
         active ? 'border-[#3D8BD0]' : 'border-[#E5E7EB]'
       }`}
     >
-      <div className="mb-2.5 flex items-center gap-[7px]">
+      <div className="mb-1.5 flex items-center gap-[7px]">
         <span className="flex-shrink-0 text-[#7B8FA5]">{icon}</span>
         <span className="text-[13px] font-medium text-[#7B8FA5]">{title}</span>
       </div>
@@ -62,7 +62,7 @@ function Card({
       <button
         onClick={onToggle}
         aria-pressed={active}
-        className={`-ml-1.5 mt-auto inline-flex items-center gap-1.5 self-start rounded px-1.5 py-1 pt-3 text-[13px] font-medium transition-colors ${
+        className={`-ml-1.5 mt-auto inline-flex items-center gap-1.5 self-start rounded px-1.5 py-0.5 pt-2 text-[13px] font-medium transition-colors ${
           active ? 'text-[#3D8BD0]' : 'text-[#3D8BD0] hover:bg-[#F5FAFF]'
         }`}
       >
@@ -72,9 +72,11 @@ function Card({
   );
 }
 
-/* 40px is the sanctioned exception to the type scale for an attention number — the same
-   size the BOM admin cards use, so the two surfaces agree on what a headline figure is. */
-const NUM = 'text-[40px] font-semibold leading-none tracking-[-1.4px] tabular-nums';
+/* 26px, down from the 40px exception in two steps. Still the largest thing on the card by a
+   clear margin, and still the first thing read. 40 was buying presence at the cost of a card
+   tall enough to push the table below the fold, and the table is the point of the screen. The
+   BOM admin cards keep 40 — there, the cards ARE the page. */
+const NUM = 'text-[26px] font-semibold leading-none tracking-[-0.8px] tabular-nums';
 
 export function SoftwareComponentsKpis({
   rows, focus, setFocus,
@@ -85,7 +87,6 @@ export function SoftwareComponentsKpis({
 }) {
   const critical = rows.filter(focusFn.critical).length;
   const kev = rows.filter((c) => c.kev).length;
-  const facing = rows.filter((c) => c.internetFacing).length;
 
   const vulnerable = rows.filter((c) => c.vulnerabilities > 0);
   const fixable = vulnerable.filter((c) => !!c.fixVersion).length;
@@ -103,15 +104,14 @@ export function SoftwareComponentsKpis({
         active={focus === 'critical'} onToggle={toggle('critical')} cta="Review critical"
       >
         <div className={`${NUM} ${critical ? 'text-[#B42318]' : 'text-[#364658]'}`}>{critical}</div>
-        <div className="mt-[7px] text-[13px] font-medium text-[#7B8FA5]">
+        <div className="mt-1 text-[13px] font-medium text-[#7B8FA5]">
           component{critical === 1 ? '' : 's'} with critical vulnerabilities
         </div>
-        {/* Severity is not the only thing that makes something urgent — these two say so,
-            and they are fleet-wide counts rather than a slice of the number above. */}
-        {(kev > 0 || facing > 0) && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            {kev > 0 && <Chip tone="crit">{kev} KEV-listed</Chip>}
-            {facing > 0 && <Chip tone="crit">{facing} internet-facing</Chip>}
+        {/* Severity is not the only thing that makes something urgent — KEV says so, and it
+            is a fleet-wide count rather than a slice of the number above. */}
+        {kev > 0 && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Chip tone="crit">{kev} KEV-listed</Chip>
           </div>
         )}
       </Card>
@@ -124,16 +124,16 @@ export function SoftwareComponentsKpis({
           <span className={`${NUM} text-[#364658]`}>{fixable}</span>
           <span className="text-[15px] font-medium text-[#7B8FA5]">of {vulnerable.length}</span>
         </div>
-        <div className="mt-[7px] text-[13px] font-medium text-[#7B8FA5]">
+        <div className="mt-1 text-[13px] font-medium text-[#7B8FA5]">
           vulnerable components have a published fix
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#E5E7EB]" role="img"
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#E5E7EB]" role="img"
              aria-label={`${fixable} of ${vulnerable.length} vulnerable components have a fix, ${pct} percent`}>
           <div className="h-full rounded-full bg-[#22A06B]" style={{ width: `${pct}%` }} />
         </div>
-        <div className="mt-2.5 text-[12px] text-[#7B8FA5]">
-          {noFix === 0 ? 'all upgrade paths known' : `${noFix} with no published fix`}
-        </div>
+        {noFix > 0 && (
+          <div className="mt-1.5 text-[12px] text-[#7B8FA5]">{noFix} with no published fix</div>
+        )}
       </Card>
 
       <Card
@@ -141,11 +141,11 @@ export function SoftwareComponentsKpis({
         active={focus === 'license'} onToggle={toggle('license')} cta="Review licenses"
       >
         <div className={`${NUM} ${flagged.length ? 'text-[#D97706]' : 'text-[#364658]'}`}>{flagged.length}</div>
-        <div className="mt-[7px] text-[13px] font-medium text-[#7B8FA5]">
+        <div className="mt-1 text-[13px] font-medium text-[#7B8FA5]">
           component{flagged.length === 1 ? '' : 's'} on flagged licenses
         </div>
         {flagged.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {[...new Set(flagged.map((c) => c.license))].map((l) => (
               <Chip key={l} tone="warn">{l}</Chip>
             ))}

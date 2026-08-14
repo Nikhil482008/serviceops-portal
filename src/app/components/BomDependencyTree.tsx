@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { ChevronRight, Search, X, ShieldAlert, Boxes } from 'lucide-react';
+import { ChevronRight, ChevronDown, Search, X, ShieldAlert, Boxes, Unlink, GitCompare, Check } from 'lucide-react';
 import type { DepGraph, DepNode } from './bomData';
 
 /* The dependency view.
@@ -30,10 +30,17 @@ const DIRECT_PAGE = 25;   // direct dependencies rendered before the "show more"
    one frame is the jank this budget exists to prevent. The tail loads as it scrolls into view. */
 const ROW_PAGE = 200;
 
+/** The change cuts, in the order the panel's own tabs use them. */
+const CHANGES = ['Added', 'Updated', 'Removed', 'Unchanged'] as const;
+type Change = (typeof CHANGES)[number];
+
 interface Props {
   graph: DepGraph;
   /** Opens the component list filtered to one name — the tree hands off rather than duplicating. */
   onInspect?: (name: string) => void;
+  /** What this version did to a build, supplied by the panel so the two agree. Without it the
+   *  change filter is simply not offered rather than being offered against nothing. */
+  changeOf?: (name: string, version?: string) => string;
 }
 
 /** One node as it is actually shown: after the search, the filter and the render budget. */
@@ -81,23 +88,18 @@ function Mark({ text, q }: { text: string; q: string }) {
   );
 }
 
-function Stat({ label, value, tip, muted }: { label: string; value: React.ReactNode; tip?: string; muted?: boolean }) {
-  return (
-    <div className="min-w-0">
-      <div className={`text-[15px] font-semibold leading-none tabular-nums ${muted ? 'text-[#7B8FA5]' : 'text-[#364658]'}`}>
-        {value}
-      </div>
-      <div className="mt-1 text-[11px] leading-none text-[#7B8FA5]">
-        {tip ? <span className="cursor-help border-b border-dotted border-[#B8C4D2]" title={tip}>{label}</span> : label}
-      </div>
-    </div>
-  );
-}
-
-export function BomDependencyTree({ graph, onInspect }: Props) {
+export function BomDependencyTree({ graph, onInspect, changeOf }: Props) {
   const [query, setQuery] = useState('');
   const [q, setQ] = useState('');
   const [vulnOnly, setVulnOnly] = useState(false);
+  /* Null = every change kind. The graph is the default view; "Added" and the rest are cuts
+     through it, so none of them is a starting state. */
+  const [change, setChange] = useState<Change | null>(null);
+  /* The unplaceable components, which are not part of the tree at all — they have no edges.
+     Shown as their own list rather than as orphan roots, because rendering them as tree nodes
+     would claim a structure the scanner could not find. */
+  const [standalone, setStandalone] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
   /* Two ways to be open, because "expand all" cannot mean "write every id into a set" when the
      point is not to walk the whole graph: in default mode `expanded` holds what is open, in
      all-mode `collapsed` holds the exceptions. */
@@ -108,6 +110,7 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
   const [budget, setBudget] = useState(ROW_PAGE);
   const [focusId, setFocusId] = useState<string | null>(null);
 
+  const changeRef = useRef<HTMLDivElement>(null);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
   const sentinelRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ allOpen, expanded, collapsed });
@@ -129,7 +132,33 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
     }
   }, [q]);
 
-  useEffect(() => { setShownDirect(DIRECT_PAGE); setBudget(ROW_PAGE); }, [q, vulnOnly, graph]);
+  useEffect(() => { setShownDirect(DIRECT_PAGE); setBudget(ROW_PAGE); }, [q, vulnOnly, change, graph]);
+  /* Leaving the standalone list open while a tree-only filter is set would show an unfiltered
+     list under a toolbar that says otherwise. */
+  useEffect(() => { if (standalone) { setVulnOnly(false); setChange(null); setChangeOpen(false); } }, [standalone]);
+  useEffect(() => {
+    if (!changeOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setChangeOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [changeOpen]);
+
+  /** What this version did to a build. `Unchanged` when the panel supplied no map. */
+  const changeFor = (n: DepNode) => (changeOf ? changeOf(n.name, n.version) : 'Unchanged');
+  /* Counted over the whole graph, once, so the pills say how many exist rather than how many
+     survived whatever is already filtered. */
+  const changeCounts = useMemo(() => {
+    const out: Record<string, number> = { Added: 0, Updated: 0, Removed: 0, Unchanged: 0 };
+    const seenKey = new Set<string>();
+    const walk = (n: DepNode) => {
+      if (!seenKey.has(n.key)) { seenKey.add(n.key); out[changeFor(n)] = (out[changeFor(n)] ?? 0) + 1; }
+      n.children.forEach(walk);
+    };
+    graph.tree.forEach(walk);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph.tree, changeOf]);
+  const totalChanges = Object.values(changeCounts).reduce((t, x) => t + x, 0);
 
   const isOpen = (id: string) => (allOpen ? !collapsed.has(id) : expanded.has(id));
 
@@ -141,8 +170,14 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
     const matchSet = q
       ? collectSubtrees(graph.tree, (n) => n.name.toLowerCase().includes(q) || n.purl.toLowerCase().includes(q))
       : null;
-    const keeps = (n: DepNode) => (!vulnSet || vulnSet.has(n)) && (!matchSet || matchSet.has(n));
-    const searching = !!q || vulnOnly;
+    /* Subtree-scoped like the others: a component that CHANGED four levels down is only
+       findable if the path to it survives the filter. Keeping just the matching nodes would
+       leave them stranded with no way to see what pulled them in — which is the one question
+       this whole view exists to answer. */
+    const changeSet = change ? collectSubtrees(graph.tree, (n) => changeFor(n) === change) : null;
+    const keeps = (n: DepNode) =>
+      (!vulnSet || vulnSet.has(n)) && (!matchSet || matchSet.has(n)) && (!changeSet || changeSet.has(n));
+    const searching = !!q || vulnOnly || !!change;
 
     let used = 0;
     let cut = false;
@@ -175,7 +210,8 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
     }
     return { roots: built, eligible: eligibleRoots.length, truncated: cut };
     // `isOpen` closes over allOpen/expanded/collapsed, which are all listed.
-  }, [graph.tree, q, vulnOnly, expanded, collapsed, allOpen, shownDirect, budget]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graph.tree, q, vulnOnly, change, changeOf, expanded, collapsed, allOpen, shownDirect, budget]);
 
   const hiddenDirect = eligible - roots.length;
 
@@ -251,17 +287,91 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
     }
   };
 
+  /** Where a build came from in this version, as a chip. Only when it is news. */
+  const ChangeChip = ({ n }: { n: DepNode }) => {
+    const c = changeOf ? changeFor(n) : 'Unchanged';
+    if (c === 'Unchanged') return null;
+    const tone = c === 'Added'
+      ? 'bg-[#ECFDF3] text-[#22A06B]'
+      : c === 'Removed' ? 'bg-[#FEF3F2] text-[#DC2626]' : 'bg-[#FFFAEB] text-[#B54708]';
+    return (
+      <span className={`flex-shrink-0 rounded-sm px-1.5 py-0.5 text-[10.5px] font-medium leading-none ${tone}`}>
+        {c}
+      </span>
+    );
+  };
+
+  /** "Used in N places" — the same fact the compact xN carried, spelled out where there is room
+   *  for it. A component pulled in by four parents is four conversations, not one. */
+  const UsesChip = ({ n, compact }: { n: DepNode; compact?: boolean }) => {
+    if (n.uses <= 1) return null;
+    return (
+      <span
+        className="flex-shrink-0 cursor-help rounded-sm bg-[#F1F5F9] px-1.5 py-0.5 text-[10.5px] leading-none text-[#64748B]"
+        title={`Pulled in by ${n.uses} different parents in this graph \u2014 fixing it once fixes all ${n.uses}.`}
+      >{compact ? `\u00d7${n.uses}` : `\u00d7${n.uses} used`}</span>
+    );
+  };
+
   const renderNode = (v: VisNode): React.ReactNode => {
     const n = v.node;
     const tabbable = focusId ? focusId === v.id : v.id === flat[0]?.id;
-    /* The affordance. A row that opens carries a faint fill and a hairline at rest and holds the
-       accent while it is open; a leaf carries neither and a regular-weight name. Both keep the
-       same border box, so the two never differ in height. */
-    const skin = !v.expandable
-      ? 'border-transparent hover:bg-[#F4F7FA]'
-      : v.open
-        ? 'border-[#BBD7F0] bg-[#EAF2FB]'
-        : 'border-[#E5E9EF] bg-[#364658]/[0.04] hover:border-[#BBD7F0] hover:bg-[#EAF2FB]';
+
+    /* A row that opens is a CARD: bordered box, name on its own line, a muted line under it
+       saying what is inside. A leaf is a plain row. The difference is the whole point — at 250
+       nodes the eye should not have to hover to learn which rows have anything behind them,
+       and a card reads as "there is more here" without being told.
+
+       Leaves keep the light row: giving every node a card would make the card mean nothing. */
+    if (!v.expandable) {
+      return (
+        <div key={v.id}>
+          <div
+            ref={(el) => { el ? rowRefs.current.set(v.id, el) : rowRefs.current.delete(v.id); }}
+            role="treeitem"
+            aria-level={v.depth}
+            aria-label={`${n.name} ${n.version}`}
+            tabIndex={tabbable ? 0 : -1}
+            onFocus={() => setFocusId(v.id)}
+            onKeyDown={(e) => onKeyDown(e, v)}
+            onClick={() => onInspect?.(n.name)}
+            className="group mb-1 flex cursor-pointer select-none items-center gap-1.5 rounded-lg border border-transparent px-2.5 py-2 outline-none transition-colors hover:border-[#E5E9EF] hover:bg-[#F4F7FA] focus-visible:ring-1 focus-visible:ring-[#3D8BD0]"
+            style={{ marginLeft: v.depth === 1 ? 0 : INDENT - RAIL }}
+          >
+            {/* The chevron's exact footprint, so a name lines up whether or not its row
+                opens. A narrower spacer here is what made the leaves look mis-indented. */}
+            <span className="flex w-[13px] flex-shrink-0 justify-center text-[#CBD5E1]">&middot;</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onInspect?.(n.name); }}
+              className="min-w-0 truncate text-left font-mono text-[12.5px] leading-none text-[#364658] transition-colors hover:text-[#3D8BD0]"
+              title={`${n.name}@${n.version} \u2014 open in the component list`}
+            >
+              <Mark text={n.name} q={q} />
+            </button>
+            <span className="flex-shrink-0 font-mono text-[11.5px] leading-none text-[#9CA3AF]">{n.version}</span>
+            {n.cves > 0 && (
+              <span
+                className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-sm bg-[#FEF3F2] px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-[#DC2626]"
+                title={`${n.cves} known vulnerabilit${n.cves === 1 ? 'y' : 'ies'} in this build`}
+              ><ShieldAlert size={10} />{n.cves}</span>
+            )}
+            <ChangeChip n={n} />
+            <UsesChip n={n} compact />
+            {n.repeat && (
+              <span className="flex-shrink-0 text-[10.5px] leading-none text-[#9CA3AF]" title="Expanded higher up in the tree">
+                shown above
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* The meta line. It is the card's reason to exist: it says what opening this will give you,
+       so the decision to open is made before the click rather than after it. */
+    const meta: string[] = [`${v.deps} ${v.deps === 1 ? 'dependency' : 'dependencies'}`];
+    if (n.uses > 1) meta.push(`pulled in by ${n.uses} parents`);
+    if (n.cves > 0) meta.push(`${n.cves} CVE${n.cves === 1 ? '' : 's'} in this build`);
 
     return (
       <div key={v.id}>
@@ -269,65 +379,45 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
           ref={(el) => { el ? rowRefs.current.set(v.id, el) : rowRefs.current.delete(v.id); }}
           role="treeitem"
           aria-level={v.depth}
-          aria-expanded={v.expandable ? v.open : undefined}
+          aria-expanded={v.open}
           aria-label={`${n.name} ${n.version}`}
           tabIndex={tabbable ? 0 : -1}
           onFocus={() => setFocusId(v.id)}
           onKeyDown={(e) => onKeyDown(e, v)}
-          // The whole row toggles — a 12px chevron is a poor click target, and on a leaf the
-          // row's only useful action is to go and look at the component.
-          onClick={() => (v.expandable ? toggle(v.id) : onInspect?.(n.name))}
-          className={`group mb-px flex h-8 cursor-pointer select-none items-center gap-1.5 rounded-lg border-[0.5px] pr-2.5 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[#3D8BD0] ${skin}`}
-          style={{ paddingLeft: v.depth === 1 ? 6 : INDENT - RAIL }}
+          // The whole card toggles — a 12px chevron is a poor click target.
+          onClick={() => toggle(v.id)}
+          className={`group mb-1 cursor-pointer select-none rounded-lg border px-2.5 py-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-[#3D8BD0] ${
+            v.open
+              ? 'border-[#BBD7F0] bg-[#EAF2FB]'
+              : 'border-[#E5E9EF] bg-white hover:border-[#BBD7F0] hover:bg-[#F7FAFD]'
+          }`}
+          style={{ marginLeft: v.depth === 1 ? 0 : INDENT - RAIL }}
         >
-          {v.expandable ? (
+          <div className="flex items-center gap-1.5">
             <ChevronRight
-              size={12}
+              size={13}
               className={`flex-shrink-0 transition-transform duration-150 ${v.open ? 'rotate-90 text-[#3D8BD0]' : 'text-[#7B8FA5]'}`}
             />
-          ) : (
-            // Same footprint as the chevron, so names line up whether or not a row opens.
-            <span className="flex w-3 flex-shrink-0 justify-center text-[#CBD5E1]">&middot;</span>
-          )}
-
-          <button
-            onClick={(e) => { e.stopPropagation(); onInspect?.(n.name); }}
-            className={`min-w-0 truncate text-left font-mono text-[12.5px] leading-none text-[#364658] transition-colors hover:text-[#3D8BD0] ${v.expandable ? 'font-semibold' : ''}`}
-            title={`${n.name}@${n.version} — open in the component list`}
-          >
-            <Mark text={n.name} q={q} />
-          </button>
-          <span className="flex-shrink-0 font-mono text-[11.5px] leading-none text-[#9CA3AF]">{n.version}</span>
-
-          {n.cves > 0 && (
-            <span
-              className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-sm bg-[#FEF3F2] px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-[#DC2626]"
-              title={`${n.cves} known vulnerabilit${n.cves === 1 ? 'y' : 'ies'} in this build`}
+            <button
+              onClick={(e) => { e.stopPropagation(); onInspect?.(n.name); }}
+              className="min-w-0 truncate text-left font-mono text-[12.5px] font-semibold leading-none text-[#364658] transition-colors hover:text-[#3D8BD0]"
+              title={`${n.name}@${n.version} \u2014 open in the component list`}
             >
-              <ShieldAlert size={10} />{n.cves}
-            </span>
-          )}
-
-          {/* Beside the name it describes. A count parked at the drawer's far edge belongs to
-              nothing — at 1,240px there is a hand-span of empty row between the two. */}
-          {v.expandable && !v.open && (
-            <span className="flex-shrink-0 rounded-sm bg-[#F1F5F9] px-1.5 py-0.5 text-[10.5px] leading-none tabular-nums text-[#64748B]">
-              {v.deps} dep{v.deps === 1 ? '' : 's'}
-            </span>
-          )}
-
-          {n.uses > 1 && (
-            <span
-              className="flex-shrink-0 cursor-help rounded-sm bg-[#F1F5F9] px-1.5 py-0.5 text-[10.5px] leading-none text-[#64748B]"
-              title={`Appears under ${n.uses} parents in the tree.`}
-            >&times;{n.uses}</span>
-          )}
-
-          {n.repeat && (
-            <span className="flex-shrink-0 text-[10.5px] leading-none text-[#9CA3AF]" title="Expanded higher up in the tree">
-              shown above
-            </span>
-          )}
+              <Mark text={n.name} q={q} />
+            </button>
+            <span className="flex-shrink-0 font-mono text-[11.5px] leading-none text-[#9CA3AF]">{n.version}</span>
+            {n.cves > 0 && (
+              <span
+                className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-sm bg-[#FEF3F2] px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-[#DC2626]"
+                title={`${n.cves} known vulnerabilit${n.cves === 1 ? 'y' : 'ies'} in this build`}
+              ><ShieldAlert size={10} />{n.cves}</span>
+            )}
+            <ChangeChip n={n} />
+            <UsesChip n={n} />
+          </div>
+          <div className="mt-1 truncate pl-[18px] text-[11.5px] leading-none text-[#7B8FA5]">
+            {meta.join(' \u00b7 ')}
+          </div>
         </div>
 
         {v.open && v.children.length > 0 && (
@@ -347,19 +437,6 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* The shape of the graph, before any of it is read. */}
-      <div className="grid grid-cols-4 gap-x-6 border-b border-[#EEF2F6] px-5 py-3">
-        <Stat label="Direct" value={graph.direct} />
-        <Stat label="Transitive" value={graph.transitive} />
-        <Stat label="Max depth" value={graph.maxDepth} />
-        <Stat
-          label="Not in graph"
-          value={graph.notInGraph}
-          muted
-          tip={`Components with no dependency edges in the SBOM — vendored copies, OS packages, anything without a manifest. ${graph.notInGraph} of ${graph.total} components in this scope; they are installed, they just cannot be placed.`}
-        />
-      </div>
-
       <div className="flex items-center gap-2 px-5 py-2.5">
         <div className="relative min-w-[180px] max-w-[320px] flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={14} />
@@ -388,7 +465,7 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
         {/* At this depth the only reason to walk the tree is to find what a vulnerable component
             is hanging off — so this filter is the shortcut past the whole exercise. */}
         <button
-          onClick={() => setVulnOnly((v) => !v)}
+          onClick={() => { setVulnOnly((v) => !v); setStandalone(false); }}
           className={`inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
             vulnOnly
               ? 'border-[#FCA5A5] bg-[#FEF3F2] text-[#DC2626]'
@@ -401,25 +478,147 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
           <span className="tabular-nums text-[#DC2626]/70">&middot; {vulnerablePaths}</span>
         </button>
 
-        <div className="inline-flex h-8 flex-shrink-0 items-center overflow-hidden rounded border border-[#DFE5ED] bg-white">
-          <button onClick={expandAll} className="h-full px-2.5 text-[13px] text-[#64748B] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]">
-            Expand all
-          </button>
-          <span className="h-4 w-px flex-shrink-0 bg-[#E5E7EB]" />
-          <button onClick={collapseAll} className="h-full px-2.5 text-[13px] text-[#64748B] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]">
-            Collapse all
-          </button>
+        {/* Beside the vulnerability cut, because it answers the other half of "what am I not
+            seeing": these components are installed and simply have no edges to draw. They are
+            NOT a tree, so the toggle swaps the view rather than filtering it. */}
+        <button
+          onClick={() => setStandalone((v) => !v)}
+          className={`inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
+            standalone
+              ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+              : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
+          }`}
+          aria-pressed={standalone}
+          title={`${graph.standalone.length} components with no dependency edges at all: nothing declares them and they declare nothing. Not the same as a declared dependency that happens to pull nothing in — that one is in the tree.`}
+        >
+          <Unlink size={14} className={standalone ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
+          Standalone
+          <span className="tabular-nums text-[#7B8FA5]">&middot; {graph.standalone.length}</span>
+        </button>
+
+        {/* A dropdown rather than five pills: it is ONE choice, and five mutually exclusive
+            buttons spend a whole row saying so. Disabled rather than hidden while the standalone
+            list is up — it does not apply there, and removing it would make the row jump.
+            Offered only when the panel supplied a change map; on v1 there is nothing to differ
+            from. */}
+        {changeOf && (
+          <div className="relative flex-shrink-0" ref={changeRef}>
+            <button
+              onClick={() => setChangeOpen((v) => !v)}
+              disabled={standalone}
+              aria-haspopup="listbox"
+              aria-expanded={changeOpen}
+              title={standalone ? 'Applies to the graph, not to the standalone list' : 'Filter by what this version did'}
+              className={`inline-flex h-8 items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                change
+                  ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+                  : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
+              }`}
+            >
+              <GitCompare size={14} className={change ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
+              {change ?? 'All changes'}
+              <span className={`tabular-nums ${change ? 'text-[#3D8BD0]/70' : 'text-[#7B8FA5]'}`}>
+                &middot; {change ? changeCounts[change] ?? 0 : totalChanges}
+              </span>
+              <ChevronDown size={14} className={`transition-transform ${changeOpen ? 'rotate-180' : ''} ${change ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
+            </button>
+            {changeOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setChangeOpen(false)} />
+                <div role="listbox" className="absolute left-0 top-full z-50 mt-1 w-[220px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+                  <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#7B8FA5]">
+                    Changed in this version
+                  </div>
+                  {([[null, 'All changes'], ...CHANGES.map((c) => [c, c] as const)] as const).map(([id, label]) => {
+                    const n = id === null ? totalChanges : changeCounts[id] ?? 0;
+                    const on = change === id;
+                    return (
+                      <button
+                        key={label}
+                        role="option"
+                        aria-selected={on}
+                        disabled={n === 0 && id !== null}
+                        onClick={() => { setChange(id as Change | null); setChangeOpen(false); }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F5F7FA] disabled:cursor-not-allowed disabled:text-[#B8C4D2] disabled:hover:bg-transparent"
+                      >
+                        <Check size={14} className={on ? 'text-[#3D8BD0]' : 'text-transparent'} />
+                        <span className="flex-1">{label}</span>
+                        <span className="tabular-nums text-[#7B8FA5]">{n}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Tertiary, and at the far edge. These act on the whole tree rather than narrowing it,
+            so they do not belong in the run of filters — and borderless keeps them from reading
+            as one more thing that changes what is shown. */}
+        <div className="ml-auto inline-flex flex-shrink-0 items-center gap-1">
+          <button
+            onClick={expandAll}
+            className="h-8 rounded px-2 text-[13px] font-medium text-[#64748B] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]"
+          >Expand all</button>
+          <button
+            onClick={collapseAll}
+            className="h-8 rounded px-2 text-[13px] font-medium text-[#64748B] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]"
+          >Collapse all</button>
         </div>
       </div>
 
+      {standalone ? (
+        /* Not a tree: a flat list of what the scanner could not place. Rendering these as
+           orphan roots would claim a structure it never found. */
+        <div className="min-h-0 flex-1 overflow-auto px-5 pb-3">
+          <div className="sticky top-0 z-10 flex h-[30px] items-center gap-2 bg-white">
+            <Unlink size={13} className="flex-shrink-0 text-[#7B8FA5]" />
+            <span className="truncate text-[12.5px] font-semibold text-[#364658]">Standalone components</span>
+            <span className="flex-shrink-0 text-[11px] text-[#7B8FA5]">
+              {graph.standalone.length} of {graph.total} · no dependency edges in this SBOM
+            </span>
+          </div>
+          {graph.standalone.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-[14px] font-medium text-[#364658]">Every component is placed</p>
+              <p className="mt-1 text-[13px] text-[#7B8FA5]">Nothing in this scope is missing a manifest.</p>
+            </div>
+          ) : graph.standalone
+            .filter((n) => !q || n.name.toLowerCase().includes(q) || n.purl.toLowerCase().includes(q))
+            .map((n) => (
+              <div
+                key={n.key}
+                onClick={() => onInspect?.(n.name)}
+                className="mb-px flex h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-[#F4F7FA]"
+              >
+                <span className="flex w-3 flex-shrink-0 justify-center text-[#CBD5E1]">&middot;</span>
+                <span className="min-w-0 truncate font-mono text-[12.5px] leading-none text-[#364658]">
+                  <Mark text={n.name} q={q} />
+                </span>
+                <span className="flex-shrink-0 font-mono text-[11.5px] leading-none text-[#9CA3AF]">{n.version}</span>
+                {n.cves > 0 && (
+                  <span className="inline-flex flex-shrink-0 items-center gap-0.5 rounded-sm bg-[#FEF3F2] px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-[#DC2626]">
+                    <ShieldAlert size={10} />{n.cves}
+                  </span>
+                )}
+                <ChangeChip n={n} />
+              </div>
+            ))}
+        </div>
+      ) : (
       <div className="min-h-0 flex-1 overflow-auto px-5 pb-3">
         {roots.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-[14px] font-medium text-[#364658]">
-              {q ? 'Nothing matches that search' : 'No vulnerable dependency paths'}
+              {q ? 'Nothing matches that search'
+                : vulnOnly ? 'No vulnerable dependency paths'
+                : `Nothing was ${(change ?? '').toLowerCase()} in this version`}
             </p>
             <p className="mt-1 text-[13px] text-[#7B8FA5]">
-              {q ? 'Search runs over package names and PURLs.' : 'Every declared dependency and everything under it is clean.'}
+              {q ? 'Search runs over package names and PURLs.'
+                : vulnOnly ? 'Every declared dependency and everything under it is clean.'
+                : 'The graph is unchanged from the previous version by this measure.'}
             </p>
           </div>
         ) : (
@@ -429,9 +628,16 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
             <div className="sticky top-0 z-10 flex h-[30px] items-center gap-2 bg-white">
               <Boxes size={13} className="flex-shrink-0 text-[#7B8FA5]" />
               <span className="truncate font-mono text-[12.5px] font-semibold text-[#364658]">{graph.rootLabel}</span>
-              <span className="flex-shrink-0 text-[11px] text-[#7B8FA5]">root &middot; {graph.direct} direct</span>
+              <span
+                className="flex-shrink-0 cursor-help text-[11px] text-[#7B8FA5]"
+                title={`This product declares ${graph.direct} dependencies directly. Everything below hangs off one of them — including the ones with nothing under them, which are declared but pull nothing in.`}
+              >root &middot; {graph.direct} declared directly</span>
             </div>
 
+            {/* No rail or tint at this level. It was tried — to draw the direct list as hanging
+                off the root the way deeper levels are drawn — and a grey band running the width
+                of the drawer behind a row of white cards read worse than the ambiguity it fixed.
+                The root line and the wording carry that job instead. */}
             <div role="tree" aria-label="Dependency tree">
               {roots.map(renderNode)}
             </div>
@@ -453,6 +659,7 @@ export function BomDependencyTree({ graph, onInspect }: Props) {
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

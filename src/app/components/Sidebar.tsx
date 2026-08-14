@@ -164,18 +164,23 @@ function PatchNavItem({ activePage, onNavigate }: { activePage?: string; onNavig
 
 // BOM sub-modules surfaced in the hover flyout. BOM Inventory is one row per CI, Software
 // Components is one row per component version across the fleet — the same data seen the other
-// way up. Compliance Reports is the same inventory read against 13 regulatory frameworks.
+// way up. Compliance Reports is the same inventory read against 13 regulatory frameworks, and
+// Compliance Reports 2 is that same assessment in a split layout — a vertical framework rail
+// instead of a horizontal carousel — carried as a second entry so the two are comparable
+// side by side rather than one replacing the other unseen.
 const BOM_ITEMS: { icon: React.ReactNode; label: string; page?: string }[] = [
   { icon: <IconBom size={16} />, label: 'BOM Inventory', page: 'bom' },
   { icon: <Boxes size={16} />, label: 'Software Components', page: 'software-components' },
   { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports', page: 'compliance-reports' },
+  { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports 2', page: 'compliance-reports-2' },
 ];
 
 /** BOM nav item with a hover flyout listing its sub-modules (mirrors VulnerabilityNavItem).
  *  Deliberately identical to its siblings — no title, no badge, no divider: a rail where one
  *  flyout is dressed differently reads as a different KIND of menu. */
 function BomNavItem({ activePage, onNavigate }: { activePage?: string; onNavigate?: (page: string) => void }) {
-  const sectionActive = activePage === 'bom' || activePage === 'software-components' || activePage === 'compliance-reports';
+  const sectionActive = activePage === 'bom' || activePage === 'software-components'
+    || activePage === 'compliance-reports' || activePage === 'compliance-reports-2';
   return (
     <div className="relative group">
       <NavItem icon={<IconBom size={20} />} active={sectionActive} title="BOM" disableTooltip />

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   X, RefreshCw, ShieldCheck, Zap, Globe, Flag, ArrowUp, Upload, FileText,
   Boxes, Shield, Radio, Search, ChevronDown, Sparkles, Copy, Check, AlertTriangle, Clock, Building2,
-  Inbox, Loader, PauseCircle, XCircle, HelpCircle, ListFilter,
+  Inbox, Loader, PauseCircle, XCircle, HelpCircle, ListFilter, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DrawerTabStrip } from './DrawerTabStrip';
@@ -139,6 +139,14 @@ export function ComponentDrawer({
      same shape PatchComputersTab uses for Missing / Installed / Ignored. */
   const ALL_ENDPOINTS = 'All Endpoints';
   const [bucket, setBucket] = useState<string>(ALL_ENDPOINTS);
+  /* Version filter. Drift is the reason this drawer exists — the estate runs several builds of
+     one library — so "show me only the CIs on 2.13.2" is the question the CI table is opened
+     with. The counts that used to sit in the properties rail live on these options now, where
+     they are a reason to pick one rather than a list to read. */
+  const ALL_VERSIONS = 'All versions';
+  const [verFilter, setVerFilter] = useState<string>(ALL_VERSIONS);
+  const [verOpen, setVerOpen] = useState(false);
+  const verRef = useRef<HTMLDivElement>(null);
   const [bucketQuery, setBucketQuery] = useState('');
   const [bucketOpen, setBucketOpen] = useState(false);
   const bucketRef = useRef<HTMLDivElement>(null);
@@ -185,6 +193,12 @@ export function ComponentDrawer({
   }, [filterOpen]);
   useEffect(() => { setCurrentPage(1); setSelected(new Set()); }, [activeTab, bucket, tabQuery, activeAssetId, sevBucket, nFilters]);
   useEffect(() => { if (!bucketOpen) setBucketQuery(''); }, [bucketOpen]);
+  useEffect(() => {
+    if (!verOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setVerOpen(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [verOpen]);
   const [fieldQuery, setFieldQuery] = useState('');
   const [fieldsOpen, setFieldsOpen] = useState(true);
 
@@ -211,6 +225,7 @@ export function ComponentDrawer({
   const tq = tabQuery.trim().toLowerCase();
   const cisFiltered = allCis
     .filter((r) => bucket === ALL_ENDPOINTS || r.office === bucket)
+    .filter((r) => verFilter === ALL_VERSIONS || r.version === verFilter)
     .filter((r) => !tq || [r.ciId, r.endpointId, r.hostname, r.ip, r.os, r.origin, r.office, r.version].join(' ').toLowerCase().includes(tq));
   /* Patch availability is DERIVED from `fixedIn` rather than stored, so the filter and the
      column can never disagree about what "Yes" means. */
@@ -340,13 +355,15 @@ export function ComponentDrawer({
     { label: 'Component ID', value: c.id },
     { label: 'Name', value: c.name },
     /* Every build, not just the primary — the rail is where you look something up, and
-       "which versions are out there" is the question drift creates. */
+       "which versions are out there" is the question drift creates. The per-build CI counts
+       moved to the version picker on the CI tab: there they are a reason to choose one, here
+       they were a second column of numbers to read past. */
     { label: 'Version', value: (
       <span className="block space-y-1">
         {versions.map((v) => (
-          <span key={v.version} className="flex items-center justify-between gap-3">
-            <span>{v.version}{v.version === c.version && <span className="ml-1.5 text-[12px] text-[#7B8FA5]">primary</span>}</span>
-            <span className="text-[12px] text-[#7B8FA5]">{v.cis} CI{v.cis === 1 ? '' : 's'}</span>
+          <span key={v.version} className="block">
+            {v.version}
+            {v.version === c.version && <span className="ml-1.5 text-[12px] text-[#7B8FA5]">primary</span>}
           </span>
         ))}
       </span>) },
@@ -358,7 +375,7 @@ export function ComponentDrawer({
     { label: 'Fix available', value: c.fixVersion
         ? <span className="inline-flex items-center gap-1 font-medium text-[#22A06B]"><ArrowUp size={12} />{c.fixVersion}</span>
         : <Dash /> },
-    { label: 'Affected CIs', value: String(c.cis) },
+    { label: 'Installed on', value: String(c.cis) },
     { label: 'Products', value: String(c.products) },
     { label: 'Business services', value: String(businessServices(c)) },
     { label: 'Internet-facing', value: c.internetFacing
@@ -389,7 +406,7 @@ export function ComponentDrawer({
   const shownFields = fq ? FIELDS.filter((f) => f.label.toLowerCase().includes(fq)) : FIELDS;
 
   const TABS: { id: MainTab; label: string; count: number; icon: React.ReactNode }[] = [
-    { id: 'cis', label: 'Affected CIs', count: c.cis, icon: <Boxes size={14} /> },
+    { id: 'cis', label: 'Installed on', count: c.cis, icon: <Boxes size={14} /> },
     { id: 'vulns', label: 'Vulnerabilities', count: c.vulnerabilities, icon: <Shield size={14} /> },
   ];
 
@@ -463,11 +480,26 @@ export function ComponentDrawer({
             >
               <RefreshCw size={16} className="text-[#6b7280]" />
             </button>
+            {/* Disabled when there is nothing to upgrade TO. It used to be live in that case
+                and answered a click with "no published fix yet" — a primary CTA whose only
+                outcome is being told it cannot help is worse than one that is visibly off.
+                Keyed on the FIX, not on the vulnerability count: "vulnerable, no published
+                fix" is a real state the Software Components KPI card already counts, and the
+                two only coincide in today's fixture. The reason says which case it is,
+                because a disabled control with no explanation is a dead end. */}
             <button
-              onClick={() => toast.success(c.fixVersion
-                ? `Remediation planned — upgrade ${c.name} to ${c.fixVersion} on ${c.cis} CIs`
-                : `${c.name} has no published fix yet`)}
-              className="flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-4 text-[12px] font-medium text-white transition-colors hover:bg-[#2F7AB8]"
+              onClick={() => toast.success(`Remediation planned — upgrade ${c.name} to ${c.fixVersion} on ${c.cis} CIs`)}
+              disabled={!c.fixVersion}
+              title={c.fixVersion
+                ? `Upgrade ${c.name} to ${c.fixVersion} across ${c.cis} CI${c.cis === 1 ? '' : 's'}`
+                : c.vulnerabilities === 0
+                  ? `${c.name} has no known vulnerabilities — nothing to remediate`
+                  : `No published fix for ${c.name} yet — nothing to upgrade to`}
+              className={`flex h-8 items-center gap-1.5 rounded px-4 text-[12px] font-medium transition-colors ${
+                c.fixVersion
+                  ? 'bg-[#3D8BD0] text-white hover:bg-[#2F7AB8]'
+                  : 'cursor-not-allowed bg-[#E5E7EB] text-[#9CA3AF]'
+              }`}
             >
               <ShieldCheck size={15} /> Remediate
             </button>
@@ -556,6 +588,55 @@ export function ComponentDrawer({
                                 </button>
                               ))}
                             </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {/* Beside the endpoint picker and before the search: both narrow the same
+                        table, so they belong in one run rather than on separate rows. */}
+                    <div className="relative flex-shrink-0" ref={verRef}>
+                      <button
+                        onClick={() => setVerOpen((v) => !v)}
+                        aria-haspopup="listbox"
+                        aria-expanded={verOpen}
+                        className={`inline-flex h-[36px] items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
+                          verFilter !== ALL_VERSIONS
+                            ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+                            : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
+                        }`}
+                      >
+                        <Layers size={14} className={verFilter !== ALL_VERSIONS ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
+                        {verFilter}
+                        <ChevronDown size={14} className={`transition-transform ${verOpen ? 'rotate-180' : ''} ${verFilter !== ALL_VERSIONS ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
+                      </button>
+                      {verOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setVerOpen(false)} />
+                          <div role="listbox" className="absolute left-0 top-full z-50 mt-1 w-[240px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+                            {/* No search box: a component runs a handful of builds, not fifteen
+                                offices. A search field here would imply a longer list. */}
+                            {[{ version: ALL_VERSIONS, cis: allCis.length }, ...versions].map((o) => (
+                              <button
+                                key={o.version}
+                                role="option"
+                                aria-selected={verFilter === o.version}
+                                onClick={() => { setVerFilter(o.version); setVerOpen(false); setCurrentPage(1); }}
+                                className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-[13px] transition-colors ${
+                                  verFilter === o.version ? 'bg-[#F1F5F9] text-[#364658]' : 'text-[#364658] hover:bg-[#F9FAFB]'
+                                }`}
+                              >
+                                <span className="truncate">
+                                  {o.version}
+                                  {o.version === c.version && (
+                                    <span className="ml-1.5 text-[12px] text-[#7B8FA5]">primary</span>
+                                  )}
+                                </span>
+                                <span className="flex flex-shrink-0 items-center gap-2">
+                                  <span className="text-[12px] tabular-nums text-[#7B8FA5]">{o.cis}</span>
+                                  {verFilter === o.version && <Check size={15} className="flex-shrink-0 text-[#3D8BD0]" />}
+                                </span>
+                              </button>
+                            ))}
                           </div>
                         </>
                       )}
@@ -656,7 +737,7 @@ export function ComponentDrawer({
                         rating, so it answers "how bad") while status / type / patch are
                         multi-select filters that AND together. */}
                     <div className="mb-3 flex items-center gap-2.5">
-                      {/* Severity as a dropdown, matching the group filter on Affected CIs:
+                      {/* Severity as a dropdown, matching the group filter on Installed on:
                           one control, one row, whatever the component's spread of severities
                           happens to be. Only severities this component HAS are listed. */}
                       <div className="relative flex-shrink-0" ref={sevRef}>

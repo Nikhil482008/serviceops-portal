@@ -1,4 +1,4 @@
-import { Zap, Globe, Flag, ArrowUp, FileText, Upload } from 'lucide-react';
+import { Zap, Flag, ArrowUp, FileText, Upload } from 'lucide-react';
 import type { SoftwareComponent, ComponentSeverity, ComponentSource } from './softwareComponentsData';
 
 /* Software Components grid — one row per component VERSION across the fleet.
@@ -99,13 +99,6 @@ export function SoftwareComponentsTable({ rows, onRowClick }: SoftwareComponents
                       style={{ backgroundColor: '#FEF3F2', color: '#B42318' }}
                       title="On CISA's Known Exploited Vulnerabilities list"
                     ><Zap size={11} />KEV</span>
-                  )}
-                  {/* title lives on a wrapper: a lucide icon renders its own <svg> and does
-                      not forward children, so a nested <title> would never appear. */}
-                  {c.internetFacing && (
-                    <span className="inline-flex flex-shrink-0 text-[#D97706]" title="Internet-facing on at least one CI">
-                      <Globe size={13} aria-label="Internet-facing on at least one CI" />
-                    </span>
                   )}
                 </div>
                 <div className="mt-0.5 text-[12px] text-[#7B8FA5]">{c.ecosystem}</div>

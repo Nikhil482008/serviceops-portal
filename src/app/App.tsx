@@ -19,12 +19,13 @@ import { DetectedCvesListPage } from './components/DetectedCvesListPage';
 import { BomInventoryListPage } from './components/BomInventoryListPage';
 import { SoftwareComponentsListPage } from './components/SoftwareComponentsListPage';
 import { ComplianceReportsModule } from './components/ComplianceReportsModule';
+import { ComplianceReports2Module } from './components/ComplianceReports2Module';
 import { AdminPage } from './components/AdminPage';
 import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
 
-type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom' | 'software-components' | 'compliance-reports' | 'admin';
+type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom' | 'software-components' | 'compliance-reports' | 'compliance-reports-2' | 'admin';
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('request');
@@ -56,6 +57,7 @@ export default function App() {
       {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
       {activePage === 'software-components' && <SoftwareComponentsListPage onNavigate={navigate} />}
       {activePage === 'compliance-reports' && <ComplianceReportsModule onNavigate={navigate} />}
+      {activePage === 'compliance-reports-2' && <ComplianceReports2Module onNavigate={navigate} />}
       {activePage === 'admin' && <AdminPage onNavigate={navigate} />}
       {/* Mounted once, inside the drawer host, so search works on every page and can open any
           module's real detail drawer as a tab. */}

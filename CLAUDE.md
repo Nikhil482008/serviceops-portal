@@ -44,6 +44,30 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
 - Build: `npm run build`
 
 ## Key context
+- **This project has its own repo:** [Nikhil482008/serviceops-portal](https://github.com/Nikhil482008/serviceops-portal),
+  live at <https://nikhil482008.github.io/serviceops-portal/>. It sits inside the `Test4` working
+  folder but is **git-ignored there** — the same files in two repos only drift.
+  **Deploying is manual:** the token lacks the `workflow` scope, so `.github/workflows/deploy.yml`
+  cannot be pushed (git-ignored). Pages serves the **`gh-pages` branch** — `npm run build`, then push
+  `dist/` to it. The Vite `base` is `/serviceops-portal/` and **must match the repo name**, or every
+  asset 404s and the page renders blank.
+- **`DESIGN.md` is the product-wide authority** for typography, radius, buttons and tables, extracted
+  from the shipped code. Where it and `BOM-DESIGN-SYSTEM.md` disagree, its §6 names the winner.
+  Two traps it documents and this codebase really has: a bare `<button>` does **not** inherit its
+  parent's font-size (always set `text-[Npx]`), and the CSS-variable token layer in `theme.css` is
+  **not** what ships — product UI is literal hex + Tailwind arbitrary values.
+- **Two BOM surfaces are MOUNTED PROTOTYPES, not React screens.** `AdminBomModule` (BOM Management),
+  `ComplianceReportsModule` (BOM › Compliance Reports) and `AdminFormRulesModule` (Admin › Request
+  Management › Request Form Rule) each iframe a self-contained HTML prototype from `public/`. The
+  prototype IS the screen, so a rule's behaviour has one home rather than two that drift.
+  **One source, one copy:** the sources live in `Test4/BOM/concepts/component-inventory.html` and
+  `Test4/rule-studio-v0.html`; the files under `public/` are build artifacts refreshed by
+  `sh sync-bom-reports.sh` from the Test4 root. Run it after editing a source — and before a
+  structural edit, since that copy is the only snapshot of the last good state.
+- **`vite build` uses esbuild, which strips types without type-checking them.** A green build proves
+  nothing about identifiers: a deleted constant or an unbound prop compiles clean and explodes at
+  render as a blank screen. Verify behaviour by bundling the component and driving it in **jsdom**
+  (react-dom is available; suites live in the session scratchpad).
 - **Detail pages are clones.** `ChangeDrawer`, `ReleaseDrawer`, and `HardwareAssetDrawer` are all clones of `TicketDrawer`, adapted to their data type. They reuse the shared panels (`TicketPropertiesPanel`, `TicketFieldsAccordion`, `PinnedFieldsAccordion`).
 - **`HardwareAssetDrawer` uses an adapter** (`assetToTicket`) to map a `HardwareAsset` onto the `Ticket` shape so the cloned body compiles unchanged. Asset-specific UI is toggled with an `assetMode` prop threaded through the shared panels — keep asset changes gated on `assetMode` so tickets/changes/releases are unaffected.
 - **Asset drawer tabs** (in `HardwareAssetDrawer`): Overview (default — dashboard cards), Properties, Hardware (category sub-nav of computer-system/OS/BIOS/RAM/…), Software (inventory — defaults to **card view**, toggle to list/table w/ column toggle), Baseline, Relationship, Approvals, Financials (dashboard: hero cost cards + depreciation chart + cost timeline; Add Cost / Configure Depreciation side drawers), History (renamed from Audit Trails; category dropdown + date-range/filter/download toolbar; timeline + table histories incl. Baseline/Variance). Tab order/overflow ("More" dropdown) is computed in the `calculateTabOverflow` effect — `allTabs` is built there, so when adding/removing tabs update both the base arrays AND the approvals/relations insert anchors.

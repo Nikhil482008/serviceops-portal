@@ -798,12 +798,24 @@ body.v-reports{background:#fff}
 /* The tab row heads the surface it switches, the way it does on Component
    Intelligence and Licensing — the same .tabs/.tab component, in the same place
    relative to its content, rather than floating as a white band on the page. */
-/* Every major section on one grid. `.card` caps itself at 1500px, so the detail
-   panel used to stop 260px short of the carousel above it and the rules row
-   below it — three sections, three different right edges. */
-.cmp-panel,.cmp-detail,.cmp-grid{max-width:1760px}
-.cmp-panel{margin-bottom:16px;padding-bottom:2px}
-.cmp-grid > .card{max-width:none}
+/* ONE container for the whole assembly.
+   The cards are tabs and everything under them is the panel they drive — but as
+   three separate bordered cards with gaps between them, that read as three
+   unrelated modules, which is the linkage problem the notch and the flag echo
+   were both trying to solve from the wrong end. One surface, hairline seams.
+
+   `overflow` is deliberately NOT hidden: every popover on this screen (score,
+   history, resolve, saved views) is absolutely positioned inside here and would
+   be clipped. The radius holds anyway because the children paint no background
+   of their own — the shell draws the corners. */
+.cmp-shell{max-width:1760px;margin-bottom:16px;background:#fff;
+  border:1px solid var(--line-tbl);border-radius:8px}
+/* One horizontal grid for every zone. The carousel is the single exception: its
+   40px gutters are the arrows' reserved space, and a scroll container clips at
+   its padding box, so that space cannot come from padding. */
+.cmp-shell .tabs{padding:0 16px;background:none;border-radius:0}
+.cmp-scope{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dim);
+  padding:9px 16px 13px;flex-wrap:wrap}
 
 /* ── framework carousel ───────────────────────────────────────
    Thirteen frameworks do not fit, and a native scrollbar under a card row is
@@ -815,8 +827,8 @@ body.v-reports{background:#fff}
    scroller inset by the arrow diameter + 8px, no card can reach the gutter at
    any scroll position, so there is nothing to overlap. */
 .cmp-car{position:relative;padding:0 40px}
-.cmp-strip{display:flex;gap:12px;overflow-x:auto;padding:14px 16px 22px;
-  scroll-snap-type:x mandatory;scroll-padding-left:16px;scroll-behavior:smooth;
+.cmp-strip{display:flex;gap:12px;overflow-x:auto;padding:12px 3px 22px;
+  scroll-snap-type:x mandatory;scroll-padding-left:3px;scroll-behavior:smooth;
   scrollbar-width:none;-ms-overflow-style:none}
 .cmp-strip::-webkit-scrollbar{display:none}
 /* The fade sits at the scroller's edge, inside the gutter, so the hard cut reads
@@ -825,6 +837,16 @@ body.v-reports{background:#fff}
   pointer-events:none;z-index:2;transition:opacity .18s}
 .cmp-car::before{left:40px;background:linear-gradient(90deg,#fff 28%,rgba(255,255,255,0))}
 .cmp-car::after{right:40px;background:linear-gradient(270deg,#fff 28%,rgba(255,255,255,0))}
+/* Full-bleed hairline under the saved-view tabs — inset dividers would rebuild
+   the boxed look the merge exists to remove. */
+.cmp-shell .tabs{border-bottom:1px solid var(--line-soft)}
+/* THE SEAM. The one stronger divider on the screen: above it are the controls,
+   below it is the panel they drive. */
+.cmp-tabpanel{border-top:1px solid var(--line-tbl);outline:none}
+.cmp-tabpanel:focus-visible{outline:2px solid var(--brand);outline-offset:-2px;border-radius:0 0 8px 8px}
+/* One selection, one transition — the detail band, the rules and the gaps move
+   together, because they are one panel. */
+.cmp-tabpanel.swap{animation:cmpfade .15s ease-out}
 .cmp-car.at-start::before{opacity:0}
 .cmp-car.at-end::after{opacity:0}
 .cmp-arrow{position:absolute;top:calc(50% - 4px);transform:translateY(-50%);z-index:3;
@@ -849,7 +871,7 @@ body.v-reports{background:#fff}
 /* Every card the same box, so the percentage, the bar and the BOM footer land on
    the same baseline across the row — uneven cards are what made this read as a
    list of different things rather than one comparison. */
-.cmp-cw{position:relative;flex:0 0 296px;height:126px;scroll-snap-align:start}
+.cmp-cw{position:relative;flex:0 0 222px;height:126px;scroll-snap-align:start}
 .cmp-card{position:absolute;inset:0;display:flex;flex-direction:column;
   background:#fff;border:1px solid var(--line-tbl);border-radius:8px;
   padding:11px 13px 12px;text-align:left;
@@ -897,105 +919,162 @@ body.v-reports{background:#fff}
 .cmp-nodata{font-size:16px;font-weight:600;line-height:1;color:var(--faint);flex:none;min-width:40px}
 .cmp-card.nodata .cmp-cname{color:var(--dim);font-weight:500}
 
-.cmp-scope{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dim);
-  padding:9px 16px 12px;border-top:1px solid var(--line-soft);flex-wrap:wrap}
+
 .cmp-scope .r{margin-left:auto}
 .cmp-scope b{color:var(--ink);font-weight:600}
 
 /* ── detail panel ─────────────────────────────────────────── */
 /* No fixed heights anywhere: the panel hugs whatever the framework needs. */
-.cmp-detail{padding:16px 20px 14px;margin-bottom:16px}
-.cmp-drow{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap}
-.cmp-dl{min-width:300px;flex:1 1 420px}
-.cmp-dtitle{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.cmp-dtitle h2{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
-/* Causality, felt rather than inferred: the panel visibly re-draws when the
-   selection changes, so the card and the panel read as one control. */
+/* Header row · stats band · provenance footer — nothing else, and no heights. */
+.cmp-detail{padding:15px 16px 14px;border-bottom:1px solid var(--line-tbl)}
 @keyframes cmpfade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
-.cmp-detail.swap{animation:cmpfade .15s ease-out}
 @media (prefers-reduced-motion:reduce){
-  .cmp-detail.swap{animation:none}
+  .cmp-tabpanel.swap{animation:none}
   .cmp-strip{scroll-behavior:auto}
 }
-/* Two lines, then the tooltip. A framework description is reference text, and
-   reference text does not need to be readable in full before the numbers are. */
-.cmp-ddesc{margin-top:8px;font-size:13px;color:var(--dim);line-height:1.5;max-width:70ch;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.cmp-prov{margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--faint)}
-.cmp-prov .sep{color:var(--line)}
-.cmp-dr{display:flex;align-items:flex-start;gap:26px;flex:0 0 auto;padding-left:4px}
-/* A semicircle, not a ring: half the vertical footprint for the same reading,
-   and the open centre is a natural home for the number instead of a hole. */
-.cmp-gauge{position:relative;width:124px;flex:none}
+
+/* 1 · header
+   No flag, no name: the selected card sits directly above this panel with an
+   accent border and a notch pointing into it, so repeating its title here said
+   the same thing twice. The relationship is carried by the notch for sighted
+   readers and by aria-labelledby for everyone else. What remains is what the
+   card does NOT say — the policy pack, the BOM scope, and the actions. */
+.cmp-hdr{display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-height:32px}
+.cmp-hdr .rt{margin-left:auto;display:flex;align-items:center;gap:6px;flex:none}
+
+/* The demotion mechanism. A BUTTON, not a hover target: everything moved off the
+   surface has to stay reachable by keyboard and by thumb, and `title` is neither. */
+.cmp-ib{border:0;background:none;padding:0;display:inline-grid;place-items:center;
+  width:24px;height:24px;flex:none;border-radius:9999px;color:var(--faint);
+  transition:color .14s,background-color .14s}
+.cmp-ib:hover,.cmp-ib[aria-expanded="true"]{color:var(--brand);background:var(--chip-blue)}
+
+/* 2 · stats band
+   The gauge anchors the left; the four stats take the rest and sit centred in it,
+   so the band reads as one balanced row instead of everything crowding the left
+   edge with a hand-span of empty space after it. */
+.cmp-band{display:flex;align-items:center;gap:40px;flex-wrap:wrap;margin-top:14px}
+/* A hairline, not a rule: it separates the score from the counts without
+   claiming they are different sections — they answer the same question. */
+.cmp-bdiv{width:1px;height:52px;flex:none;background:var(--line-soft);align-self:center}
+.cmp-gauge{position:relative;width:136px;flex:none;margin:0 12px}
 .cmp-gauge svg{display:block}
 .cmp-gcap{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:baseline;
-  justify-content:center;gap:5px}
-.cmp-gcap .v{font-size:24px;font-weight:600;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
-/* Inline with the value, not floating inside the graphic — the icon explains the
-   number, so it sits beside the number. */
+  justify-content:center}
+.cmp-gcap .v{font-size:20px;font-weight:600;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+/* On the label, not on the numeral: the number is the reading and wants to be
+   the only thing at that size, while the icon explains what produced it — which
+   is what the word underneath already says. */
 .cmp-gi{border:0;background:none;padding:0;display:inline-grid;place-items:center;
   width:20px;height:20px;border-radius:9999px;color:var(--faint);transition:color .14s,background-color .14s}
-.cmp-gi:hover{color:var(--brand);background:var(--chip-blue)}
-.cmp-dlab{margin-top:7px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.05em;
-  text-transform:uppercase;color:var(--dim)}
-.cmp-stats{display:flex;gap:30px;padding-top:2px}
-.cmp-stat .l{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
-.cmp-stat .v{margin-top:6px;font-size:24px;font-weight:600;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
-.cmp-dcap .v,.cmp-gtab .c,.cmp-rhead .n{font-variant-numeric:tabular-nums}
+.cmp-gi:hover,.cmp-gi[aria-expanded="true"]{color:var(--brand);background:var(--chip-blue)}
+.cmp-dlab{margin-top:9px;display:flex;align-items:center;justify-content:center;gap:3px;
+  font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.cmp-dlab .cmp-gi{width:18px;height:18px;margin:-3px 0}
+.cmp-stats{display:flex;gap:48px;flex-wrap:wrap;flex:1;justify-content:flex-start;padding-top:2px}
+/* All four columns share one anatomy, so Gaps reads as a peer of the other three
+   rather than as something appended to them. */
+.cmp-stat{min-width:0}
+.cmp-stat .l{display:flex;align-items:center;gap:2px;font-size:10px;font-weight:600;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+.cmp-stat .l .cmp-ib{width:20px;height:20px;margin:-4px 0}
+.cmp-stat .v{margin-top:6px;font-size:20px;font-weight:600;line-height:1;color:var(--ink);
+  font-variant-numeric:tabular-nums}
 .cmp-stat .v.bad{color:var(--crit)}
-.cmp-stat .s{margin-top:7px;font-size:12px;color:var(--dim)}
+.cmp-stat .v.warn{color:var(--warn)}
+.cmp-stat .s{margin-top:7px;display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+  font-size:12px;color:var(--dim);white-space:nowrap;text-align:left}
 .cmp-stat .s .ok{color:var(--ok)}
 .cmp-stat .s .no{color:var(--crit)}
+.cmp-dcap .v,.cmp-gtab .c{font-variant-numeric:tabular-nums}
+
+/* 3 · provenance footer */
+.cmp-prov{margin-top:14px;padding-top:11px;border-top:1px solid var(--line-soft);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--faint)}
+.cmp-prov .sep{color:var(--line)}
+
 .cmp-link{border:0;background:none;padding:0;font:inherit;color:var(--brand);text-decoration:none;
   border-bottom:1px solid transparent}
 .cmp-link:hover{border-bottom-color:var(--brand)}
-/* The bridge is the panel's closing statement, not a footnote under it: it is
-   the only line that turns four unrelated magnitudes into a route through the
-   work, so it gets a surface of its own rather than the smallest type on screen. */
-.cmp-bridge{margin-top:14px;background:var(--sel-blue);border-radius:8px;padding:13px 15px}
-.cmp-bline{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.cmp-bnum{font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
-.cmp-bnoun{font-size:13px;color:var(--dim)}
-.cmp-bridge .ar{color:var(--brand);font-size:14px;padding:0 2px}
-.cmp-bridge button.cmp-bjump{border:0;background:none;padding:0;font:inherit;display:inline-flex;
-  align-items:baseline;gap:5px;border-bottom:1px solid transparent}
-.cmp-bridge button.cmp-bjump:hover{border-bottom-color:var(--brand)}
-.cmp-bridge button.cmp-bjump:hover .cmp-bnum,
-.cmp-bridge button.cmp-bjump:hover .cmp-bnoun{color:var(--brand)}
-.cmp-bwhy{margin-top:6px;font-size:12px;color:var(--dim);line-height:1.5}
-/* A clean framework still gets a closing statement — silence would read as
-   "not assessed" rather than "nothing to do". */
-.cmp-bridge.clean{background:var(--ok-soft)}
-.cmp-bridge.clean .cmp-bnum{color:var(--ok)}
-.cmp-bridge.flat{background:var(--bg)}
+/* The arrow chain is gone, but the walk it described is not — it lives in these
+   sub-lines, so checks → rules → gaps is still one path you can click along. */
+.cmp-slink{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--crit);
+  border-bottom:1px solid transparent}
+.cmp-slink:hover{border-bottom-color:currentColor}
+.cmp-slink.go{color:var(--brand)}
+.cmp-slink.warnlink{color:var(--warn)}
 
 /* ── layout ───────────────────────────────────────────────── */
-.cmp-grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
-@media (max-width:1280px){.cmp-grid{grid-template-columns:1fr}}
+/* The gaps list was a second column beside the rules. It is now inside them:
+   a gap belongs to the rule that fails because of it, so the row that reports the
+   failure is where the fix belongs too. */
+#cmpRules{min-width:0}
 
-.cmp-rhead{display:flex;align-items:center;gap:10px;padding:14px 18px 12px;flex-wrap:wrap}
+.cmp-rhead{display:flex;align-items:center;gap:10px;padding:14px 16px 0;flex-wrap:wrap}
+/* Title, then controls — two rows, because a heading sharing a line with four
+   filters and a search field is a toolbar with a word in it, not a heading. */
+.cmp-rtools{display:flex;align-items:center;gap:10px;padding:12px 16px;flex-wrap:wrap}
+/* Sub-tab pills, matched to the Software Components listing: same height, same
+   radius, same selected fill, same count badge. Two BOM listings that filter the
+   same way should not each invent their own control. */
+.cmp-sub{display:inline-flex;align-items:center;gap:6px;flex:none;height:34px;padding:0 10px;
+  border:1px solid var(--line);border-radius:4px;background:#fff;
+  font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;
+  transition:border-color .14s,background-color .14s,color .14s}
+.cmp-sub:hover{border-color:var(--brand);background:var(--surf-hover)}
+.cmp-sub.on{border-color:var(--brand);background:var(--chip-blue);color:var(--brand)}
+.cmp-sub:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.cmp-sub .n{display:inline-flex;align-items:center;justify-content:center;height:18px;min-width:18px;
+  padding:0 4px;border-radius:9999px;font-size:11px;font-weight:600;
+  background:var(--chip-n2);color:var(--neu);font-variant-numeric:tabular-nums}
+.cmp-sub.on .n{background:var(--brand);color:#fff}
+.cmp-rdiv{width:1px;height:20px;flex:none;margin:0 2px;background:var(--line-tbl)}
+/* The search takes the rest of the row, glyph on the trailing edge, and swaps to
+   a clear button once there is something to clear — the same control, verbatim. */
+.cmp-search{position:relative;display:block;flex:1;min-width:180px}
+.cmp-search input{width:100%;height:34px;border:1px solid var(--line-input);border-radius:4px;
+  background:#fff;padding:0 36px 0 12px;font:inherit;font-size:13px;color:var(--ink)}
+.cmp-search input::placeholder{color:var(--faint)}
+.cmp-search input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+/* Each selector owns a complete rule rather than sharing a declaration block:
+   the two swap places, so reading either one should not mean reading both. */
+.cmp-search .mag{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  display:grid;place-items:center;color:var(--faint);pointer-events:none}
+.cmp-search .clr{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  display:grid;place-items:center;color:var(--faint);border:0;background:none;padding:0;
+  transition:color .14s}
+.cmp-search .clr:hover{color:var(--ink)}
 .cmp-rhead h3{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
-.cmp-rhead .n{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:9999px;
-  background:var(--chip-n2);color:var(--neu);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
-.cmp-rhead .right{margin-left:auto;display:flex;align-items:center;gap:8px}
-.cmp-seg{display:inline-flex;align-items:center;gap:2px;background:var(--chip-n);border-radius:9999px;padding:3px}
-.cmp-seg button{height:26px;padding:0 12px;border:0;background:none;border-radius:9999px;font-size:12px;
+/* §2: filter pills and segmented toggles are `rounded` (4px). rounded-full is for
+   dots, avatars, counts and chips — not for a control that holds a label. */
+.cmp-seg{display:inline-flex;align-items:center;gap:2px;background:var(--chip-n);border-radius:4px;padding:3px}
+.cmp-seg button{height:26px;padding:0 12px;border:0;background:none;border-radius:4px;font-size:12px;
   font-weight:500;color:var(--neu);white-space:nowrap;transition:background-color .14s,color .14s}
 .cmp-seg button:hover{color:var(--ink)}
 .cmp-seg button.on{background:#fff;color:var(--brand);font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.06)}
 
 .cmp-tbl{width:100%;border-collapse:collapse;min-width:0}
-.cmp-tbl th{text-align:left;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
-  color:var(--dim);padding:9px 14px;border-top:1px solid var(--line-tbl);border-bottom:1px solid var(--line-tbl);
+/* TicketTable is the product's reference implementation and every listing follows
+   it: 12px semibold primary-ink headers with tracking, px-4 py-2.5, a single
+   bottom hairline, and rows separated by a divide rather than per-row borders.
+   This table had drifted to 11px uppercase muted — its own dialect. */
+.cmp-tbl th{text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;
+  color:var(--ink);padding:10px 16px;border-bottom:1px solid var(--line-tbl);
   background:#fff;white-space:nowrap}
 .cmp-tbl th.srt{cursor:pointer}
 .cmp-tbl th.srt:hover{color:var(--ink)}
 .cmp-tbl th .ci{display:inline-block;width:9px;margin-left:4px;color:var(--brand)}
-.cmp-tbl td{padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+.cmp-tbl td{padding:12px 16px;font-size:12px;color:var(--ink);
+  border-bottom:1px solid var(--line-tbl);vertical-align:middle}
+/* px-4 is already the container grid, so the cells need no special-casing. */
 .cmp-tbl tr:last-child td{border-bottom:0}
 .cmp-tbl tbody tr{cursor:pointer;transition:background-color .14s}
 .cmp-tbl tbody tr:hover{background:var(--row-hover)}
-.cmp-ctrl{font-family:var(--mono);font-size:12px;color:var(--dim);white-space:nowrap}
+/* §4.2's standard record id: a brand-tinted pill, not bare mono text. The same
+   treatment BOM Inventory gives its CI column. */
+.cmp-idpill{display:inline-block;border-radius:4px;background:var(--pill-id);padding:2px 8px;
+  font-size:12px;font-weight:600;color:var(--brand);white-space:nowrap}
+.cmp-tbl tbody tr:hover .cmp-idpill{background:#d0e8f9}
 .cmp-rname{font-size:13px;font-weight:500;color:var(--ink)}
 .cmp-rsub{margin-top:3px;font-size:12px;color:var(--dim)}
 .cmp-qbar{display:flex;height:5px;border-radius:9999px;overflow:hidden;background:var(--chip-n);min-width:150px}
@@ -1007,19 +1086,21 @@ body.v-reports{background:#fff}
 .cmp-empty{padding:34px 16px;text-align:center;color:var(--dim);font-size:13px}
 
 /* ── gaps ─────────────────────────────────────────────────── */
-.cmp-ghead{display:flex;align-items:center;gap:9px;padding:14px 16px 0}
 .cmp-ghead h3{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
 .cmp-ghead .n{margin-left:auto;display:inline-flex;align-items:center;height:20px;padding:0 8px;
   border-radius:9999px;background:var(--crit-soft);color:var(--crit);font-size:11px;font-weight:600}
-.cmp-gtabs{display:flex;gap:2px;padding:10px 12px 0;border-bottom:1px solid var(--line-tbl)}
+.cmp-gtabs{display:flex;gap:2px;padding:10px 16px 0;border-bottom:1px solid var(--line-tbl)}
 .cmp-gtab{border:0;background:none;padding:7px 10px 9px;font-size:13px;font-weight:500;color:var(--dim);
   border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .cmp-gtab:hover{color:var(--ink)}
 .cmp-gtab.on{color:var(--brand);border-bottom-color:var(--brand);font-weight:600}
-.cmp-gtab .c{font-variant-numeric:tabular-nums;color:var(--faint);margin-left:4px}
-.cmp-gtab.on .c{color:var(--brand)}
+/* The scope-tab count chip from BOM Inventory, verbatim: a 4px chip that goes
+   brand-tinted when its tab is active. */
+.cmp-gtab .c{display:inline-block;margin-left:6px;border-radius:4px;padding:1px 5px;font-size:12px;
+  font-weight:500;font-variant-numeric:tabular-nums;background:var(--line-tbl);color:var(--ink)}
+.cmp-gtab.on .c{background:var(--pill-id);color:var(--brand)}
 .cmp-sortlab{padding:9px 16px 2px;font-size:11px;color:var(--faint);letter-spacing:.03em}
-.cmp-glist{max-height:560px;overflow:auto;padding:4px 12px 12px}
+.cmp-glist{max-height:560px;overflow:auto;padding:4px 16px 14px}
 .cmp-gap{padding:11px 4px;border-bottom:1px solid var(--line-soft)}
 .cmp-gap:last-child{border-bottom:0}
 .cmp-grow{display:flex;align-items:flex-start;gap:10px}
@@ -1039,7 +1120,8 @@ body.v-reports{background:#fff}
 
 /* ── popovers ─────────────────────────────────────────────── */
 .cmp-pop{position:absolute;z-index:70;background:#fff;border:1px solid var(--line);border-radius:8px;
-  box-shadow:var(--sh-lg);padding:13px 15px;width:330px;text-align:left;font-size:12px;color:var(--ink);line-height:1.6}
+  box-shadow:var(--sh-lg);padding:13px 15px;width:330px;text-align:left;font-size:12px;color:var(--ink);
+  line-height:1.6;text-transform:none;letter-spacing:normal;white-space:normal;font-weight:400}
 .cmp-pop h4{margin:0 0 7px;font-size:12px;font-weight:600;color:var(--ink)}
 .cmp-pop .f{font-family:var(--mono);font-size:12px;background:var(--bg);border-radius:4px;padding:6px 8px;
   color:var(--ink);margin:2px 0 8px;line-height:1.5}
@@ -1047,7 +1129,8 @@ body.v-reports{background:#fff}
 .cmp-pop ul{margin:6px 0 0;padding-left:16px;color:var(--dim)}
 .cmp-pop li{margin:3px 0}
 .cmp-menu{position:absolute;right:0;top:calc(100% + 5px);z-index:70;background:#fff;border:1px solid var(--line);
-  border-radius:8px;box-shadow:var(--sh-lg);width:250px;padding:5px;text-align:left}
+  border-radius:8px;box-shadow:var(--sh-lg);width:250px;padding:5px;text-align:left;
+  text-transform:none;letter-spacing:normal;white-space:normal;font-weight:400;font-size:13px;color:var(--ink)}
 .cmp-menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 9px;
   border-radius:5px;font-size:13px;color:var(--ink)}
 .cmp-menu button:hover{background:var(--surf-hover)}
@@ -1057,6 +1140,70 @@ body.v-reports{background:#fff}
 .cmp-menu textarea{width:100%;min-height:70px;border:1px solid var(--line-input);border-radius:4px;
   padding:7px 8px;font:inherit;font-size:12px;color:var(--ink);resize:vertical}
 .cmp-menu .ferr{color:var(--crit);font-size:11px;margin-top:5px}
+/* ── resolve drawer ─────────────────────────────────────────
+   Five gaps on one rule are five different facts about the data, so this
+   decides a chosen subset at a time rather than forcing one verdict across
+   all of them. The leverage argument stays beside each gap, because "clears
+   36 checks across 6 frameworks" is the whole reason to pick one first. */
+.cmp-rs-sec{display:flex;align-items:center;gap:9px;margin:0 0 8px}
+.cmp-rs-sec .t{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.cmp-rs-sec .a{margin-left:auto;border:0;background:none;padding:0;font-size:12px;color:var(--brand)}
+.cmp-rs-sec .a:hover{text-decoration:underline}
+/* Capped at roughly five rows so the decision cards stay above the fold on the
+   longest rule the model allows (six checked fields). Past that the list
+   scrolls rather than pushing the thing you came here to do off-screen. */
+.cmp-rs-list{border:1px solid var(--line-tbl);border-radius:8px;overflow:auto;max-height:270px}
+.cmp-rs-row{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;padding:10px 12px;
+  border:0;border-bottom:1px solid var(--line-soft);background:#fff;cursor:pointer}
+.cmp-rs-row:last-child{border-bottom:0}
+.cmp-rs-row:hover{background:var(--row-hover)}
+.cmp-rs-row.on{background:var(--sel-blue)}
+.cmp-rs-row input[type=checkbox]{width:15px;height:15px;flex:none;margin:1px 0 0;
+  accent-color:var(--brand);cursor:pointer}
+.cmp-rs-row .n{font-size:13px;font-weight:500;color:var(--ink)}
+.cmp-rs-row .l{display:block;margin-top:3px;font-size:11px;color:var(--ok);line-height:1.5}
+.cmp-rs-row .b{margin-left:auto;flex:none;padding-left:8px}
+.cmp-rs-one{padding:11px 13px;border:1px solid var(--line-tbl);border-radius:8px}
+.cmp-rs-one b{display:block;font-size:14px;font-weight:600;color:var(--ink)}
+.cmp-rs-one i{display:block;margin-top:4px;font-size:12px;font-style:normal;color:var(--ok);line-height:1.5}
+/* Three outcomes, and they are genuinely different: supply it, ask someone
+   else to, or accept it. Naming the difference is the point of the card. */
+.cmp-rs-seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cmp-rs-opt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 11px;
+  border:1px solid var(--line-tbl);border-radius:8px;background:#fff;text-align:left}
+.cmp-rs-opt:hover{border-color:#cfd8e3}
+.cmp-rs-opt.on{border-color:var(--brand);background:var(--sel-blue)}
+.cmp-rs-opt .h{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink)}
+.cmp-rs-opt.on .h{color:var(--brand-ink)}
+.cmp-rs-opt .d{font-size:11px;color:var(--dim);line-height:1.45}
+.cmp-rs-f{margin-top:14px}
+.cmp-rs-f textarea{width:100%;min-height:88px;border:1px solid var(--line-input);border-radius:4px;
+  padding:9px 11px;font:inherit;font-size:13px;color:var(--ink);line-height:1.55;resize:vertical}
+.cmp-rs-f select,.cmp-rs-f input{width:100%;height:36px;border:1px solid var(--line-input);
+  border-radius:4px;padding:0 11px;font:inherit;font-size:13px;color:var(--ink);background:#fff}
+.cmp-rs-f textarea:focus,.cmp-rs-f select:focus,.cmp-rs-f input:focus{outline:none;border-color:var(--brand)}
+.cmp-rs-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cmp-rs-hint{margin-top:8px;font-size:12px;color:var(--dim);line-height:1.55}
+/* What the decision does to the score — which is not what people assume, so
+   it is stated where the decision is taken rather than discovered afterwards. */
+.cmp-rs-cons{margin-top:16px;padding:10px 12px;border-radius:8px;background:var(--bg);
+  font-size:12px;color:var(--ink);line-height:1.55}
+.cmp-rs-ci{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.cmp-rs-ci span{font-family:var(--mono);font-size:11px;color:var(--dim);background:var(--chip-n);
+  border-radius:3px;padding:2px 6px}
+.cmp-rs-req{color:var(--crit)}
+/* A rule with nothing open still has decisions on it, and they are quiet by
+   design — the row is done, not idle. */
+.cmp-lnk{border:0;background:none;padding:0;font-size:12px;color:var(--dim);text-decoration:underline;
+  text-decoration-color:var(--line);text-underline-offset:2px}
+.cmp-lnk:hover{color:var(--brand);text-decoration-color:currentColor}
+/* Who decided what, on the rule the decision was about. */
+.cmp-dec{padding:9px 0;border-bottom:1px solid var(--line-soft)}
+.cmp-dec:last-child{border-bottom:0}
+.cmp-dec-h{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink)}
+.cmp-dec-m{margin-top:4px;font-size:12px;color:var(--dim)}
+.cmp-dec-w{margin-top:6px;padding:8px 10px;background:var(--bg);border-radius:6px;font-size:12px;
+  color:var(--ink);line-height:1.5}
 .cmp-mfoot{display:flex;gap:7px;justify-content:flex-end;padding:8px 4px 3px}
 
 /* ── history banner ───────────────────────────────────────── */
@@ -1075,8 +1222,122 @@ body.v-reports{background:#fff}
 @keyframes cmpspin{to{transform:rotate(360deg)}}
 .cmp-caption{margin-top:5px;font-size:11px;color:var(--faint)}
 
-/* ── framework reference drawer ───────────────────────────────
-   Opened from a card's info button. Everything a reader needs to decide
+/* ── new-view drawer ──────────────────────────────────────────
+   Three collapsible sections. Only the first opens on arrival: a view is
+   defined by its frameworks, and CIs/products are the narrowing most people
+   never touch — opening all three at once turns a short decision into a long
+   form. */
+.cmp-vsec{border:1px solid var(--line-tbl);border-radius:8px;margin-bottom:12px;overflow:hidden}
+.cmp-vhead{display:flex;align-items:center;gap:9px;width:100%;border:0;background:none;
+  padding:11px 13px;text-align:left;transition:background-color .14s}
+.cmp-vhead:hover{background:var(--row-hover)}
+.cmp-vhead .t{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.cmp-vhead .c{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums}
+.cmp-vhead .cv{color:var(--dim);display:grid;place-items:center;transition:transform .18s}
+.cmp-vsec.open .cmp-vhead .cv{transform:rotate(180deg)}
+.cmp-vbody{display:none;padding:0 13px 13px;border-top:1px solid var(--line-soft)}
+.cmp-vsec.open .cmp-vbody{display:block}
+.cmp-vall{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--line-soft);
+  font-size:13px;font-weight:500;color:var(--ink);cursor:pointer}
+/* Framework tiles: thirteen of them, so a flat checkbox list would be a wall.
+   The flag and the name are what people recognise — lead with those. */
+.cmp-vgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:11px}
+.cmp-vt{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border:1px solid var(--line-tbl);
+  border-radius:8px;cursor:pointer;transition:border-color .14s,background-color .14s}
+.cmp-vt:hover{border-color:#cfd8e3}
+.cmp-vt.on{border-color:var(--brand);background:var(--sel-blue)}
+.cmp-vt-h{display:flex;align-items:center;gap:6px;min-width:0}
+.cmp-vt-h b{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-vt-m{display:block;margin-top:3px;font-size:11px;color:var(--faint);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-vlist{max-height:210px;overflow:auto;padding-top:4px}
+.cmp-vrow{display:flex;align-items:center;gap:9px;padding:7px 0;font-size:13px;color:var(--ink);cursor:pointer}
+.cmp-vrow:hover{color:var(--brand)}
+.cmp-vrow .id{font-family:var(--mono);font-size:12px;color:var(--ink);min-width:52px}
+.cmp-vrow .h{font-size:12px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp-vsec input[type=checkbox],.cmp-vall input[type=checkbox]{width:15px;height:15px;flex:none;
+  accent-color:var(--brand);cursor:pointer;margin:0}
+.cmp-vname{width:100%;height:36px;border:1px solid var(--line-input);border-radius:4px;padding:0 11px;
+  font:inherit;font-size:13px;color:var(--ink);background:#fff}
+.cmp-vname:focus{outline:none;border-color:var(--brand)}
+.cmp-vlab{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:7px}
+.cmp-verr{margin-top:7px;font-size:12px;color:var(--crit)}
+/* A saved view the user made carries its own delete; the shipped three do not. */
+.cmp-vadd{display:inline-flex;align-items:center;gap:5px;align-self:center;margin-left:4px;
+  border:0;background:none;padding:5px 9px;border-radius:4px;font-size:13px;font-weight:500;
+  color:var(--dim);white-space:nowrap;transition:background-color .14s,color .14s}
+.cmp-vadd:hover{background:var(--surf-hover);color:var(--brand)}
+.cmp-vdel{display:inline-grid;place-items:center;width:16px;height:16px;margin-left:2px;border-radius:9999px;
+  color:var(--faint);transition:color .14s,background-color .14s}
+.cmp-vdel:hover{color:var(--crit);background:var(--crit-soft)}
+/* A view you can create but not change is only half a view. The pencil rides on
+   the SELECTED tab alone — an edit control on every tab would read as thirteen
+   things to do rather than one. Overview is locked: it is the unnarrowed
+   baseline, and editing it would make "narrows nothing" untrue. */
+.cmp-vedit{display:inline-grid;place-items:center;width:16px;height:16px;margin-left:4px;border-radius:4px;
+  color:var(--faint);transition:color .14s,background-color .14s}
+.cmp-vedit:hover{color:var(--brand);background:var(--chip-n)}
+
+/* ── Compliance Reports 2 ─ the split layout ─────────────────
+   Same assessment, same engine, rearranged: the thirteen frameworks stack down
+   a rail instead of scrolling sideways, so all of them are visible at once and
+   the horizontal carousel's overflow problem disappears. The selected one opens
+   in full; the rest stay compact, which is what makes a 13-item rail readable. */
+.cmp2-split{display:grid;grid-template-columns:252px minmax(0,1fr);
+  border-top:1px solid var(--line-tbl)}
+.cmp2-rail{border-right:1px solid var(--line-tbl);padding:12px 12px 16px;background:#fff;
+  display:flex;flex-direction:column;gap:7.35px;min-width:0}
+.cmp2-main{border-top:0;min-width:0}
+@media (max-width:1080px){
+  .cmp2-split{grid-template-columns:minmax(0,1fr)}
+  .cmp2-rail{border-right:0;border-bottom:1px solid var(--line-tbl)}
+}
+/* The info control is a SIBLING of the tab, never a child: a focusable control
+   inside role="tab" breaks the tabs keyboard model, and a <button> in a <button>
+   is invalid markup browsers resolve by dropping one. */
+.cmp2-fwrap{position:relative}
+.cmp2-fw{position:relative;display:flex;flex-direction:column;justify-content:center;
+  width:100%;min-height:46px;text-align:left;padding:8px 32px 8px 11px;
+  border:1px solid var(--line-tbl);border-radius:8px;background:#fff;
+  transition:border-color .14s,background-color .14s}
+.cmp2-fw:hover{border-color:#cfd8e3}
+.cmp2-fw:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.cmp2-fw[aria-selected="true"]{border:1.25px solid var(--brand);background:var(--sel-blue);
+  min-height:0;justify-content:flex-start;padding:10.75px 31.75px 11.75px 12.75px}
+.cmp2-fw.nodata{background:var(--bg)}
+.cmp2-fw.nodata[aria-selected="true"]{background:var(--sel-blue)}
+.cmp2-h{display:flex;align-items:center;gap:7px;min-width:0}
+.cmp2-h b{flex:1;min-width:0;font-size:13px;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp2-fw.nodata .cmp2-h b{color:var(--dim);font-weight:500}
+.cmp2-pct{flex:none;font-size:13px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.cmp2-fw[aria-selected="true"] .cmp2-pct{font-size:18px}
+.cmp2-pct .u{font-size:10px;font-weight:600}
+.cmp2-sub{margin:4px 0 0;font-size:11px;color:var(--faint);line-height:1.45;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The bar is the compact card's whole readout, so it stays on both states —
+   only the numeral and the supporting lines change. */
+.cmp2-row{display:flex;align-items:center;gap:9px;margin-top:7px}
+.cmp2-bar{flex:1;min-width:40px;height:4px;border-radius:9999px;background:var(--chip-n);overflow:hidden}
+.cmp2-bar i{display:block;height:100%;border-radius:9999px;background:var(--warn-dot)}
+.cmp2-bar i.good{background:var(--ok-dot)}
+.cmp2-bar i.bad{background:var(--crit-dot)}
+.cmp2-bar.none i{background:var(--line)}
+.cmp2-foot{margin-top:8px;padding-top:8px;border-top:1px solid var(--line-soft);
+  font-size:11px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmp2-foot.warnish{color:var(--dim)}
+.cmp2-i{position:absolute;top:7px;right:7px;display:grid;place-items:center;width:20px;height:20px;
+  border:0;background:none;border-radius:4px;color:var(--faint);opacity:0;transition:opacity .14s,color .14s}
+.cmp2-fwrap:hover .cmp2-i,.cmp2-i:focus-visible,
+.cmp2-fw[aria-selected="true"] ~ .cmp2-i{opacity:1}
+.cmp2-i:hover{color:var(--brand);background:var(--chip-n)}
+/* The rail carries the count the carousel used to state in its arrows. */
+.cmp2-rlab{display:flex;align-items:center;gap:8px;padding:0 2px 4px;
+  font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.cmp2-rlab .n{margin-left:auto;font-weight:500;letter-spacing:0;text-transform:none;color:var(--faint)}
+
+/* ── framework reference drawer ─────────────────────────────── Everything a reader needs to decide
    whether a score is worth acting on, in the order they need it: what the
    framework is, why it binds, what it demands, and the citation. */
 .cmp-sec{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
@@ -1350,7 +1611,7 @@ body.v-reports{background:#fff}
          not exist when the script first runs, and dereferencing one killed this
          page's entire script once already (see the licQ note below). -->
     <div id="cmpBanner"></div>
-    <section class="panel cmp-panel">
+    <section class="cmp-shell">
       <div class="tabs" id="cmpViews" role="tablist" aria-label="Saved views"></div>
       <div class="cmp-car">
         <button class="cmp-arrow prev" data-cmpscroll="-1" aria-label="Previous frameworks">
@@ -1362,13 +1623,56 @@ body.v-reports{background:#fff}
         </button>
       </div>
       <div class="cmp-scope" id="cmpScope"></div>
+
+      <!-- Everything below the seam is what the cards above control, so it is ONE
+           tabpanel: the detail band, the rules table and the gaps list all change
+           together when the selection changes, and announcing three regions for
+           one selection would be a lie about how the screen works. -->
+      <div class="cmp-tabpanel" id="cmpPanel" role="tabpanel" tabindex="0">
+        <div class="cmp-detail" id="cmpDetail"></div>
+        <div id="cmpRules"></div>
+      </div>
     </section>
-    <section class="card cmp-detail" id="cmpDetail" role="tabpanel" tabindex="0"></section>
-    <div class="cmp-grid">
-      <section class="panel" id="cmpRules"></section>
-      <section class="card" id="cmpGaps"></section>
-    </div>
    </div><!-- /viewReports -->
+
+   <!-- Compliance Reports 2 — the same assessment, the same engine, a different
+        arrangement. Frameworks stack down a rail instead of scrolling sideways,
+        so all thirteen are visible at once; the selected one opens in full and
+        the rest stay compact. Everything inside is painted by renderReports2(),
+        which calls the SAME painters as screen one with a "cmp2" id prefix —
+        two layouts over one implementation, so they cannot drift. -->
+   <div id="viewReports2" hidden>
+    <div class="crumb">
+      <a href="#" data-nav="inventory">BOM</a><span>&rsaquo;</span><span>Compliance Reports 2</span>
+    </div>
+
+    <div class="head">
+      <div>
+        <h1>Compliance Reports 2</h1>
+        <div class="sub">Every framework in one column. Pick one to open it in full and read its stats and rules beside it.</div>
+      </div>
+      <div class="head-actions" id="cmp2Actions"></div>
+    </div>
+
+    <div id="cmp2Banner"></div>
+    <section class="cmp-shell">
+      <div class="tabs" id="cmp2Views" role="tablist" aria-label="Saved views"></div>
+      <!-- No scope line here. On this layout the rail already shows every
+           framework and its score, and the band states the CI count, so the
+           strip was restating what is on screen either side of it. Screen one
+           keeps it: its carousel shows only the cards that fit. -->
+      <div class="cmp2-split">
+        <div class="cmp2-rail" id="cmp2Cards" role="tablist" aria-orientation="vertical"
+             aria-label="Compliance frameworks"></div>
+        <!-- One tabpanel, as on screen one: the stats band and the rules table
+             change together when the rail selection changes. -->
+        <div class="cmp-tabpanel cmp2-main" id="cmp2Panel" role="tabpanel" tabindex="0">
+          <div class="cmp-detail" id="cmp2Detail"></div>
+          <div id="cmp2Rules"></div>
+        </div>
+      </div>
+    </section>
+   </div><!-- /viewReports2 -->
   </main>
 </div>
 
@@ -4320,7 +4624,28 @@ const CMP_BOM_DATA = {
   "CI-4":["SBOM","CBOM"], "CI-5":["SBOM"],  "CI-6":["SBOM"]
 };
 const CMP_BOMS = ["SBOM","CBOM","AI BOM"];
-const cmpCis     = () => ENROLLED_CIS.map(c=>c.id);
+/** Every enrolled CI, regardless of the view — what the view drawer offers. */
+const cmpAllCis  = () => ENROLLED_CIS.map(c=>c.id);
+/* The scope the SCREEN is reading. A saved view narrows it, and because every
+   count on the page derives from this one function, the whole screen follows the
+   view rather than the view being a label over unchanged numbers. Products narrow
+   by the CIs that run them: BOM data here is per-CI, so claiming a per-product
+   score would be a number the engine cannot actually produce. */
+function cmpCis(){
+  const v = cmpViewDef();
+  let ids = cmpAllCis();
+  if(v.cis) ids = ids.filter(id => v.cis.indexOf(id) >= 0);
+  if(v.products){
+    const hosts = CMP_PRODUCTS.filter(p => v.products.indexOf(p.id) >= 0).map(p => p.ci);
+    ids = ids.filter(id => hosts.indexOf(id) >= 0);
+  }
+  return ids;
+}
+/** Products inside the current scope — the denominator on the scope line. */
+const cmpScopeProducts = () => {
+  const v = cmpViewDef(), cis = cmpCis();
+  return CMP_PRODUCTS.filter(p => cis.indexOf(p.ci) >= 0 && (!v.products || v.products.indexOf(p.id) >= 0));
+};
 const cmpHasBom  = (ci,b) => (CMP_BOM_DATA[ci]||[]).indexOf(b) >= 0;
 const cmpCisWith = b => cmpCis().filter(ci=>cmpHasBom(ci,b));
 
@@ -4573,14 +4898,43 @@ let CMP_ACTIONS = [
   {field:"vuln",    kind:"waived",   actor:null,          at:"18 Jun 2026, 09:40 IST",
    why:"Vendor appliance \u2014 CVE mapping is supplied out of band under the support contract. Accepted by the risk committee for the 2026 audit cycle."}
 ];
-const cmpActionFor = fid => CMP_ACTIONS.find(a=>a.field===fid);
+/* A revoked decision stays in the register — an auditor needs to see that a
+   waiver was withdrawn, and on what date — but it stops resolving the gap, so
+   the gap reopens and the work reappears. */
+const cmpActionFor = fid => CMP_ACTIONS.find(a=>a.field===fid && !a.revoked);
+
+/* Who a change can be raised against. TODO(api): GET /users?role=technician. */
+const CMP_PEOPLE = ["Priya Menon", "Vikram Shah", "Arjun Nair", "Meera Iyer", "Rahul Desai"];
 
 /* ── saved views ──────────────────────────────────────────────────────
    A saved view is a framework set crossed with a scope. */
-const CMP_VIEWS = [
-  {id:"overview", lab:"Overview",             fws:null,                              scope:"All CIs \u00b7 all products"},
-  {id:"crypto",   lab:"Crypto \u00b7 Applications", fws:["cnsa","pci","rbi"],        scope:"Cryptographic frameworks \u00b7 applications"},
-  {id:"ai",       lab:"AI \u00b7 Payments Web",     fws:["euai","nistai","iso42001"], scope:"AI frameworks \u00b7 Payments Web"}
+/* Products, as the CI record declares them — one host runs several, and a BOM is
+   scoped to a product rather than to the machine. The screen used to state "10
+   products in scope" as a literal, which was the last undreived number on it. */
+const CMP_PRODUCTS = [
+  {id:"pr-core",   name:"Core Banking",      ci:"CI-1"},
+  {id:"pr-treas",  name:"Treasury",          ci:"CI-1"},
+  {id:"pr-ib",     name:"Internet Banking",  ci:"CI-2"},
+  {id:"pr-report", name:"Reporting Service", ci:"CI-2"},
+  {id:"pr-upi",    name:"UPI Switch",        ci:"CI-3"},
+  {id:"pr-card",   name:"Card Management",   ci:"CI-3"},
+  {id:"pr-pay",    name:"Payments Web",      ci:"CI-4"},
+  {id:"pr-os",     name:"OS / base platform",ci:"CI-4"},
+  {id:"pr-loan",   name:"Loan Origination",  ci:"CI-5"},
+  {id:"pr-aiops",  name:"AIOps Collector",   ci:"CI-6"}
+];
+const cmpHostOf = ci => (ciOf(ci) || {}).host || ci;
+
+/* A view is a framework set × a CI set × a product set. `null` on any of the three
+   means "everything", which is what makes Overview narrow nothing. */
+/* One tab ships. Two sample views used to come with it, which quietly framed
+   views as something the product decides for you — they are the opposite: the
+   whole point is that an admin cuts the estate the way their own audit does.
+   Overview is the unnarrowed baseline and cannot be deleted; everything else is
+   made here. */
+let CMP_VIEWS = [
+  {id:"overview", lab:"Overview", fws:null, cis:null, products:null, locked:true,
+   scope:"All CIs \u00b7 all products"}
 ];
 
 /* ── the engine ───────────────────────────────────────────────────────
@@ -4672,16 +5026,21 @@ let CMP_SEV     = null;      // severity narrowing, set by the "N in critical ru
 let CMP_Q       = "";
 let CMP_SORT    = {k:"sev", dir:"desc"};
 let CMP_POP     = null;      // score | export | pdf | history | lev:<field>
-let CMP_MENU    = null;      // gap id whose resolve menu is open
-let CMP_WAIVE   = null;      // gap id being waived (justification is mandatory)
-let CMP_WERR    = false;
-let CMP_GTAB    = "open";
+/* The resolve drawer's draft. null = shut. Held as a draft so backing out
+   changes nothing, and so a re-render never loses what has been typed. */
+let CMP_RES     = null;
+let CMP_RFOCUS  = null;      // element to restore focus to after a re-render
 let CMP_RUN     = 0;         // re-assess progress, 0 = idle
 let CMP_RULE    = null;      // rule drawer
 let CMP_INFO    = null;      // framework id whose reference drawer is open
 /* The strip's scroll offset, kept across re-renders: renderReports() rewrites
    innerHTML, which would otherwise snap the row back to the first card on every
    click. */
+/* The view being composed. null = the drawer is shut. Held as a draft so backing
+   out changes nothing, per the design system's rule for stacked drawers. */
+let CMP_VDRAFT  = null;
+let CMP_VOPEN   = "fw";      // which section is expanded; the frameworks one, on arrival
+let CMP_VERR    = false;
 let CMP_SCROLL  = 0;
 let CMP_LAST_SEL = null;     // the selection the LAST render painted
 let CMP_SWAP     = false;    // did it change this render? read by the strip and the panel
@@ -4732,15 +5091,25 @@ function cmpTone(pct){
   return {col:"var(--warn)", cls:""};
 }
 
+const IC_PLUS = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M8 3.2v9.6M3.2 8h9.6"/></svg>`;
 const IC_INFO = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.3v3.9M8 5.1h.01"/></svg>`;
 const IC_DOC  = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.2 1.8H4.4a1.2 1.2 0 00-1.2 1.2v10a1.2 1.2 0 001.2 1.2h7.2a1.2 1.2 0 001.2-1.2V5.6z"/><path d="M9.2 1.8v3.8h3.6"/></svg>`;
 const IC_DL   = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v7.6M5 7l3 3 3-3M2.8 12.6h10.4"/></svg>`;
 const IC_REDO = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13.4 6.6A5.6 5.6 0 102.9 9.6"/><path d="M13.6 2.6v4h-4"/></svg>`;
 const IC_ARR  = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 3.5L10.5 8 6 12.5"/></svg>`;
 const IC_CHEV = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 6.5L8 10.5l4-4"/></svg>`;
+const IC_MAG  = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.6"/><path d="M10.4 10.4L14 14"/></svg>`;
+const IC_XSM  = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8"/></svg>`;
+const IC_PENCIL = `<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11.1 2.4l2.5 2.5-8 8-3.2.7.7-3.2z"/></svg>`;
 
 /* ═══ render ═══════════════════════════════════════════════════════════*/
-function renderReports(){
+/* TWO screens, ONE painter. Reports 2 is the same assessment in a different
+   arrangement — a vertical rail instead of a horizontal carousel — so the only
+   thing that differs is which framework component gets called. Every handler
+   calls renderReports(), and the route decides which layout it lands on, which
+   is what keeps the two from drifting the first time either is edited. */
+function renderReports(){ cmpPaint(VIEW === "reports2" ? "cmp2" : "cmp"); }
+function cmpPaint(P){
   const A    = cmpAssess(cmpSnap());
   const hist = cmpHistoric();
   const vd   = cmpViewDef();
@@ -4751,18 +5120,26 @@ function renderReports(){
      card into view and the panel uses it to crossfade, and they must agree. */
   CMP_SWAP = CMP_LAST_SEL !== (sel ? sel.id : null);
 
-  cmpHeadActions(A, hist);
-  cmpBanner(hist);
-  cmpViewTabs();
-  cmpCards(shown);
-  cmpScopeLine(A, shown);
-  cmpDetail(A, sel, hist);
-  cmpRulesPanel(sel);
-  cmpGapsPanel(A, sel, hist);
+  cmpHeadActions(A, hist, P);
+  cmpBanner(hist, P);
+  cmpViewTabs(P);
+  if(P === "cmp2") cmpRail(shown, P); else cmpCards(shown);
+  cmpScopeLine(A, shown, P);
+  cmpDetail(A, sel, hist, P);
+  cmpRulesPanel(A, sel, P);
   /* One host holds one drawer. The reference drawer is checked first and returns
-     whether it painted, so the two can never both write to #cmpHost. */
-  if(!cmpInfoDrawer(A)) cmpRuleDrawer(sel);
+     whether it painted, so the two can never both write to #cmpHost. The resolve
+     drawer is the one exception: it APPENDS, so it can stack over the rule drawer
+     it was opened from rather than replacing the context you were reading. */
+  if(!cmpViewDrawer() && !cmpInfoDrawer(A)) cmpRuleDrawer(sel, A);
+  cmpResolveDrawer(A);
   cmpWire();
+  /* A checkbox that repaints itself would otherwise drop focus mid-keyboard-pass. */
+  if(CMP_RFOCUS){
+    const el = document.getElementById(CMP_RFOCUS);
+    CMP_RFOCUS = null;
+    if(el && el.focus) try { el.focus(); } catch(e){}
+  }
   CMP_LAST_SEL = sel ? sel.id : null;
 }
 
@@ -4771,7 +5148,8 @@ function renderReports(){
    be guessable only from the labels, so each now states what it contains —
    and both are frozen against whichever assessment is on screen, which is
    the only way an export can be evidence rather than a snapshot of "now". */
-function cmpHeadActions(A, hist){
+function cmpHeadActions(A, hist, P){
+  P = P || "cmp";
   const pop = CMP_POP === "export" ? `
     <span class="cmp-pop" style="right:0;top:calc(100% + 6px);width:340px">
       <h4>Export bundle</h4>
@@ -4781,13 +5159,17 @@ function cmpHeadActions(A, hist){
         <li>Rule results per CI, including not-assessed</li>
         <li>The open gap list with cross-framework leverage</li>
         <li>The waiver &amp; resolution register, with actor and timestamp</li>
+        <li>The framework description and the gap mechanic <b>in full</b> — an evidence
+            document does not inherit the shorthand a screen can afford</li>
       </ul>
+      <div class="cmp-mfoot"><button class="btn sm pri" data-cmpexport="bundle">Download bundle</button></div>
     </span>` : CMP_POP === "pdf" ? `
     <span class="cmp-pop" style="right:0;top:calc(100% + 6px);width:320px">
       <h4>Generate PDF</h4>
-      <div class="m">A human-readable summary of the same assessment \u2014 scores, failing rules and open gaps, formatted to hand to a regulator. Waived items appear on the cover sheet.</div>
+      <div class="m">A human-readable summary of the same assessment — scores, failing rules and open gaps, formatted to hand to a regulator. Waived items appear on the cover sheet, and the framework description and gap mechanic are written out in full.</div>
+      <div class="cmp-mfoot"><button class="btn sm" data-cmpexport="pdf">Generate</button></div>
     </span>` : "";
-  document.getElementById("cmpActions").innerHTML = `
+  document.getElementById(P + "Actions").innerHTML = `
     <span style="position:relative">
       <button class="btn" data-cmppop="pdf">${IC_DOC} Generate PDF</button>
       ${CMP_POP === "pdf" ? pop : ""}
@@ -4801,8 +5183,8 @@ function cmpHeadActions(A, hist){
 
 /* Read-only means read-only end to end: the banner says so and every action
    that would write is withheld, not merely disabled-looking. */
-function cmpBanner(hist){
-  const h = document.getElementById("cmpBanner");
+function cmpBanner(hist, P){
+  const h = document.getElementById((P || "cmp") + "Banner");
   if(!hist){ h.innerHTML = ""; return; }
   const a = cmpSnap();
   h.innerHTML = `<div class="cmp-banner">
@@ -4814,14 +5196,30 @@ function cmpBanner(hist){
 /* The same .tab component the Inventory type-switch and the Licensing enrolment
    tabs use, including the count badge — a saved view IS a framework set, so the
    badge says how many the tab covers. */
-function cmpViewTabs(){
-  document.getElementById("cmpViews").innerHTML =
+function cmpViewTabs(P){
+  P = P || "cmp";
+  document.getElementById(P + "Views").innerHTML =
     CMP_VIEWS.map(v=>{
       const n = v.fws ? v.fws.length : CMP_FW.length;
-      return `<button class="tab" role="tab" aria-selected="${v.id===CMP_VIEW}" data-cmpview="${v.id}"
-        ${v.id===CMP_VIEW?"":'tabindex="-1"'}>${esc(v.lab)} <span class="n">${n}</span></button>`;
+      /* A view you can create but never remove is a trap, so the ones the user made
+         carry their own delete. The three that ship do not. */
+      const cur = v.id === CMP_VIEW;
+      /* The pencil rides on the SELECTED tab only. A view is a set of choices,
+         and the drawer that made them is the right place to change them — so
+         editing reopens that drawer with those choices already in it. Overview
+         is locked: it is the unnarrowed baseline, and an editable Overview would
+         make "narrows nothing" a claim rather than a fact. */
+      return `<button class="tab" role="tab" aria-selected="${cur}" data-cmpview="${v.id}"
+        ${cur?"":'tabindex="-1"'}>${esc(v.lab)} <span class="n">${n}</span>${
+        v.locked ? "" : `${cur ? `<span class="cmp-vedit" role="button" tabindex="0" data-cmpeditview="${v.id}"
+          aria-label="Edit the ${esc(v.lab)} view" title="Edit this view">${IC_PENCIL}</span>` : ""}<span class="cmp-vdel" role="button" tabindex="0" data-cmpdelview="${v.id}"
+          aria-label="Delete the ${esc(v.lab)} view" title="Delete this view">${IC_X}</span>`}</button>`;
     }).join("") +
-    `<div class="right"><button class="kcta" data-cmpnewview="1" style="margin:0">+ View</button></div>`;
+    /* Beside the last tab, not pushed to the far edge: a new tab appears where
+       the button is, so the button belongs where the tabs end — the same place
+       every browser puts it. Labelled rather than a bare "+", because on an
+       admin screen the glyph alone does not say what gets created. */
+    `<button class="cmp-vadd" data-cmpnewview="1" title="Create a compliance view">${IC_PLUS} View</button>`;
 }
 
 /* ── framework cards ──────────────────────────────────────────────────
@@ -4845,7 +5243,7 @@ function cmpCards(shown){
        is marked up as one, and inherits its keyboard model for free. */
     const tab = (inner, extra) => `<div class="cmp-cw">
       <div class="cmp-card${extra}" id="cmpfw-${f.id}" data-cmpfw="${f.id}"
-        role="tab" aria-selected="${on}" aria-controls="cmpDetail" tabindex="${on?0:-1}"
+        role="tab" aria-selected="${on}" aria-controls="cmpPanel" tabindex="${on?0:-1}"
         aria-label="${esc(f.name)} \u2014 ${esc(f.sub)}">${inner}</div>${info}</div>`;
 
     if(f.insufficient){
@@ -4870,6 +5268,52 @@ function cmpCards(shown){
         partial ? ` \u00b7 partial, ${f.covered}/${f.ciTotal} CIs` : ""}</div>`, "");
   }).join("");
   cmpCarousel();
+}
+
+/* ── vertical framework rail (Reports 2) ────────────────────────
+   The carousel's problem is that thirteen cards do not fit, so most of them are
+   somewhere off-screen and the arrows exist to admit it. Stacked, they all fit —
+   but only if the twelve you are not reading stay small. Hence one full card and
+   twelve compact ones: the same tabs pattern, sized by relevance. */
+function cmpRail(shown, P){
+  P = P || "cmp2";
+  const rail = document.getElementById(P + "Cards");
+  rail.innerHTML = `<div class="cmp2-rlab">Frameworks<span class="n">${shown.length}</span></div>` +
+    shown.map(f=>{
+      const on = f.id === CMP_SEL;
+      const tone = cmpTone(f.insufficient ? null : f.score);
+      const info = `<button class="cmp2-i" data-cmpinfo="${f.id}"
+        aria-label="About ${esc(f.name)}" title="What this framework is, why it matters, what it demands">${IC_INFO}</button>`;
+      const bar = f.insufficient
+        ? `<span class="cmp2-bar none"><i style="width:100%"></i></span>`
+        : `<span class="cmp2-bar"><i class="${tone.cls}" style="width:${f.score}%"></i></span>`;
+      const pct = f.insufficient
+        ? `<span class="cmp2-pct" style="color:var(--faint)">&mdash;</span>`
+        : `<span class="cmp2-pct" style="color:${tone.col}">${f.score}<span class="u">%</span></span>`;
+      /* Compact: name, flag, score, bar — enough to compare thirteen at a glance.
+         Full: what the framework is and what it reads from, because that is the
+         one you are about to act on. */
+      const body = on ? `
+        <div class="cmp2-h">${cmpFlag(f.flag)}<b title="${esc(f.name)}">${esc(f.name)}</b></div>
+        <div class="cmp2-sub">${esc(f.sub)}</div>
+        <div class="cmp2-row">${pct}${bar}</div>
+        <div class="cmp2-foot${f.insufficient ? " warnish" : ""}">${f.insufficient
+          ? `No ${esc(f.missingBoms.join(" or "))} data yet`
+          : esc(f.boms.join(" \u00b7 ")) + (f.covered < f.ciTotal ? ` \u00b7 ${f.covered}/${f.ciTotal} CIs` : "")}</div>` : `
+        <div class="cmp2-h">${cmpFlag(f.flag)}<b title="${esc(f.name)}">${esc(f.name)}</b>${pct}</div>`;
+      return `<div class="cmp2-fwrap">
+        <div class="cmp2-fw${f.insufficient ? " nodata" : ""}" id="${P}fw-${f.id}" data-cmpfw="${f.id}"
+          role="tab" aria-selected="${on}" aria-controls="${P}Panel" tabindex="${on?0:-1}"
+          aria-label="${esc(f.name)} \u2014 ${esc(f.sub)}">${body}</div>${info}</div>`;
+    }).join("");
+  /* Selection can change from a tab, an arrow key or a saved view, so the rail
+     follows it here rather than in each of those callers. */
+  if(CMP_SWAP){
+    const el = document.getElementById(P + "fw-" + CMP_SEL);
+    if(el && el.scrollIntoView){
+      try { el.scrollIntoView({block:"nearest", behavior:cmpMotion()}); } catch(e){}
+    }
+  }
 }
 
 /* ── carousel ─────────────────────────────────────────────────────────
@@ -4898,7 +5342,7 @@ function cmpCarousel(){
 
   const step = () => {
     const card = strip.querySelector(".cmp-cw");
-    const w = card ? card.getBoundingClientRect().width : 296;
+    const w = card ? card.getBoundingClientRect().width : 222;
     return Math.round((w + 12) * 2.5);          // ~2-3 cards a click
   };
   const go = (dir) => strip.scrollBy({left: dir * step(), behavior: cmpMotion()});
@@ -4920,9 +5364,11 @@ const cmpMotion = () =>
   (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) ? "auto" : "smooth";
 
 /* Percent and coverage are never the same sentence. */
-function cmpScopeLine(A, shown){
-  const prods = 10;
-  document.getElementById("cmpScope").innerHTML = `
+function cmpScopeLine(A, shown, P){
+  /* Reports 2 does not draw one — see the note in its markup. */
+  if(!document.getElementById((P || "cmp") + "Scope")) return;
+  const prods = cmpScopeProducts().length;
+  document.getElementById((P || "cmp") + "Scope").innerHTML = `
     <span>${esc(cmpViewDef().scope)}</span>
     <span class="sep" style="color:var(--line)">\u00b7</span>
     <span>Overall <b>${A.aggregate === null ? "\u2014" : A.aggregate + "%"}</b> across ${A.scoredFws} frameworks with data${
@@ -4931,47 +5377,83 @@ function cmpScopeLine(A, shown){
 }
 
 /* ── detail panel ─────────────────────────────────────────────────────*/
-function cmpDetail(A, f, hist){
-  if(!f){ document.getElementById("cmpDetail").innerHTML = ""; return; }
-  /* A 180° arc of radius 50 — its length is πr, and the fill is that length
+/* The sentence the mechanic is explained by, in one place. It is demoted to a
+   popover in the UI but written out in full in every export \u2014 an evidence
+   document does not inherit the shorthand a screen can afford. */
+const CMP_MECHANIC = "Fixing a gap clears it in every framework that asks for the same field.";
+
+/* How many of THIS framework's failing checks the open gaps would actually
+   clear. Never assume "all": a field that has been waived or ticketed still
+   fails its checks but is no longer an open gap, so coverage is genuinely
+   partial and the sub-line has to say which. */
+function cmpGapCoverage(A, f){
+  const own = A.gaps.filter(g=>g.rules.some(x=>x.fw.id === f.id) && !g.action);
+  const covered = own.reduce((n,g)=>
+    n + g.rules.filter(x=>x.fw.id === f.id).length * g.missing.length, 0);
+  return {gaps:own, covered:Math.min(covered, f.fail)};
+}
+
+/* What an export contains. Built here rather than inside a button handler so the
+   same document backs the bundle, the PDF and the tests. */
+function cmpExportDoc(A, f){
+  const cov = cmpGapCoverage(A, f);
+  return {
+    generated: A.at, framework: f.name, region: f.sub, policyPack: A.pack,
+    /* Demoted to a popover on screen; written out here in full. */
+    description: f.desc,
+    gapMechanic: CMP_MECHANIC,
+    reassessNote: "Re-assessment takes ~40 seconds and creates a new assessment \u2014 previous assessments are kept.",
+    score: f.insufficient ? null : f.score,
+    scoreDecomposition: f.insufficient
+      ? "Not scored: " + f.missingBoms.join(" and ") + " is not being generated for any CI in scope."
+      : `${f.score}% = ${f.pass} of ${f.scored} checks passing, every check weighted equally.`
+        + (f.na ? ` ${f.na} checks not assessed and excluded from both sides.` : ""),
+    cisInScope: f.ciTotal, cisCompliant: f.cisClean, cisNonCompliant: f.cisFailing,
+    failingChecks: f.fail, failingInCriticalRules: f.critFail,
+    ruleResults: f.rules.map(r=>({
+      control:r.id, rule:r.name, severity:r.sev, checksPerCi:r.fields.length,
+      perCi: r.perCi.map(x=>({ci:x.ci, result:x.s, missingFields:(x.missing||[]).map(m=>cmpField(m).lab)}))
+    })),
+    gaps: cov.gaps.map(g=>({
+      field:g.field.lab, bom:g.field.bom, missingOn:g.missing.length,
+      clearsChecks:g.checks, acrossFrameworks:g.fws.length
+    })),
+    gapCoverage: f.fail === 0 ? "No failing checks."
+      : cov.gaps.length === 0 ? `No mapped gaps for ${f.fail} failing checks.`
+      : cov.covered >= f.fail ? `Resolving ${cov.gaps.length} gaps clears all ${f.fail} failing checks.`
+      : `Resolving ${cov.gaps.length} gaps clears ${cov.covered} of ${f.fail} failing checks.`,
+    waiverRegister: CMP_ACTIONS.map(a=>({
+      field:(cmpField(a.field)||{}).lab || a.field, action:a.kind,
+      actor: a.actor || `not recorded \u2014 attribution captured from ${CMP_ATTRIB_FROM}`,
+      at:a.at, justification:a.why || a.note || null, ticket:a.ticket || null,
+      /* A withdrawn waiver is evidence too — the register carries it with the
+         date it stopped applying rather than losing it. */
+      revoked: a.revoked ? {by:a.revoked.actor, at:a.revoked.at} : null,
+      requester:a.requester || null, window: a.start ? `${a.start} to ${a.end}` : null
+    }))
+  };
+}
+
+function cmpDetail(A, f, hist, P){
+  P = P || "cmp";
+  if(!f){ document.getElementById(P + "Detail").innerHTML = ""; return; }
+  /* A 180\u00b0 arc of radius 50 \u2014 its length is \u03c0r, and the fill is that length
      scaled by the percentage. */
   const ARC = Math.PI * 50;
   const pctFor = f.insufficient ? 0 : f.score;
-  /* Same scale as the cards — the donut used to redden at <50 while the card
-     beside it reddened at <40, so one framework could be two colours at once. */
   const col = f.insufficient ? "var(--line)"
     : {good:"var(--ok-dot)", bad:"var(--crit-dot)", "":"var(--warn-dot)"}[cmpTone(f.score).cls];
+  const cov = cmpGapCoverage(A, f);
+  const nGaps = cov.gaps.length;
 
-  /* The gaps that would actually move THIS framework — the far end of the
-     bridge line, and the reason 131 stops being a wall. */
-  const own = A.gaps.filter(g=>g.rules.some(x=>x.fw.id === f.id) && !g.action);
-  /* The band is the panel's summary, and two of its three numbers have a view
-     behind them — so those two are the way in. "Failing checks" has no view of
-     its own, so it stays plain rather than being a link that goes nowhere. */
-  const hint = f.insufficient
-    ? `<div class="cmp-bridge flat">
-        <div class="cmp-bline"><span class="cmp-bnoun">Nothing to score — ${esc(f.missingBoms.join(" and "))} is not being generated for any CI in scope.</span></div>
-        <div class="cmp-bwhy"><button class="cmp-link" data-cmpgen="1">How to generate or ingest it</button></div></div>`
-    : f.fail === 0
-      ? `<div class="cmp-bridge clean">
-          <div class="cmp-bline"><span class="cmp-bnum">All checks passing</span>
-            <span class="cmp-bnoun">across ${f.rules.length} rule${f.rules.length===1?"":"s"} and ${f.ciTotal} CIs</span></div></div>`
-      : `<div class="cmp-bridge">
-          <div class="cmp-bline">
-            <span class="cmp-bnum">${f.fail}</span><span class="cmp-bnoun">failing checks</span>
-            <span class="ar">&rarr;</span>
-            <button class="cmp-bjump" data-cmpjump="rules" title="Show the failing rules">
-              <span class="cmp-bnum">${f.rulesFailing}</span><span class="cmp-bnoun">rule${f.rulesFailing===1?"":"s"}</span></button>
-            <span class="ar">&rarr;</span>
-            <span class="cmp-bnoun">resolvable via</span>
-            <button class="cmp-bjump" data-cmpjump="gaps" title="Jump to the open gaps">
-              <span class="cmp-bnum">${own.length}</span><span class="cmp-bnoun">gap${own.length===1?"":"s"}</span></button>
-          </div>
-          <div class="cmp-bwhy">Fixing a gap clears it in every framework that asks for the same field.</div>
-        </div>`;
+  /* One popover component, so all four behave identically and only one can be
+     open at a time. */
+  const pop = (key, body, style) => CMP_POP === key
+    ? `<span class="cmp-pop" role="dialog" style="${style||"left:0;top:calc(100% + 6px)"}">${body}</span>` : "";
+  const ib = (key, label) =>
+    `<button class="cmp-ib" data-cmppop="${key}" aria-expanded="${CMP_POP===key}" aria-label="${esc(label)}">${IC_INFO}</button>`;
 
-  const scorePop = CMP_POP === "score" ? `
-    <span class="cmp-pop" style="left:0;top:calc(100% + 6px)">
+  const scorePop = pop("score", `
       <h4>How this score is calculated</h4>
       <div class="f">${f.score}% = ${f.pass} of ${f.scored} checks passing</div>
       <div class="m">Every check counts once \u2014 there is no severity weighting in the score. Severity orders the work; it does not change the number.</div>
@@ -4980,48 +5462,76 @@ function cmpDetail(A, f, hist){
         <li>Checks roll up into <b>rules</b>: a rule passes for a CI only when all of its checks do.</li>
         <li>A rule evaluates <b>per CI</b>, so ${f.rules.length} rules \u00d7 ${f.ciTotal} CIs is the grid behind the bars.</li>
         ${f.na ? `<li><b>${f.na}</b> checks are not assessed and are excluded from both sides: ${esc(f.missingBoms.concat(f.partialBoms).join(", ") || "no data")} is missing on some CIs. Absence is not counted as failure.</li>` : ""}
-      </ul>
-    </span>` : "";
+      </ul>`);
 
-  const panel = document.getElementById("cmpDetail");
+  /* ── stat sub-lines: the walk that the arrow chain used to spell out ── */
+  const rulesSub = `<span class="ok">${f.rulesPassing} passing</span>${
+    f.rulesFailing
+      ? `<button class="cmp-slink" data-cmpjump="rules">${f.rulesFailing} failing</button>`
+      : `<span>0 failing</span>`}${f.rulesNotAssessed ? `<span>${f.rulesNotAssessed} not assessed</span>` : ""}`;
+
+  const cisSub = `<span class="ok">${f.cisClean} compliant</span>${
+    f.cisFailing
+      ? `<button class="cmp-slink" data-cmpjump="cis">${f.cisFailing} non-compliant</button>`
+      : `<span>0 non-compliant</span>`}`;
+
+  const checksSub = f.fail === 0 ? `<span>all passing</span>`
+    : f.critFail
+      ? `<button class="cmp-slink" data-cmpjump="critical">${f.critFail} in critical rules</button>`
+      : `<span>none in critical rules</span>`;
+
+  /* Computed, never asserted: "all" is only true when the open gaps actually
+     account for every failing check. */
+  const gapsSub = f.fail === 0 ? `<span>none needed</span>`
+    : nGaps === 0 ? `<span>no mapped gaps</span>`
+    : cov.covered >= f.fail
+      ? `<button class="cmp-slink go" data-cmpjump="gaps">resolve to clear all ${f.fail} &rarr;</button>`
+      : `<button class="cmp-slink go" data-cmpjump="gaps">resolve to clear ${cov.covered} of ${f.fail} &rarr;</button>`;
+
+  const stat = (label, value, cls, sub, info) => `
+    <div class="cmp-stat">
+      <div class="l">${label}${info || ""}</div>
+      <div class="v${cls ? " " + cls : ""}">${value}</div>
+      <div class="s">${sub}</div>
+    </div>`;
+
+  const panel = document.getElementById(P + "Detail");
+  const region = document.getElementById(P + "Panel");
   /* Names the card that drives it, so a screen reader announces the relationship
-     the notch and the accent draw for everyone else. */
-  panel.setAttribute("aria-labelledby", "cmpfw-" + f.id);
-  panel.classList.remove("swap");
-  /* Not on first paint — an animation on arrival reads as a page still loading. */
+     the notch and the accent draw for everyone else. The label goes on the whole
+     panel REGION, since all of it \u2014 detail, rules, gaps \u2014 answers to that card. */
+  region.setAttribute("aria-labelledby", P + "fw-" + f.id);
+  region.classList.remove("swap");
+  /* Not on first paint \u2014 an animation on arrival reads as a page still loading.
+     Applied to the region so one selection produces ONE visible transition, rather
+     than the detail band moving while the table beneath it sits still. */
   if(CMP_SWAP && CMP_LAST_SEL !== null){
-    void panel.offsetWidth;              // restart the animation, not just re-add the class
-    panel.classList.add("swap");
+    void region.offsetWidth;             // restart the animation, not just re-add the class
+    region.classList.add("swap");
   }
+
   panel.innerHTML = `
-    <div class="cmp-drow">
-    <div class="cmp-dl">
-      <div class="cmp-dtitle">
-        ${cmpFlag(f.flag)}
-        <h2>${esc(f.name)}</h2>
-        <span class="pill ghost">${esc(f.pack)}</span>
-        <span class="pill ghost">Scope \u00b7 ${esc(f.boms.join(" + "))}</span>
-      </div>
-      <div class="cmp-ddesc" title="${esc(f.desc)}">${esc(f.desc)}</div>
-      <div class="cmp-prov">
-        <span style="position:relative">
-          <button class="cmp-hist" data-cmppop="history">Assessed <b style="color:var(--dim);font-weight:600">${esc(A.at)}</b> ${IC_CHEV}</button>
-          ${CMP_POP === "history" ? cmpHistoryMenu() : ""}
+    <div class="cmp-hdr">
+      <span class="pill ghost">${esc(f.pack)}</span>
+      <span class="pill ghost">Scope \u00b7 ${esc(f.boms.join(" + "))}</span>
+      <span style="position:relative;display:inline-flex">
+        ${ib("desc", "What " + f.name + " is")}
+        ${pop("desc", `<h4>${esc(f.name)}</h4><div class="m">${esc(f.desc)}</div>`, "left:0;top:calc(100% + 6px);width:340px")}
+      </span>
+      ${hist ? "" : `<span class="rt">
+        <button class="btn sm" data-cmpreassess="1" ${CMP_RUN?"disabled":""}>${
+          CMP_RUN ? `<span class="cmp-spin"></span> Assessing\u2026 ${CMP_RUN}%` : `${IC_REDO} Re-assess`}</button>
+        <span style="position:relative;display:inline-flex">
+          ${ib("reassess", "What re-assessing does")}
+          ${pop("reassess", `<h4>Re-assess</h4><div class="m">~40 seconds \u00b7 creates a new assessment \u2014 previous assessments are kept, and stay readable from the date dropdown below.</div>`, "right:0;top:calc(100% + 6px);width:300px")}
         </span>
-        <span class="sep">\u00b7</span><span>Policy pack ${esc(A.pack)}</span>
-        <span class="sep">\u00b7</span><span>${f.covered} of ${f.ciTotal} CIs reporting</span>
-        ${hist ? "" : `<span style="position:relative;margin-left:6px">
-          <button class="btn sm" data-cmpreassess="1" ${CMP_RUN?"disabled":""}>${
-            CMP_RUN ? `<span class="cmp-spin"></span> Assessing\u2026 ${CMP_RUN}%` : `${IC_REDO} Re-assess`}</button>
-        </span>`}
-      </div>
-      ${hist ? "" : `<div class="cmp-caption">~40 seconds \u00b7 creates a new assessment \u2014 previous assessments are kept</div>`}
+      </span>`}
     </div>
 
-    <div class="cmp-dr">
+    <div class="cmp-band">
       <div style="position:relative">
         <div class="cmp-gauge">
-          <svg width="124" height="66" viewBox="0 0 120 64" role="img"
+          <svg width="136" height="73" viewBox="0 0 120 64" role="img"
             aria-label="Compliance ${f.insufficient ? "not scored \u2014 insufficient data" : f.score + " percent"}">
             <path d="M10 58 A50 50 0 0 1 110 58" fill="none" stroke="var(--chip-n)" stroke-width="9" stroke-linecap="round"/>
             ${f.insufficient ? "" : `<path d="M10 58 A50 50 0 0 1 110 58" fill="none" stroke="${col}" stroke-width="9"
@@ -5029,36 +5539,36 @@ function cmpDetail(A, f, hist){
           </svg>
           <span class="cmp-gcap">
             <span class="v">${f.insufficient ? "\u2014" : f.score + "%"}</span>
-            <button class="cmp-gi" data-cmppop="score" aria-label="How this score is calculated"
-              title="How this score is calculated">${IC_INFO}</button>
           </span>
         </div>
-        <div class="cmp-dlab">Compliance</div>
+        <div class="cmp-dlab">Compliance
+          <button class="cmp-gi" data-cmppop="score" aria-expanded="${CMP_POP==="score"}"
+            aria-label="How this score is calculated">${IC_INFO}</button>
+        </div>
         ${scorePop}
       </div>
+      <span class="cmp-bdiv" aria-hidden="true"></span>
       <div class="cmp-stats">
-        <div class="cmp-stat">
-          <div class="l">Rules</div>
-          <div class="v">${f.rules.length}</div>
-          <div class="s"><span class="ok">${f.rulesPassing} passing</span> \u00b7 <span class="no">${f.rulesFailing} failing</span>${
-            f.rulesNotAssessed ? ` \u00b7 ${f.rulesNotAssessed} not assessed` : ""}</div>
-        </div>
-        <div class="cmp-stat">
-          <div class="l">CIs in scope</div>
-          <div class="v">${f.ciTotal}</div>
-          <div class="s"><span class="ok">${f.cisClean} compliant</span> \u00b7 <span class="no">${f.cisFailing} non-compliant</span></div>
-        </div>
-        <div class="cmp-stat">
-          <div class="l">Failing checks</div>
-          <div class="v${f.fail?" bad":""}">${f.fail}</div>
-          <div class="s">${f.critFail
-            ? `<button class="cmp-link" data-cmpcrit="1">${f.critFail} in critical rules</button>`
-            : "none in critical rules"}</div>
-        </div>
+        ${stat("Rules", f.rules.length, "", rulesSub)}
+        ${stat("CIs in scope", f.ciTotal, "", cisSub)}
+        ${stat("Failing checks", f.fail, f.fail ? "bad" : "", checksSub)}
+        ${stat("Gaps", nGaps, nGaps ? "warn" : "", gapsSub,
+          `<span style="position:relative;display:inline-flex">${ib("gapmech", "How fixing a gap works")}${
+            pop("gapmech", `<h4>Why gaps are the unit of work</h4><div class="m">${esc(CMP_MECHANIC)}</div>`,
+              "left:-8px;top:calc(100% + 6px);width:300px")}</span>`)}
       </div>
     </div>
-    </div>
-    ${hint}`;
+
+    <div class="cmp-prov">
+      <span style="position:relative">
+        <button class="cmp-hist" data-cmppop="history" aria-expanded="${CMP_POP==="history"}">Assessed <b style="color:var(--dim);font-weight:600">${esc(A.at)}</b> ${IC_CHEV}</button>
+        ${CMP_POP === "history" ? cmpHistoryMenu() : ""}
+      </span>
+      <span class="sep">\u00b7</span><span>Policy pack ${esc(A.pack)}</span>
+      <span class="sep">\u00b7</span><span>${f.covered} of ${f.ciTotal} CIs reporting</span>
+      ${f.insufficient ? `<span class="sep">\u00b7</span>
+        <button class="cmp-link" data-cmpgen="1">No ${esc(f.missingBoms.join(" or "))} in scope \u2014 how to generate it</button>` : ""}
+    </div>`;
 }
 
 function cmpHistoryMenu(){
@@ -5078,16 +5588,23 @@ function cmpHistoryMenu(){
 }
 
 /* ── rules table ──────────────────────────────────────────────────────*/
-function cmpRulesPanel(f){
-  if(!f){ document.getElementById("cmpRules").innerHTML = ""; return; }
+function cmpRulesPanel(A, f, P){
+  P = P || "cmp";
+  if(!f){ document.getElementById(P + "Rules").innerHTML = ""; return; }
   let rows = f.rules.slice();
   const q = CMP_Q.trim().toLowerCase();
   const nAll   = rows.length;
   const nFail  = rows.filter(r=>r.ciFail>0).length;
   const nClean = rows.filter(r=>r.ciFail===0 && r.ciPass>0).length;
+  /* "Resolvable" is not the same as "failing": a rule can fail on fields that
+     have all been waived or ticketed already, and there is nothing left to do on
+     it. This is the set the Resolve action can act on TODAY. */
+  const openGaps = r => A.gaps.filter(g => !g.action && r.fields.indexOf(g.field.id) >= 0);
+  const nRes = rows.filter(r=>openGaps(r).length > 0).length;
 
   if(CMP_FILTER === "fail")  rows = rows.filter(r=>r.ciFail>0);
   if(CMP_FILTER === "clean") rows = rows.filter(r=>r.ciFail===0 && r.ciPass>0);
+  if(CMP_FILTER === "resolvable") rows = rows.filter(r=>openGaps(r).length > 0);
   if(CMP_SEV)  rows = rows.filter(r=>r.sev === CMP_SEV);
   if(q) rows = rows.filter(r=>(r.id+" "+r.name+" "+r.cat).toLowerCase().indexOf(q) >= 0);
 
@@ -5105,18 +5622,33 @@ function cmpRulesPanel(f){
   const car = k => CMP_SORT.k === k ? `<span class="ci">${CMP_SORT.dir==="desc"?"\u2193":"\u2191"}</span>` : "";
   const sevCls = v => v==="Critical"?"crit":v==="High"?"high":v==="Medium"?"med":"low";
 
-  document.getElementById("cmpRules").innerHTML = `
+  /* Sub-tabs and search read as one control row under the title, in the pill
+     treatment Software Components uses — a count badge on each, the group
+     divided from the search, and the search filling the rest of the row. */
+  const subTab = (id, label, n, hint) => `
+    <button class="cmp-sub${CMP_FILTER === id ? " on" : ""}" data-cmpfilter="${id}"
+      aria-pressed="${CMP_FILTER === id}"${hint ? ` title="${esc(hint)}"` : ""}>
+      ${esc(label)}<span class="n">${n}</span>
+    </button>`;
+
+  document.getElementById(P + "Rules").innerHTML = `
     <div class="cmp-rhead">
-      <h3>Rules</h3><span class="n">${rows.length} of ${nAll}</span>
+      <h3>Rules</h3>
+    </div>
+    <div class="cmp-rtools">
+      ${subTab("all", "All", nAll)}
+      ${subTab("fail", "With failures", nFail)}
+      ${subTab("clean", "Clean", nClean)}
+      ${subTab("resolvable", "Resolvable", nRes,
+        "Rules with at least one open gap — the ones the Resolve action can act on now")}
       ${CMP_SEV ? `<button class="pill crit" data-cmpsevclear="1"><span class="d"></span>${esc(CMP_SEV)} only &times;</button>` : ""}
-      <div class="right">
-        <div class="cmp-seg">
-          <button class="${CMP_FILTER==="all"?"on":""}" data-cmpfilter="all">All \u00b7 ${nAll}</button>
-          <button class="${CMP_FILTER==="fail"?"on":""}" data-cmpfilter="fail">With failures \u00b7 ${nFail}</button>
-          <button class="${CMP_FILTER==="clean"?"on":""}" data-cmpfilter="clean">Clean \u00b7 ${nClean}</button>
-        </div>
-        <span class="search"><input id="cmpQ" type="text" placeholder="Search rules" value="${esc(CMP_Q)}" style="height:30px"></span>
-      </div>
+      <span class="cmp-rdiv" aria-hidden="true"></span>
+      <span class="cmp-search">
+        <input id="${P}Q" type="text" placeholder="Search control, rule or category..."
+          value="${esc(CMP_Q)}" autocomplete="off">
+        ${CMP_Q ? `<button class="clr" data-cmpqclear="1" aria-label="Clear search">${IC_XSM}</button>`
+          : `<span class="mag">${IC_MAG}</span>`}
+      </span>
     </div>
     <table class="cmp-tbl">
       <thead><tr>
@@ -5124,15 +5656,22 @@ function cmpRulesPanel(f){
         <th class="srt" data-cmpsort="rule">Rule${car("rule")}</th>
         <th class="srt" data-cmpsort="sev">Severity${car("sev")}</th>
         <th class="srt" data-cmpsort="qual">Pass / fail by CI${car("qual")}</th>
-        <th>Status</th><th style="width:34px"></th>
+        <th>Status</th><th>Gaps</th><th style="width:34px"></th>
       </tr></thead>
       <tbody>${rows.length ? rows.map(r=>{
         const tot = r.perCi.length || 1;
         const st = r.ciFail ? `<span class="pill crit"><span class="d"></span>${r.ciFail} CI${r.ciFail===1?"":"s"} failing</span>`
           : r.ciPass ? `<span class="pill ok">${IC_CHEV} Clean</span>`
           : `<span class="pill ghost">Not assessed</span>`;
+        /* The rule's own open gaps — the fields it fails on that nobody has
+           attached, ticketed or waived yet. */
+        const rg = A.gaps.filter(g => !g.action && r.fields.indexOf(g.field.id) >= 0);
+        /* Decisions already taken on this rule. A rule with nothing open still
+           needs a way back in — a waiver is a thing you revisit, not a thing
+           you file and lose. */
+        const dec = CMP_ACTIONS.filter(a => !a.revoked && r.fields.indexOf(a.field) >= 0);
         return `<tr data-cmprule="${r.id}">
-          <td class="cmp-ctrl">${esc(r.id)}</td>
+          <td><span class="cmp-idpill">${esc(r.id)}</span></td>
           <td><div class="cmp-rname">${esc(r.name)}</div>
               <div class="cmp-rsub">${esc(r.cat)} \u00b7 ${r.fields.length} check${r.fields.length===1?"":"s"} per CI</div></td>
           <td><span class="pill ${sevCls(r.sev)}"><span class="d"></span>${esc(r.sev)}</span></td>
@@ -5144,68 +5683,27 @@ function cmpRulesPanel(f){
             </div>
             <div class="cmp-qtxt">${r.ciPass} pass \u00b7 ${r.ciFail} fail \u00b7 ${r.ciNa} n/a</div></td>
           <td>${st}</td>
+          <td style="white-space:nowrap">${cmpHistoric()
+            /* The banner promises this assessment is read-only, and it means it:
+               a gap here is a gap as it stood on that date, and resolving it
+               would be acting on a snapshot. Reported, not actionable. */
+            ? (rg.length ? `<span style="color:var(--dim)">${rg.length} open</span>`
+               : dec.length ? `<span style="color:var(--faint)">${dec.length} decided</span>`
+               : `<span style="color:var(--faint)">—</span>`)
+            : rg.length
+            ? `<button class="btn sm" data-cmpgap="${r.id}">Resolve ${rg.length === 1 ? "gap" : rg.length + " gaps"}</button>`
+            : dec.length
+            ? `<button class="cmp-lnk" data-cmpgap="${r.id}">${dec.length} decided</button>`
+            : `<span style="color:var(--faint)">—</span>`}</td>
           <td><span class="cmp-go">${IC_ARR}</span></td>
         </tr>`;
-      }).join("") : `<tr><td colspan="6" class="cmp-empty">No rules match this filter.</td></tr>`}</tbody>
+      }).join("") : `<tr><td colspan="7" class="cmp-empty">No rules match this filter.</td></tr>`}</tbody>
     </table>`;
 }
 
 /* ── gaps ─────────────────────────────────────────────────────────────
    Sorted by leverage, because "which one first" is the only question this
    panel exists to answer and alphabetical order answers it wrongly. */
-function cmpGapsPanel(A, f, hist){
-  const open     = A.gaps.filter(g=>!g.action);
-  const resolved = CMP_ACTIONS.filter(a=>a.kind !== "waived");
-  const waived   = CMP_ACTIONS.filter(a=>a.kind === "waived");
-  const fwName   = id => (CMP_FW.find(x=>x.id===id)||{}).name || id;
-
-  const body = CMP_GTAB === "open" ? (open.length ? open.map(g=>{
-    const id = g.field.id;
-    const inThis = g.rules.some(x=>x.fw.id === (f?f.id:""));
-    return `<div class="cmp-gap">
-      <div class="cmp-grow">
-        <div style="min-width:0">
-          <div class="cmp-gname">${esc(g.field.lab)}${inThis?"":` <span style="color:var(--faint);font-weight:400">\u00b7 other frameworks</span>`}</div>
-          <div class="cmp-gsub">${esc(g.field.bom)} \u00b7 missing on ${g.missing.length} of ${g.scope.length} CI${g.scope.length===1?"":"s"}</div>
-          <span class="cmp-lev tip" data-tip="${g.rules.length} rules ask for this field \u00d7 ${g.missing.length} CIs missing it = ${g.checks} checks. Frameworks: ${esc(g.fws.map(fwName).join(", "))}.">
-            Clears ${g.checks} check${g.checks===1?"":"s"} across ${g.fws.length} framework${g.fws.length===1?"":"s"}</span>
-        </div>
-        ${hist ? "" : `<div class="cmp-gact">
-          <button class="btn sm" data-cmpgap="${id}">Resolve</button>
-          ${CMP_MENU === id ? cmpResolveMenu(g) : ""}
-        </div>`}
-      </div>
-    </div>`;
-  }).join("") : `<div class="cmp-empty">No open gaps. Every missing field has been attached, ticketed or waived.</div>`)
-
-  : CMP_GTAB === "resolved" ? (resolved.length ? resolved.map(a=>`
-      <div class="cmp-gap">
-        <div class="cmp-gname">${esc((cmpField(a.field)||{}).lab || a.field)}</div>
-        <div class="cmp-gmeta">${a.kind === "ticket"
-          ? `Change ticket <b>${esc(a.ticket)}</b> raised`
-          : `Data attached &amp; enriched`} \u00b7 ${cmpActor(a)}</div>
-        ${a.note ? `<div class="cmp-why">${esc(a.note)}</div>` : ""}
-      </div>`).join("") : `<div class="cmp-empty">Nothing resolved yet.</div>`)
-
-  : (waived.length ? waived.map(a=>`
-      <div class="cmp-gap">
-        <div class="cmp-gname">${esc((cmpField(a.field)||{}).lab || a.field)}</div>
-        <div class="cmp-gmeta">Waived \u00b7 ${cmpActor(a)}</div>
-        <div class="cmp-why">${esc(a.why)}</div>
-        <div class="cmp-gmeta" style="color:var(--faint)">Included on the export cover sheet</div>
-      </div>`).join("") : `<div class="cmp-empty">Nothing waived.</div>`);
-
-  document.getElementById("cmpGaps").innerHTML = `
-    <div class="cmp-ghead"><h3>Gaps</h3>${open.length?`<span class="n">${open.length}</span>`:""}</div>
-    <div class="cmp-gtabs">
-      <button class="cmp-gtab${CMP_GTAB==="open"?" on":""}" data-cmpgtab="open">Open<span class="c">${open.length}</span></button>
-      <button class="cmp-gtab${CMP_GTAB==="resolved"?" on":""}" data-cmpgtab="resolved">Resolved<span class="c">${resolved.length}</span></button>
-      <button class="cmp-gtab${CMP_GTAB==="waived"?" on":""}" data-cmpgtab="waived">Waived<span class="c">${waived.length}</span></button>
-    </div>
-    ${CMP_GTAB==="open" && open.length ? `<div class="cmp-sortlab">Sorted by impact \u2014 most checks cleared first</div>` : ""}
-    <div class="cmp-glist">${body}</div>`;
-}
-
 /* Never invent a name. Entries that predate attribution capture say so. */
 function cmpActor(a){
   return a.actor
@@ -5213,31 +5711,288 @@ function cmpActor(a){
     : `<span class="cmp-noattr">actor not recorded \u2014 attribution captured from ${esc(CMP_ATTRIB_FROM)}</span> \u00b7 ${esc(a.at)}`;
 }
 
-function cmpResolveMenu(g){
-  if(CMP_WAIVE === g.field.id){
-    return `<span class="cmp-menu" style="width:300px">
-      <span class="hd">Waive this gap</span>
-      <div style="padding:0 9px">
-        <textarea id="cmpWhy" placeholder="Why is this acceptable? This is recorded against your name and appears on the export cover sheet."></textarea>
-        ${CMP_WERR ? `<div class="ferr">A justification is required to waive a gap.</div>` : ""}
+/* \u2500\u2500 resolving a rule's gaps \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+   A rule fails because specific fields are missing. One rule can be missing
+   six of them at once (EO-1 checks six), and those six are six different
+   facts \u2014 the supplier is absent because the vendor never published it, the
+   hash because nobody signed the build. Forcing one verdict across all six
+   would make the register lie: the justification stored against each field
+   would be a justification written about a different field.
+   So the drawer decides a SELECTED SUBSET at a time. Everything open starts
+   selected, so the common case (one decision, all of them) is still no extra
+   clicks, and splitting is a matter of unticking. */
+const CMP_RES_ACTS = [
+  {k:"attached", lab:"Attach data",   d:"You have the field \u2014 supply it now."},
+  {k:"ticket",   lab:"Create change", d:"Raise the work against a team."},
+  {k:"waived",   lab:"Waive",         d:"Accept the gap, with a reason."}
+];
+function cmpISO(plusDays){
+  const d = new Date();
+  d.setDate(d.getDate() + (plusDays || 0));
+  const p = n => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+}
+/* The rule, its open gaps and its decisions, resolved out of the assessment
+   on screen \u2014 so the drawer can never show a gap the table has cleared. */
+function cmpResCtx(A){
+  /* Never over a historical assessment: the banner calls it read-only, and a
+     gap on a dated snapshot is not a thing you can act on today. */
+  if(!CMP_RES || cmpHistoric()) return null;
+  const f = A.frameworks.find(x=>x.id === CMP_RES.fw);
+  const r = f && f.rules.find(x=>x.id === CMP_RES.rule);
+  if(!r) return null;
+  return {f:f, r:r,
+    open:    A.gaps.filter(g => !g.action && r.fields.indexOf(g.field.id) >= 0),
+    decided: CMP_ACTIONS.filter(a => r.fields.indexOf(a.field) >= 0)};
+}
+/* The subject a change would carry. Recomputed while it is untouched so it
+   tracks the selection; left alone the moment the user types. */
+function cmpResSubject(sel, ciN){
+  if(!sel.length) return "";
+  const what = sel.length === 1 ? sel[0].field.lab : `${sel.length} missing fields`;
+  return `Remediate ${what} across ${ciN} CI${ciN===1?"":"s"}`;
+}
+function cmpResolveDrawer(A){
+  const ctx = cmpResCtx(A);
+  if(!ctx) return false;
+  const host = document.getElementById("cmpHost");
+  const stacked = !!host.innerHTML;      // a rule drawer is already open underneath
+  const D = CMP_RES, r = ctx.r, f = ctx.f;
+  const sel = ctx.open.filter(g => D.sel.indexOf(g.field.id) >= 0);
+
+  /* The affected CIs are the union of the selected gaps' missing lists, not a
+     sum \u2014 one CI missing three fields is one CI. */
+  const cis = [];
+  sel.forEach(g => g.missing.forEach(ci => { if(cis.indexOf(ci) < 0) cis.push(ci); }));
+  const fws = [];
+  sel.forEach(g => g.fws.forEach(id => { if(fws.indexOf(id) < 0) fws.push(id); }));
+  const checks = sel.reduce((n,g)=>n + g.checks, 0);
+  const nCi = `${cis.length} CI${cis.length===1?"":"s"}`;
+  const subject = D.subjTouched ? D.subj : cmpResSubject(sel, cis.length);
+
+  const errWhy   = D.err && D.act === "waived" && !D.why.trim();
+  const errSubj  = D.err && D.act === "ticket" && !subject.trim();
+  const errDate  = D.err && D.act === "ticket" && (!D.start || !D.end);
+  const errOrder = D.err && D.act === "ticket" && D.start && D.end && D.end < D.start;
+
+  const gapList = ctx.open.length === 1 ? `
+    <div class="cmp-rs-one">
+      <b>${esc(ctx.open[0].field.lab)}</b>
+      <i>${esc(f.name)} \u00b7 missing on ${ctx.open[0].missing.length} of ${ctx.open[0].scope.length} CIs \u00b7
+         clears ${ctx.open[0].checks} check${ctx.open[0].checks===1?"":"s"} across
+         ${ctx.open[0].fws.length} framework${ctx.open[0].fws.length===1?"":"s"}</i>
+    </div>` : `
+    <div class="cmp-rs-sec">
+      <span class="t">Open gaps \u00b7 ${ctx.open.length}</span>
+      <button class="a" data-cmpgall="1">${sel.length === ctx.open.length ? "Clear all" : "Select all"}</button>
+    </div>
+    <div class="cmp-rs-list">${ctx.open.map(g=>{
+      const on = D.sel.indexOf(g.field.id) >= 0;
+      return `<label class="cmp-rs-row${on?" on":""}">
+        <input type="checkbox" id="cmpg-${esc(g.field.id)}" ${on?"checked":""} data-cmpgsel="${esc(g.field.id)}">
+        <span style="min-width:0">
+          <span class="n">${esc(g.field.lab)}</span>
+          <span class="l">missing on ${g.missing.length} of ${g.scope.length} CIs \u00b7
+            clears ${g.checks} check${g.checks===1?"":"s"} across ${g.fws.length} framework${g.fws.length===1?"":"s"}</span>
+        </span>
+        <span class="b"><span class="pill ghost">${esc(g.field.bom)}</span></span>
+      </label>`;
+    }).join("")}</div>`;
+
+  /* Decisions already on this rule, and the way back out of them. A waiver
+     that cannot be withdrawn is a trap, so revoking is offered here and
+     recorded rather than erased. */
+  const decided = ctx.decided.length ? `
+    <div class="cmp-rs-sec" style="margin-top:22px">
+      <span class="t">Already decided \u00b7 ${ctx.decided.length}</span>
+    </div>
+    ${ctx.decided.map(a=>`<div class="cmp-dec">
+      <div class="cmp-dec-h"><b>${esc((cmpField(a.field)||{}).lab || a.field)}</b>
+        <span class="pill ${a.revoked ? "ghost" : a.kind === "waived" ? "gold" : "ok"}">${
+          a.revoked ? "Revoked" : a.kind === "waived" ? "Waived" : a.kind === "ticket" ? "Change raised" : "Data attached"}</span>
+        ${a.revoked ? "" : `<button class="cmp-lnk" style="margin-left:auto" data-cmprevoke="${esc(a.field)}">Revoke</button>`}</div>
+      <div class="cmp-dec-m">${cmpActor(a)}${a.ticket ? ` \u00b7 <b>${esc(a.ticket)}</b>` : ""}</div>
+      ${a.why || a.note ? `<div class="cmp-dec-w">${esc(a.why || a.note)}</div>` : ""}
+      ${a.revoked ? `<div class="cmp-dec-m" style="color:var(--faint)">Withdrawn by ${esc(a.revoked.actor)} \u00b7 ${esc(a.revoked.at)} \u2014 the gap is open again</div>` : ""}
+    </div>`).join("")}` : "";
+
+  const form = !D.act ? "" : D.act === "waived" ? `
+    <div class="cmp-rs-f">
+      <label class="cmp-vlab" for="cmpWhy">Justification <span class="cmp-rs-req">*</span></label>
+      <textarea id="cmpWhy" placeholder="Why is this gap accepted? Include an approval reference.">${esc(D.why)}</textarea>
+      ${errWhy ? `<div class="ferr">A justification is required \u2014 it is what the waiver is evidence of.</div>` : ""}
+      <div class="cmp-rs-hint">Recorded against <b>${esc(CMP_ME)}</b> and listed on the export cover sheet.</div>
+    </div>` : D.act === "ticket" ? `
+    <div class="cmp-rs-f">
+      <label class="cmp-vlab" for="cmpSubj">Subject <span class="cmp-rs-req">*</span></label>
+      <input id="cmpSubj" type="text" value="${esc(subject)}">
+      ${errSubj ? `<div class="ferr">A change needs a subject.</div>` : ""}
+    </div>
+    <div class="cmp-rs-f">
+      <label class="cmp-vlab" for="cmpReq">Requester <span class="cmp-rs-req">*</span></label>
+      <select id="cmpReq">${CMP_PEOPLE.map(p=>
+        `<option ${p === D.req ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>
+    </div>
+    <div class="cmp-rs-f cmp-rs-2">
+      <div>
+        <label class="cmp-vlab" for="cmpStart">Start date <span class="cmp-rs-req">*</span></label>
+        <input id="cmpStart" type="date" value="${esc(D.start)}">
       </div>
-      <div class="cmp-mfoot">
-        <button class="btn sm" data-cmpwcancel="1">Cancel</button>
-        <button class="btn sm pri" data-cmpwsave="${g.field.id}">Waive</button>
+      <div>
+        <label class="cmp-vlab" for="cmpEnd">End date <span class="cmp-rs-req">*</span></label>
+        <input id="cmpEnd" type="date" value="${esc(D.end)}">
       </div>
-      <span class="catcher" data-cmpclose="1"></span>
-    </span>`;
-  }
-  return `<span class="cmp-menu">
-    <span class="hd">Resolve \u00b7 ${esc(g.field.lab)}</span>
-    <button data-cmpresolve="attached|${g.field.id}">Attach &amp; enrich data
-      <span class="d">Supply the field, then re-assess to clear ${g.checks} checks.</span></button>
-    <button data-cmpresolve="ticket|${g.field.id}">Create change ticket
-      <span class="d">Raise the work against the owning team.</span></button>
-    <button data-cmpwaive="${g.field.id}">Waive with justification
-      <span class="d">Accepted as-is. Recorded with your name and shown on the export cover sheet.</span></button>
-    <span class="catcher" data-cmpclose="1"></span>
-  </span>`;
+    </div>
+    ${errDate  ? `<div class="ferr">Both dates are required.</div>` : ""}
+    ${errOrder ? `<div class="ferr">The end date cannot fall before the start date.</div>` : ""}
+    <div class="cmp-rs-hint">The ${nCi} below attach to the change automatically. Re-assessment closes it when the gap clears.
+      <span class="cmp-rs-ci">${cis.map(c=>`<span>${esc(c)}</span>`).join("")}</span></div>` : `
+    <div class="cmp-rs-hint" style="margin-top:14px">Marks the ${sel.length === 1 ? "field" : sel.length + " fields"} as supplied
+      through Ingest on ${nCi}. The next assessment reads the merged records.</div>`;
+
+  /* What the decision does to the score. People assume resolving raises it;
+     only a re-assessment does, and only when the data is genuinely there. */
+  const consequence = D.act === "attached"
+    ? `<b>${checks} check${checks===1?"":"s"}</b> across ${fws.length} framework${fws.length===1?"":"s"} clear at the next assessment \u2014 the score does not move until then.`
+    : D.act === "ticket"
+    ? `The ${checks} check${checks===1?"":"s"} stay failing until the change completes. Raising it does not move the score.`
+    : D.act === "waived"
+    ? `The ${checks} check${checks===1?"":"s"} stay failing and are recorded as accepted. A waiver explains a score; it does not raise one.`
+    : "";
+
+  const prim = D.act === "attached" ? "Attach data"
+    : D.act === "ticket" ? "Create change"
+    : D.act === "waived" ? "Record waiver" : "Record decision";
+
+  host.innerHTML += `
+    <div class="dw-scrim${stacked?" lite":""}" data-cmpgclose="1"></div>
+    <aside class="dw${stacked?" stack":""}" style="width:560px" role="dialog" aria-modal="true"
+           aria-label="Resolve gaps on ${esc(r.name)}">
+      <div class="dw-head">
+        <div><h3>${ctx.open.length === 1 ? "Resolve gap" : "Resolve gaps"}</h3>
+          <p>${esc(f.name)} \u00b7 ${esc(r.id)} ${esc(r.name)}</p></div>
+        <button class="x" data-cmpgclose="1">${IC_X}</button>
+      </div>
+      <div class="dw-body">
+        ${ctx.open.length ? gapList : `
+          <div class="cmp-rs-hint" style="margin:0">Every gap on this rule has a decision. Revoke one below to reopen it.</div>`}
+        ${ctx.open.length ? `
+        <div class="cmp-rs-sec" style="margin:22px 0 8px">
+          <span class="t">Decision${sel.length > 1 ? ` for the ${sel.length} selected` : ""}</span>
+        </div>
+        <div class="cmp-rs-seg">${CMP_RES_ACTS.map(a=>`
+          <button class="cmp-rs-opt${D.act === a.k ? " on" : ""}" data-cmpgact="${a.k}"
+                  aria-pressed="${D.act === a.k}">
+            <span class="h">${D.act === a.k ? IC_CHEV : ""}${esc(a.lab)}</span>
+            <span class="d">${esc(a.d)}</span>
+          </button>`).join("")}</div>
+        ${!sel.length ? `<div class="cmp-rs-hint">Tick at least one gap above to decide it.</div>`
+          : D.act ? form + `<div class="cmp-rs-cons">${consequence}</div>`
+          : `<div class="cmp-rs-hint">Pick one — the three do different things to the score.</div>`}` : ""}
+        ${decided}
+      </div>
+      ${ctx.open.length ? `
+      <div class="dw-foot">
+        <span style="font-size:12px;color:var(--faint)">${sel.length} of ${ctx.open.length} gap${ctx.open.length===1?"":"s"} selected</span>
+        <span class="gap"></span>
+        <button class="btn" data-cmpgclose="1">Cancel</button>
+        <button class="btn pri" data-cmpgsave="1" ${sel.length && D.act ? "" : "disabled"}>${prim}</button>
+      </div>` : `
+      <div class="dw-foot"><span class="gap"></span>
+        <button class="btn" data-cmpgclose="1">Close</button></div>`}
+    </aside>`;
+  return true;
+}
+
+
+/* ── new-view drawer ──────────────────────────────────────────────────
+   A view is a framework set × a CI set × a product set, and all three narrow the
+   engine — so what this composes genuinely changes every number on the screen
+   rather than relabelling it. */
+function cmpViewDrawer(){
+  const host = document.getElementById("cmpHost");
+  if(!CMP_VDRAFT) return false;
+  const V = CMP_VDRAFT;
+  const cis = cmpAllCis();
+  const box = (on, attr) => `<input type="checkbox" ${on?"checked":""} ${attr}>`;
+  const sec = (key, label, count, body) => {
+    const open = CMP_VOPEN === key;
+    return `
+    <div class="cmp-vsec${open?" open":""}">
+      <button class="cmp-vhead" data-cmpvsec="${key}" aria-expanded="${open}">
+        <span class="t">${label}</span><span class="c">${count}</span>
+        <span class="cv">${IC_CHEV}</span>
+      </button>
+      <div class="cmp-vbody">${open ? body() : ""}</div>
+    </div>`;
+  };
+
+  const fwBody = () => `
+    <label class="cmp-vall">${box(V.fws.length === CMP_FW.length, 'data-cmpvall="fw"')} Select all</label>
+    <div class="cmp-vgrid">${CMP_FW.map(f=>{
+      const on = V.fws.indexOf(f.id) >= 0;
+      return `<label class="cmp-vt${on?" on":""}">
+        ${box(on, `data-cmpvfw="${f.id}"`)}
+        <span style="min-width:0">
+          <span class="cmp-vt-h">${cmpFlag(f.flag)}<b title="${esc(f.name)}">${esc(f.name)}</b></span>
+          <span class="cmp-vt-m">${esc(f.sub)} \u00b7 ${esc(f.boms.join(" + "))}</span>
+        </span>
+      </label>`;
+    }).join("")}</div>`;
+
+  const ciBody = () => `
+    <label class="cmp-vall">${box(V.cis.length === cis.length, 'data-cmpvall="ci"')} Select all</label>
+    <div class="cmp-vlist">${cis.map(id=>`
+      <label class="cmp-vrow">${box(V.cis.indexOf(id) >= 0, `data-cmpvci="${id}"`)}
+        <span class="id">${esc(id)}</span><span class="h">${esc(cmpHostOf(id))}</span></label>`).join("")}</div>`;
+
+  const prBody = () => `
+    <label class="cmp-vall">${box(V.products.length === CMP_PRODUCTS.length, 'data-cmpvall="pr"')} Select all</label>
+    <div class="cmp-vlist">${CMP_PRODUCTS.map(p=>`
+      <label class="cmp-vrow">${box(V.products.indexOf(p.id) >= 0, `data-cmpvpr="${p.id}"`)}
+        <span class="id" style="min-width:132px">${esc(p.name)}</span>
+        <span class="h">${esc(cmpHostOf(p.ci))}</span></label>`).join("")}</div>`;
+
+  /* What this view would actually scope to, computed from the draft — so the
+     consequence is visible before it is saved rather than after. */
+  const hosts = CMP_PRODUCTS.filter(p=>V.products.indexOf(p.id) >= 0).map(p=>p.ci);
+  const scoped = cis.filter(id => V.cis.indexOf(id) >= 0 && hosts.indexOf(id) >= 0);
+  const ready = V.name.trim() && V.fws.length && scoped.length;
+
+  /* Same drawer, two jobs. An edit arrives with the view's own choices already
+     in the draft, so what it opens on IS the view — not a blank form the user
+     has to rebuild from memory. */
+  const editing = !!V.editing;
+  const title = editing ? "Edit compliance view" : "New compliance view";
+  host.innerHTML = `
+    <div class="dw-scrim" data-cmpvclose="1"></div>
+    <aside class="dw" style="width:560px" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="dw-head">
+        <div><h3>${title}</h3>
+          <p>A view is a framework set, a CI set and a product set \u2014 every figure on the screen follows it.</p></div>
+        <button class="x" data-cmpvclose="1">${IC_X}</button>
+      </div>
+      <div class="dw-body">
+        <label class="cmp-vlab" for="cmpVName">View name</label>
+        <input class="cmp-vname" id="cmpVName" type="text" placeholder="e.g. Crypto \u00b7 Payment apps" value="${esc(V.name)}">
+        ${CMP_VERR && !V.name.trim() ? `<div class="cmp-verr">A view needs a name.</div>` : ""}
+        <div style="height:16px"></div>
+        ${sec("fw", "Frameworks to include", `${V.fws.length} of ${CMP_FW.length} selected`, fwBody)}
+        ${sec("ci", "Configuration items", `${V.cis.length} of ${cis.length} selected`, ciBody)}
+        ${sec("pr", "Products", `${V.products.length} of ${CMP_PRODUCTS.length} selected`, prBody)}
+        ${CMP_VERR && !V.fws.length ? `<div class="cmp-verr">Pick at least one framework.</div>` : ""}
+        ${CMP_VERR && V.fws.length && !scoped.length ? `<div class="cmp-verr">Those CIs and products have nothing in common \u2014 the view would be empty.</div>` : ""}
+      </div>
+      <div class="dw-foot">
+        <span style="font-size:12px;color:var(--faint)">Scopes to ${scoped.length} CI${scoped.length===1?"":"s"} \u00b7 ${
+          CMP_PRODUCTS.filter(p=>scoped.indexOf(p.ci)>=0 && V.products.indexOf(p.id)>=0).length} products</span>
+        <span class="gap"></span>
+        <button class="btn" data-cmpvclose="1">Cancel</button>
+        <button class="btn pri" data-cmpvsave="1" ${ready?"":"disabled"}>${
+          editing ? "Save changes" : "Create view"}</button>
+      </div>
+    </aside>`;
+  return true;
 }
 
 /* ── framework reference drawer ───────────────────────────────────────
@@ -5294,7 +6049,7 @@ function cmpInfoDrawer(A){
 }
 
 /* ── rule drawer ──────────────────────────────────────────────────────*/
-function cmpRuleDrawer(f){
+function cmpRuleDrawer(f, A){
   const host = document.getElementById("cmpHost");
   if(!CMP_RULE || !f){ host.innerHTML = ""; return; }
   const r = f.rules.find(x=>x.id === CMP_RULE);
@@ -5314,7 +6069,31 @@ function cmpRuleDrawer(f){
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
           ${r.fields.map(fd=>`<span class="pill ghost">${esc(cmpField(fd).lab)}</span>`).join("")}
         </div>
-        <div class="rt-eyebrow">Result per CI \u2014 ${r.checkPass} of ${r.checkPass+r.checkFail} checks passing</div>
+        <div class="cmp-dec-m" style="margin-bottom:-6px">${r.checkPass} of ${r.checkPass+r.checkFail} checks passing</div>
+        ${(()=>{
+          /* Acting on the rule from the rule: the resolve drawer stacks over
+             this one, so the detail you were reading is still behind it. */
+          const open = A.gaps.filter(g => !g.action && r.fields.indexOf(g.field.id) >= 0);
+          if(!open.length || cmpHistoric()) return "";
+          return `<div style="margin-top:14px">
+            <button class="btn sm" data-cmprgap="${esc(r.id)}|${esc(f.id)}">Resolve ${
+              open.length === 1 ? "gap" : open.length + " gaps"}</button></div>`;
+        })()}
+        ${(()=>{
+          const acts = CMP_ACTIONS.filter(a => r.fields.indexOf(a.field) >= 0);
+          if(!acts.length) return "";
+          return `<div class="rt-eyebrow" style="margin-top:20px">Decisions on this rule's gaps</div>
+            ${acts.map(a=>`<div class="cmp-dec">
+              <div class="cmp-dec-h"><b>${esc((cmpField(a.field)||{}).lab || a.field)}</b>
+                <span class="pill ${a.revoked ? "ghost" : a.kind === "waived" ? "gold" : "ok"}">${
+                  a.revoked ? "Revoked" : a.kind === "waived" ? "Waived" : a.kind === "ticket" ? "Change raised" : "Data attached"}</span></div>
+              <div class="cmp-dec-m">${cmpActor(a)}${a.ticket ? ` \u00b7 <b>${esc(a.ticket)}</b>` : ""}</div>
+              ${a.why || a.note ? `<div class="cmp-dec-w">${esc(a.why || a.note)}</div>` : ""}
+              ${a.revoked ? `<div class="cmp-dec-m" style="color:var(--faint)">Withdrawn by ${esc(a.revoked.actor)} \u00b7 ${esc(a.revoked.at)} \u2014 the gap is open again</div>`
+                : a.kind === "waived" ? `<div class="cmp-dec-m" style="color:var(--faint)">Included on the export cover sheet</div>` : ""}
+            </div>`).join("")}`;
+        })()}
+        <div class="rt-eyebrow" style="margin-top:20px">Result per CI</div>
         ${r.perCi.map(x=>{
           const ci = ciOf(x.ci) || {host:x.ci};
           return `<div class="cmp-cirow">
@@ -5336,30 +6115,73 @@ function cmpRuleDrawer(f){
    this screen owns none of those attributes, so it stays out of that
    argument entirely. */
 function cmpWire(){
-  const on = (sel, fn) => document.querySelectorAll(sel).forEach(el=>el.onclick = e=>{
-    e.preventDefault(); e.stopPropagation(); fn(el, e);
-  });
-  const close = () => { CMP_POP = null; CMP_MENU = null; CMP_WAIVE = null; CMP_WERR = false; };
+  /* One wiring pass covers both compliance screens. Reports 2 is the same
+     controls in a different arrangement, so binding them twice would guarantee
+     the two ends drift; the selector is widened instead. */
+  const on = (sel, fn) => {
+    const full = sel.indexOf("#viewReports ") === 0
+      ? sel + ", #viewReports2 " + sel.slice(13) : sel;
+    document.querySelectorAll(full).forEach(el=>el.onclick = e=>{
+      e.preventDefault(); e.stopPropagation(); fn(el, e);
+    });
+  };
+  const close = () => { CMP_POP = null; };
 
   on("#viewReports [data-cmpclose]", ()=>{ close(); renderReports(); });
   on("#viewReports [data-cmpview]",  el=>{ CMP_VIEW = el.dataset.cmpview; close(); renderReports(); });
-  on("#viewReports [data-cmpnewview]", ()=>toast("Saved view created from the current framework set and scope"));
+  /* Opens on everything selected: a view narrows, so the honest starting point is
+     "nothing narrowed yet" rather than an empty form the user has to fill before
+     the screen means anything. */
+  on("#viewReports [data-cmpnewview]", ()=>{
+    CMP_VDRAFT = {name:"", fws:CMP_FW.map(f=>f.id), cis:cmpAllCis(),
+                  products:CMP_PRODUCTS.map(p=>p.id)};
+    CMP_VOPEN = "fw"; CMP_VERR = false; CMP_INFO = null; CMP_RULE = null; CMP_POP = null;
+    renderReports();
+  });
+  /* Editing reopens the drawer that made the view, with the choices it was made
+     from already in it. A view stores `null` where nothing was narrowed, so the
+     draft expands those back into full lists — otherwise "everything" would come
+     back as "nothing selected" and a save would silently empty the view. */
+  on("#viewReports [data-cmpeditview]", el=>{
+    const v = CMP_VIEWS.find(x=>x.id === el.dataset.cmpeditview);
+    if(!v || v.locked) return;
+    CMP_VDRAFT = {name:v.lab,
+                  fws:(v.fws || CMP_FW.map(f=>f.id)).slice(),
+                  cis:(v.cis || cmpAllCis()).slice(),
+                  products:(v.products || CMP_PRODUCTS.map(p=>p.id)).slice(),
+                  editing:v.id};
+    CMP_VOPEN = "fw"; CMP_VERR = false; CMP_INFO = null; CMP_RULE = null; CMP_POP = null;
+    renderReports();
+  });
+  on("#viewReports [data-cmpdelview]", el=>{
+    const id = el.dataset.cmpdelview;
+    const v = CMP_VIEWS.find(x=>x.id === id);
+    CMP_VIEWS = CMP_VIEWS.filter(x=>x.id !== id);
+    if(CMP_VIEW === id) CMP_VIEW = CMP_VIEWS[0].id;
+    renderReports();
+    toast(`View "${esc(v ? v.lab : id)}" deleted`);
+  });
   on("#viewReports [data-cmpfw]",    el=>{ CMP_SEL = el.dataset.cmpfw; CMP_SEV = null; close(); renderReports(); });
   on("#viewReports [data-cmppop]",   el=>{ const k = el.dataset.cmppop; CMP_POP = CMP_POP === k ? null : k; renderReports(); });
-  on("#viewReports [data-cmpas]",    el=>{ CMP_AS = el.dataset.cmpas; close(); renderReports(); });
+  on("#viewReports [data-cmpas]",    el=>{ CMP_AS = el.dataset.cmpas; CMP_RES = null; close(); renderReports(); });
   on("#viewReports [data-cmplatest]",()=>{ CMP_AS = null; close(); renderReports(); });
   on("#viewReports [data-cmpfilter]",el=>{ CMP_FILTER = el.dataset.cmpfilter; renderReports(); });
+  on("#viewReports [data-cmpqclear]",()=>{ CMP_Q = ""; renderReports(); });
   on("#viewReports [data-cmpcrit]",  ()=>{ CMP_SEV = "Critical"; CMP_FILTER = "fail"; renderReports(); });
   on("#viewReports [data-cmpsevclear]", ()=>{ CMP_SEV = null; renderReports(); });
-  on("#viewReports [data-cmpgtab]",  el=>{ CMP_GTAB = el.dataset.cmpgtab; close(); renderReports(); });
   /* The band's numbers are the way in, so they land the reader on the thing the
      number counts — not merely near it. */
   on("#viewReports [data-cmpjump]",  el=>{
     const to = el.dataset.cmpjump;
-    if(to === "rules"){ CMP_FILTER = "fail"; CMP_SEV = null; }
-    else { CMP_GTAB = "open"; }
+    /* There is no per-CI view in this build, so "N non-compliant" lands on the
+       same rules table sorted by how many CIs each rule is failing — the closest
+       honest answer to "which CIs are these" that the screen can give. */
+    if(to === "rules")        { CMP_FILTER = "fail"; CMP_SEV = null; }
+    else if(to === "cis")     { CMP_FILTER = "fail"; CMP_SEV = null; CMP_SORT = {k:"qual", dir:"desc"}; }
+    else if(to === "critical"){ CMP_FILTER = "fail"; CMP_SEV = "Critical"; }
+    else                      { CMP_FILTER = "fail"; CMP_SEV = null; }
     renderReports();
-    const target = document.getElementById(to === "rules" ? "cmpRules" : "cmpGaps");
+    const target = document.getElementById(VIEW === "reports2" ? "cmp2Rules" : "cmpRules");
     if(target && target.scrollIntoView){
       try { target.scrollIntoView({behavior:cmpMotion(), block:"start"}); } catch(e){}
     }
@@ -5383,7 +6205,12 @@ function cmpWire(){
   /* The WAI-ARIA tabs keyboard model. The row is a tablist, so the arrow keys
      move the selection along it and the panel follows — which is the whole
      point of marking it up as tabs rather than as thirteen buttons. */
-  const tabs = Array.from(document.querySelectorAll('#cmpCards [role="tab"]'));
+  /* Reports 2's rail is a VERTICAL tablist, so up/down move it and left/right
+     move the row — both are accepted on both, because a user who has learnt one
+     arrow pair should not be told it is the wrong one. */
+  const TABQ = VIEW === "reports2" ? "#cmp2Cards" : "#cmpCards";
+  const FWP  = VIEW === "reports2" ? "cmp2fw-" : "cmpfw-";
+  const tabs = Array.from(document.querySelectorAll(TABQ + ' [role="tab"]'));
   tabs.forEach((el, i)=>{
     el.onkeydown = e=>{
       const pick = (n)=>{
@@ -5392,44 +6219,256 @@ function cmpWire(){
         e.preventDefault();
         CMP_SEL = t.dataset.cmpfw; CMP_SEV = null; CMP_POP = null;
         renderReports();
-        const nx = document.getElementById("cmpfw-" + CMP_SEL);
+        const nx = document.getElementById(FWP + CMP_SEL);
         if(nx) nx.focus();
       };
-      if(e.key === "ArrowRight") return pick(i + 1);
-      if(e.key === "ArrowLeft")  return pick(i - 1);
+      if(e.key === "ArrowRight" || e.key === "ArrowDown") return pick(i + 1);
+      if(e.key === "ArrowLeft"  || e.key === "ArrowUp")   return pick(i - 1);
       if(e.key === "Home")       return pick(0);
       if(e.key === "End")        return pick(tabs.length - 1);
       if(e.key === "Enter" || e.key === " "){ e.preventDefault(); el.click(); }
     };
   });
 
-  on("#viewReports [data-cmpgap]",   el=>{
-    const id = el.dataset.cmpgap;
-    CMP_MENU = CMP_MENU === id ? null : id; CMP_WAIVE = null; CMP_WERR = false; renderReports();
+  /* --- the resolve drawer --- */
+  /* Opens on everything open ticked and no action chosen. Ticking everything is
+     the common case and costs nothing to undo; pre-choosing an action would not
+     be neutral - the three do different things to the score, and defaulting to
+     "waive" on an audit screen would nudge towards accepting a failure. */
+  const openRes = (ruleId, fwId)=>{
+    const A2 = cmpAssess(cmpSnap());
+    const f2 = A2.frameworks.find(x=>x.id === fwId) || A2.frameworks.find(x=>x.id === CMP_SEL);
+    const r2 = f2 && f2.rules.find(x=>x.id === ruleId);
+    if(!r2) return;
+    const open = A2.gaps.filter(g => !g.action && r2.fields.indexOf(g.field.id) >= 0);
+    CMP_RES = {rule:ruleId, fw:f2.id, sel:open.map(g=>g.field.id), act:null,
+               why:"", subj:"", subjTouched:false, req:CMP_ME,
+               start:cmpISO(0), end:cmpISO(7), err:false};
+    CMP_POP = null; renderReports();
+  };
+  on("#viewReports [data-cmpgap]", el=>openRes(el.dataset.cmpgap, CMP_SEL));
+  on("#cmpHost [data-cmprgap]",    el=>{
+    const p = el.dataset.cmprgap.split("|"); openRes(p[0], p[1]);
   });
-  on("#viewReports [data-cmpwaive]", el=>{ CMP_WAIVE = el.dataset.cmpwaive; CMP_WERR = false; renderReports(); });
-  on("#viewReports [data-cmpwcancel]", ()=>{ CMP_WAIVE = null; CMP_WERR = false; renderReports(); });
-  on("#viewReports [data-cmpwsave]", el=>{
-    const why = (document.getElementById("cmpWhy")||{}).value || "";
-    if(!why.trim()){ CMP_WERR = true; renderReports(); return; }
-    CMP_ACTIONS.push({field:el.dataset.cmpwsave, kind:"waived", actor:CMP_ME, at:cmpNow(), why:why.trim()});
-    close(); CMP_GTAB = "waived"; renderReports();
-    toast("Gap waived \u2014 recorded against your name and added to the export cover sheet");
+
+  const rd = (sel, fn) => document.querySelectorAll("#cmpHost " + sel).forEach(el=>{
+    el.onclick = e=>{ e.stopPropagation(); fn(el, e); };
   });
-  on("#viewReports [data-cmpresolve]", el=>{
-    const parts = el.dataset.cmpresolve.split("|"), kind = parts[0], fid = parts[1];
-    const rec = {field:fid, kind:kind, actor:CMP_ME, at:cmpNow()};
-    if(kind === "ticket") rec.ticket = "CHG-" + (4471 + CMP_ACTIONS.length);
-    else { rec.note = "Field supplied through Ingest and merged into the component records."; CMP_ATTACHED.push(fid); }
-    CMP_ACTIONS.push(rec);
-    close(); CMP_GTAB = "resolved"; renderReports();
-    toast(kind === "ticket" ? `Change ticket ${rec.ticket} raised` : "Data attached \u2014 re-assess to clear the checks it unblocks");
+  rd("[data-cmpgclose]", ()=>{ CMP_RES = null; renderReports(); });
+  rd("[data-cmpgact]",   el=>{ CMP_RES.act = el.dataset.cmpgact; CMP_RES.err = false; renderReports(); });
+  rd("[data-cmpgsel]",   el=>{
+    const id = el.dataset.cmpgsel;
+    CMP_RES.sel = CMP_RES.sel.indexOf(id) >= 0
+      ? CMP_RES.sel.filter(x=>x !== id) : CMP_RES.sel.concat([id]);
+    CMP_RFOCUS = "cmpg-" + id;
+    renderReports();
+  });
+  rd("[data-cmpgall]",   ()=>{
+    const ctx = cmpResCtx(cmpAssess(cmpSnap()));
+    if(!ctx) return;
+    CMP_RES.sel = CMP_RES.sel.length === ctx.open.length ? [] : ctx.open.map(g=>g.field.id);
+    renderReports();
+  });
+  /* Withdrawing keeps the record and marks it withdrawn: an auditor needs to see
+     that a waiver existed and when it stopped applying. cmpActionFor skips
+     revoked entries, so the gap genuinely reopens. */
+  rd("[data-cmprevoke]", el=>{
+    const fid = el.dataset.cmprevoke;
+    const a = CMP_ACTIONS.find(x=>x.field === fid && !x.revoked);
+    if(!a) return;
+    a.revoked = {actor:CMP_ME, at:cmpNow()};
+    CMP_ATTACHED = CMP_ATTACHED.filter(x=>x !== fid);
+    if(CMP_RES && CMP_RES.sel.indexOf(fid) < 0) CMP_RES.sel = CMP_RES.sel.concat([fid]);
+    renderReports();
+    toast(`Decision on ${esc((cmpField(fid)||{}).lab || fid)} withdrawn \u2014 the gap is open again`,
+      "It stays in the register, marked as revoked");
+  });
+  /* Typing writes straight to the draft and does NOT re-render - which is what
+     lets a checkbox repaint the drawer without eating what has been typed, and
+     avoids the focus-restore dance the view drawer needs for its name field. */
+  if(CMP_RES){
+    const bind = (id, fn) => { const el = document.getElementById(id); if(el) el.oninput = e=>fn(e.target.value); };
+    bind("cmpWhy",   v=>{ CMP_RES.why = v; });
+    bind("cmpSubj",  v=>{ CMP_RES.subj = v; CMP_RES.subjTouched = true; });
+    bind("cmpStart", v=>{ CMP_RES.start = v; });
+    bind("cmpEnd",   v=>{ CMP_RES.end = v; });
+    const rq = document.getElementById("cmpReq");
+    if(rq) rq.onchange = e=>{ CMP_RES.req = e.target.value; };
+  }
+  rd("[data-cmpgsave]", ()=>{
+    const D = CMP_RES;
+    const ctx = cmpResCtx(cmpAssess(cmpSnap()));
+    if(!ctx || !D || !D.act) return;
+    const sel = ctx.open.filter(g => D.sel.indexOf(g.field.id) >= 0);
+    if(!sel.length) return;
+    const cis = [];
+    sel.forEach(g => g.missing.forEach(ci => { if(cis.indexOf(ci) < 0) cis.push(ci); }));
+    const subject = (D.subjTouched ? D.subj : cmpResSubject(sel, cis.length)).trim();
+
+    if(D.act === "waived" && !D.why.trim()){ D.err = true; renderReports(); return; }
+    if(D.act === "ticket" && (!subject || !D.start || !D.end || D.end < D.start)){
+      D.err = true; renderReports(); return;
+    }
+
+    const at = cmpNow();
+    const ticket = D.act === "ticket" ? "CHG-" + (4471 + CMP_ACTIONS.length) : null;
+    /* One decision, recorded against every field it covers - so the register
+       still reads per gap, which is the unit an auditor checks. */
+    sel.forEach(g=>{
+      const rec = {field:g.field.id, kind:D.act, actor:CMP_ME, at:at};
+      if(D.act === "waived") rec.why = D.why.trim();
+      if(D.act === "ticket"){
+        rec.ticket = ticket; rec.subject = subject; rec.requester = D.req;
+        rec.start = D.start; rec.end = D.end;
+        rec.note = `${subject} \u2014 ${D.req}, ${D.start} to ${D.end}, ${cis.length} CI${cis.length===1?"":"s"} attached.`;
+      }
+      if(D.act === "attached"){
+        rec.note = "Field supplied through Ingest and merged into the component records.";
+        CMP_ATTACHED.push(g.field.id);
+      }
+      CMP_ACTIONS.push(rec);
+    });
+
+    const n = `${sel.length} gap${sel.length===1?"":"s"}`;
+    const act = D.act;
+    CMP_RES = null; renderReports();
+    toast(act === "ticket" ? `${ticket} raised for ${n}`
+        : act === "waived" ? `${n} waived \u2014 recorded against your name`
+        : `${n} attached \u2014 re-assess to clear the checks they unblock`,
+      act === "waived" ? "Listed on the export cover sheet" : null);
   });
   on("#viewReports [data-cmpreassess]", ()=>cmpReassess());
+  on("#viewReports [data-cmpexport]", el=>{
+    const kind = el.dataset.cmpexport;
+    const A2 = cmpAssess(cmpSnap());
+    const f2 = A2.frameworks.find(x=>x.id === CMP_SEL) || A2.frameworks[0];
+    const doc = cmpExportDoc(A2, f2);
+    cmpDownload(kind, doc, f2);
+    CMP_POP = null; renderReports();
+    toast(kind === "bundle" ? "Export bundle downloaded" : "Report generated",
+      `${esc(f2.name)} · assessed ${esc(A2.at)} · frozen at this assessment`);
+  });
 
-  const q = document.getElementById("cmpQ");
+  /* ── the new-view drawer ── */
+  const vd = (sel, fn) => document.querySelectorAll("#cmpHost " + sel).forEach(el=>{
+    el.onclick = e=>{ e.stopPropagation(); fn(el, e); };
+  });
+  const toggle = (list, id) =>
+    list.indexOf(id) >= 0 ? list.filter(x=>x !== id) : list.concat([id]);
+
+  vd("[data-cmpvclose]", ()=>{ CMP_VDRAFT = null; CMP_VERR = false; renderReports(); });
+  vd("[data-cmpvsec]",   el=>{
+    /* One section at a time: the drawer is a decision, not a form to scroll. */
+    CMP_VOPEN = CMP_VOPEN === el.dataset.cmpvsec ? null : el.dataset.cmpvsec;
+    renderReports();
+  });
+  vd("[data-cmpvfw]", el=>{ CMP_VDRAFT.fws = toggle(CMP_VDRAFT.fws, el.dataset.cmpvfw); renderReports(); });
+  vd("[data-cmpvci]", el=>{ CMP_VDRAFT.cis = toggle(CMP_VDRAFT.cis, el.dataset.cmpvci); renderReports(); });
+  vd("[data-cmpvpr]", el=>{ CMP_VDRAFT.products = toggle(CMP_VDRAFT.products, el.dataset.cmpvpr); renderReports(); });
+  vd("[data-cmpvall]", el=>{
+    const k = el.dataset.cmpvall;
+    if(k === "fw") CMP_VDRAFT.fws = CMP_VDRAFT.fws.length === CMP_FW.length ? [] : CMP_FW.map(f=>f.id);
+    if(k === "ci") CMP_VDRAFT.cis = CMP_VDRAFT.cis.length === cmpAllCis().length ? [] : cmpAllCis();
+    if(k === "pr") CMP_VDRAFT.products = CMP_VDRAFT.products.length === CMP_PRODUCTS.length ? [] : CMP_PRODUCTS.map(p=>p.id);
+    renderReports();
+  });
+  vd("[data-cmpvsave]", ()=>{
+    const V = CMP_VDRAFT;
+    const hosts = CMP_PRODUCTS.filter(p=>V.products.indexOf(p.id) >= 0).map(p=>p.ci);
+    const scoped = cmpAllCis().filter(id => V.cis.indexOf(id) >= 0 && hosts.indexOf(id) >= 0);
+    if(!V.name.trim() || !V.fws.length || !scoped.length){ CMP_VERR = true; renderReports(); return; }
+    /* `null` where nothing was narrowed, so a view that includes everything reads
+       as "everything" downstream rather than as a list that happens to be complete
+       today and silently stops matching when a CI is enrolled tomorrow. */
+    const all = (sel, whole) => sel.length === whole.length ? null : sel.slice();
+    /* An edit rewrites the view in place: same id, same tab position, so the
+       screen the user was reading does not jump to a different one on save. */
+    if(V.editing){
+      const cur = CMP_VIEWS.find(x=>x.id === V.editing);
+      if(cur){
+        cur.lab = V.name.trim();
+        cur.fws = all(V.fws, CMP_FW);
+        cur.cis = all(V.cis, cmpAllCis());
+        cur.products = all(V.products, CMP_PRODUCTS);
+        cur.scope = `${V.fws.length} framework${V.fws.length===1?"":"s"} \u00b7 ${scoped.length} CI${scoped.length===1?"":"s"}`;
+      }
+      CMP_VIEW = V.editing; CMP_VDRAFT = null; CMP_VERR = false; CMP_SEV = null;
+      renderReports();
+      toast(`View "${esc(V.name.trim())}" updated`, null);
+      return;
+    }
+    const id = "v" + (CMP_VIEWS.length + 1) + "-" + Date.now().toString(36);
+    CMP_VIEWS.push({
+      id:id, lab:V.name.trim(),
+      fws: all(V.fws, CMP_FW), cis: all(V.cis, cmpAllCis()), products: all(V.products, CMP_PRODUCTS),
+      scope: `${V.fws.length} framework${V.fws.length===1?"":"s"} \u00b7 ${scoped.length} CI${scoped.length===1?"":"s"}`
+    });
+    CMP_VIEW = id; CMP_VDRAFT = null; CMP_VERR = false; CMP_SEV = null;
+    renderReports();
+    toast(`View "${esc(V.name.trim())}" created`, null);
+  });
+  const vn = document.getElementById("cmpVName");
+  if(vn){
+    vn.oninput = e=>{ CMP_VDRAFT.name = e.target.value; cmpViewDrawer(); cmpWire();
+      const n = document.getElementById("cmpVName");
+      if(n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+  }
+
+  /* Both screens carry a search box and both are in the DOM at once, so the ids
+     are per-screen — a shared one would have getElementById return the hidden
+     screen's input and type into nothing. */
+  const QID = VIEW === "reports2" ? "cmp2Q" : "cmpQ";
+  const q = document.getElementById(QID);
   if(q) q.oninput = e=>{ CMP_Q = e.target.value; renderReports();
-    const n = document.getElementById("cmpQ"); if(n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+    const n = document.getElementById(QID); if(n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+}
+
+/* The bundle is the document as data; the report is the same document as prose.
+   Both are built from cmpExportDoc, so neither can quietly carry less than the
+   other. (A real PDF needs a renderer this prototype does not ship — the report
+   is plain text, which is honest about what it is.) */
+function cmpReportText(doc){
+  const L = [];
+  L.push("COMPLIANCE REPORT — " + doc.framework, doc.region, "");
+  L.push("Assessed " + doc.generated + " · policy pack " + doc.policyPack, "");
+  L.push("ABOUT THIS FRAMEWORK", doc.description, "");
+  L.push("COMPLIANCE", doc.scoreDecomposition, "");
+  L.push("SCOPE", `${doc.cisInScope} CIs · ${doc.cisCompliant} compliant · ${doc.cisNonCompliant} non-compliant`,
+    `${doc.failingChecks} failing checks, ${doc.failingInCriticalRules} of them in critical rules`, "");
+  L.push("RULES");
+  doc.ruleResults.forEach(r=>{
+    const fail = r.perCi.filter(x=>x.result === "fail").length;
+    L.push(`  ${r.control}  ${r.rule}  [${r.severity}]  ${r.checksPerCi} checks/CI — ${fail} CIs failing`);
+    r.perCi.filter(x=>x.result === "fail").forEach(x=>
+      L.push(`      ${x.ci}: missing ${x.missingFields.join(", ")}`));
+  });
+  L.push("", "OPEN GAPS", doc.gapCoverage);
+  doc.gaps.forEach(g=>L.push(`  ${g.field} (${g.bom}) — missing on ${g.missingOn} CIs, clears ${g.clearsChecks} checks across ${g.acrossFrameworks} frameworks`));
+  L.push("  " + doc.gapMechanic, "");
+  L.push("WAIVER & RESOLUTION REGISTER");
+  doc.waiverRegister.forEach(w=>{
+    L.push(`  ${w.field} — ${w.action}${w.revoked ? " (REVOKED)" : ""} · ${w.actor} · ${w.at}${w.ticket ? " · " + w.ticket : ""}`);
+    if(w.justification) L.push(`      "${w.justification}"`);
+    if(w.revoked) L.push(`      withdrawn by ${w.revoked.by} on ${w.revoked.at}`);
+  });
+  L.push("", doc.reassessNote);
+  return L.join("\n");
+}
+function cmpDownload(kind, doc, f){
+  const bundle = kind === "bundle";
+  const body = bundle ? JSON.stringify(doc, null, 2) : cmpReportText(doc);
+  const name = `${f.id}-compliance-${bundle ? "bundle.json" : "report.txt"}`;
+  try {
+    const url = URL.createObjectURL(new Blob([body], {type: bundle ? "application/json" : "text/plain"}));
+    const a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 0);
+  } catch(err){
+    /* No Blob/URL support is not a reason to lose the export — and a silent
+       no-op on an evidence button is the worst possible failure here. */
+    console.error("BOM: export download failed —", err);
+  }
+  return body;
 }
 
 const CMP_ME = "Priya Menon";
@@ -5466,7 +6505,8 @@ function cmpReassess(){
 
 const ROUTES = {inventory:"#/bom/components", admin:"#/admin",
                 retention:"#/admin/bom-retention", scheduler:"#/admin/bom-scheduler",
-                licensing:"#/admin/bom-licensing", reports:"#/bom/reports"};
+                licensing:"#/admin/bom-licensing", reports:"#/bom/reports",
+                reports2:"#/bom/reports2"};
 /* Longest prefix first — "#/admin" is a prefix of every admin sub-route, so
    testing it early would swallow all of them. */
 function viewFromHash(h){
@@ -5475,6 +6515,9 @@ function viewFromHash(h){
   if(h.indexOf(ROUTES.retention) === 0) return "retention";
   if(h.indexOf(ROUTES.scheduler) === 0) return "scheduler";
   if(h.indexOf(ROUTES.admin)     === 0) return "admin";
+  /* Before `reports`, which is a prefix of it — the same longest-prefix-first
+     rule that keeps "#/admin" from swallowing every admin sub-route. */
+  if(h.indexOf(ROUTES.reports2)  === 0) return "reports2";
   if(h.indexOf(ROUTES.reports)   === 0) return "reports";
   return "inventory";
 }
@@ -5486,9 +6529,10 @@ function setView(v){
   document.getElementById("viewScheduler").hidden = v!=="scheduler";
   document.getElementById("viewLicensing").hidden = v!=="licensing";
   document.getElementById("viewReports").hidden   = v!=="reports";
-  /* Reports is the one screen on the white page surface; the class is what keeps
-     that scoped instead of restyling the other five through :root. */
-  document.body.classList.toggle("v-reports", v==="reports");
+  document.getElementById("viewReports2").hidden  = v!=="reports2";
+  /* The compliance screens are the ones on the white page surface; the class is
+     what keeps that scoped instead of restyling the others through :root. */
+  document.body.classList.toggle("v-reports", v==="reports" || v==="reports2");
   VIEW = v;
   location.hash = ROUTES[v] || ROUTES.inventory;
   window.scrollTo(0,0);
@@ -5500,7 +6544,7 @@ function setView(v){
     if(v==="retention") renderRetention();
     if(v==="scheduler") renderScheduler();
     if(v==="licensing") renderLicensing();
-    if(v==="reports")   renderReports();
+    if(v==="reports" || v==="reports2") renderReports();
   } catch(err){ console.error("BOM: painting " + v + " failed —", err); }
 }
 document.getElementById("crumbBom").onclick  = e=>{ e.preventDefault(); setView("inventory"); };

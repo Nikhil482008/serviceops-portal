@@ -634,6 +634,9 @@ export interface DepGraph {
   /** Components the scanner found on disk but could not attach to the graph — vendored
    *  copies, OS packages, anything with no manifest. Worth stating: they are still installed. */
   notInGraph: number;
+  /** Those same components, as nodes. The count alone was a dead end — it told you how many
+   *  could not be placed and gave you no way to look at them. */
+  standalone: DepNode[];
   /** Every component in the scope. `direct + transitive + notInGraph` sums to exactly this,
    *  and this equals the row count of the Components tab — so "N not in graph" always has a
    *  denominator the user can see, rather than floating against a number twice its size. */
@@ -675,6 +678,8 @@ export const bomDependencies = (endpointId: string, productKey: string): DepGrap
   const rest = all.filter((c) => !directSet.has(idOf(c)));
   const notInGraph = Math.round(rest.length * 0.25);
   const attachable = rest.slice(0, rest.length - notInGraph);
+  /* The tail that could not be attached, kept rather than counted away. */
+  const unplaced = rest.slice(rest.length - notInGraph);
 
   /* Levels are built explicitly rather than inferred. Assigning parents at random and hoping
      the depth stays sane produced those 30-hop chains — a tree indented thirty times is
@@ -749,6 +754,12 @@ export const bomDependencies = (endpointId: string, productKey: string): DepGrap
     transitive: attachable.length,
     maxDepth,
     notInGraph,
+    /* Leaves by definition: nothing hangs off a component with no manifest. `uses: 0`
+       distinguishes "nothing depends on this" from the graph's "one parent". */
+    standalone: unplaced.map((c) => ({
+      key: idOf(c), name: c.name, version: c.version, purl: c.purl,
+      uses: 0, cves: c.cves?.length ?? 0, children: [],
+    })),
     total: all.length,
     edges: edges + direct.length,
     tree,

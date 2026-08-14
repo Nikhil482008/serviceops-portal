@@ -270,32 +270,47 @@ export function BomComponentsPanel({
         </div>
 
         {/* Components vs Dependencies — a different QUESTION, not a different filter, so it
-            sits above the change tabs rather than beside them. */}
+            sits above the change tabs rather than beside them.
+
+            Dependencies leads: "why is this here" is the question the flat list cannot answer,
+            and it is the one worth offering first. The SELECTION still follows what was clicked
+            — opening the panel from a CVE count lands on Components filtered to it — because a
+            number you clicked should give you the list it counted, not a different screen.
+
+            Both use the product's content-tab treatment (2px underline, count badge), the same
+            one the change tabs below and the Software Components listing use. A segmented pill
+            box here made two levels of tab look like two different KINDS of control. */}
         {type === 'SBOM' && (
-          <div className="border-b border-[#EEF2F6] px-5 py-2.5">
-            <div className="inline-flex items-center gap-0.5 rounded-md bg-[#F1F5F9] p-0.5">
-              {([
-                ['components', 'Components', rows.length],
-                ['dependencies', 'Dependencies', graph.edges],
-              ] as const).map(([id, label, n]) => (
-                <button
-                  key={id}
-                  onClick={() => setView(id)}
-                  className={`inline-flex items-center gap-1.5 rounded px-3 py-1 text-[13px] font-medium transition-colors ${
-                    view === id ? 'bg-white text-[#364658] shadow-sm' : 'text-[#64748B] hover:text-[#364658]'
-                  }`}
-                >
-                  {label}
-                  <span className="text-[12px] tabular-nums text-[#94A3B8]">{n.toLocaleString()}</span>
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center gap-2.5 border-b border-[#EEF2F6] px-5">
+            {([
+              ['dependencies', 'Dependencies', graph.edges],
+              ['components', 'Components', rows.length],
+            ] as const).map(([id, label, n]) => (
+              <button
+                key={id}
+                onClick={() => setView(id)}
+                className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-3 text-[14px] font-medium transition-colors ${
+                  view === id
+                    ? 'border-[#3D8BD0] text-[#3D8BD0]'
+                    : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
+                }`}
+              >
+                {label}
+                <span className={`rounded px-1 py-0.5 text-[12px] font-medium tabular-nums ${
+                  view === id ? 'bg-[#E8F4FD] text-[#3D8BD0]' : 'bg-[#E5E7EB] text-[#364658]'
+                }`}>{n.toLocaleString()}</span>
+              </button>
+            ))}
           </div>
         )}
 
         {view === 'dependencies' ? (
           <BomDependencyTree
             graph={graph}
+            /* The panel already computed what this version changed. Handing the SAME map down
+               means the tree's filter counts and the Components tab counts cannot disagree —
+               deriving it twice is how they start to. */
+            changeOf={(name, ver) => change(name, ver)}
             /* The tree hands off rather than duplicating the list: picking a node returns to
                Components already filtered to it, so there is one place that renders a row. */
             onInspect={(name) => {
