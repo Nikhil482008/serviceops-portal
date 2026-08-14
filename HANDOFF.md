@@ -92,6 +92,39 @@ DOES throw. A check that cannot fail is not evidence, and this one was worth pro
 attempt at it deleted the declaration from the CURRENT file instead, which breaks on mount rather
 than on click, so it was testing a different bug.
 
+### ⚠ The BOM tab did not appear — `HardwareAssetDrawer` keeps TWO tab lists
+
+The content loaded and the tab did not, which is the signature of this file's tab plumbing:
+
+| | Where | What it does |
+|---|---|---|
+| `baseTabsForOthers` / `baseTabsForINC35` | inside the overflow-measuring effect | **the list that RENDERS.** It is measured into `visibleTabs` / `overflowTabs`. |
+| `tabConfig` | in the JSX | labels and conditions. It only **filters** the above: `visibleTabs.filter(id => allowedTabIds.includes(id))`. |
+
+Adding a tab to `tabConfig` alone gives it a label it never gets to use. `'bom'` is in both now,
+plus `tabWidths` — an unmeasured tab falls back to a guessed 80px and mis-sizes the overflow point.
+
+**The check said it would work, and the check was wrong.** It asserted `tabConfig` — the list I had
+just edited — rather than the list that renders. Asserting the thing you changed proves you changed
+it, nothing more. `tabcheck.mjs` now reads BOTH lists, asserts `bom` sits after `software` in each,
+and asserts every id the renderer emits survives `tabConfig`'s filter, so the two cannot diverge
+again without failing.
+
+**And jsdom CAN see the strip, once it has a width.** The earlier note that it could not was
+half-right: the strip is measurement-driven, and with `offsetWidth` reporting 0 every tab is sent
+to overflow and the row renders empty — which is exactly what happened, and is why the miss went
+unnoticed. Stubbing `HTMLElement.prototype.offsetWidth` makes the whole strip observable, and it
+now reads `Overview | Properties | Hardware | Software | BOM | Baseline | …`. A measurement-driven
+component is testable in jsdom; it just needs a measurement.
+
+Two more corrections worth keeping, both in the checks rather than the product:
+- `teeth.mjs` pinned its reproduction to `HEAD`, which stopped reproducing anything the moment the
+  fix was committed. It walks the file's history in Node now and takes the newest revision that
+  still lacks the declaration. It does NOT use `git log -S`: `execSync` goes through cmd.exe on
+  Windows, which mangles the quoting on a pickaxe argument and returns the wrong commit silently.
+- Scope a DOM query to the thing it names — counting every `<button>` on the page pulled in the
+  asset-type VALUE "Hardware" and reported it as a tab.
+
 Two things jsdom cannot answer, recorded rather than papered over:
 - The asset drawer's **tab strip is measurement-driven** (ResizeObserver splits visible/overflow),
   and jsdom has no layout, so no tab button renders. Tab ORDER is asserted on the source; the DOM

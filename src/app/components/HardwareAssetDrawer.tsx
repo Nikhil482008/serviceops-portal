@@ -1204,8 +1204,11 @@ onStackMinimizedChange,
       if (!tabContainerRef.current) return;
 
       // Determine which tabs should be shown based on ticket type and state
-      const baseTabsForOthers = ['overview', 'properties', 'hardware', 'software', 'baseline', 'relationship', 'financials', 'audit'];
-      const baseTabsForINC35 = ['overview', 'properties', 'hardware', 'software', 'baseline', 'relationship', 'financials', 'service-request', 'audit'];
+      // NOTE: this is the list that actually RENDERS — `tabConfig` further down only filters it,
+      // so a tab added there and not here never appears. Keep the two in step; the assertion in
+      // the probe now compares them.
+      const baseTabsForOthers = ['overview', 'properties', 'hardware', 'software', 'bom', 'baseline', 'relationship', 'financials', 'audit'];
+      const baseTabsForINC35 = ['overview', 'properties', 'hardware', 'software', 'bom', 'baseline', 'relationship', 'financials', 'service-request', 'audit'];
       
       // Build tabs list dynamically based on conditions
       let allTabs: string[] = [];
@@ -1246,6 +1249,7 @@ onStackMinimizedChange,
         'properties': 85,
         'hardware': 85,
         'software': 80,
+        'bom': 55,
         'baseline': 80,
         'relationship': 95,
         'financials': 85,
