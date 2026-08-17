@@ -37,6 +37,9 @@ export interface Patch {
   /** Set ONLY when the endpoint was opened from the BOM module — makes the endpoint drawer land
    *  on its BOM tab. The same endpoint opened from Patch/Vulnerability lands on Overview. */
   bomMode?: boolean;
+  /** Which BOM to open on. The Dashboard links certificate findings into the CBOM and model
+   *  findings into the AI BOM; everything else leaves it unset and lands on the SBOM. */
+  bomInitialType?: 'SBOM' | 'CBOM' | 'AI BOM';
 }
 
 // Realistic Windows / third-party patch catalog (mock).

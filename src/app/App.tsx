@@ -16,6 +16,8 @@ import { PatchDeploymentsListPage } from './components/PatchDeploymentsListPage'
 import { EndpointsListPage } from './components/EndpointsListPage';
 import { VulnerabilitiesListPage } from './components/VulnerabilitiesListPage';
 import { DetectedCvesListPage } from './components/DetectedCvesListPage';
+import { BomDashboardPage } from './components/BomDashboardPage';
+import { BomDashboard2Page } from './components/BomDashboard2Page';
 import { BomInventoryListPage } from './components/BomInventoryListPage';
 import { SoftwareComponentsListPage } from './components/SoftwareComponentsListPage';
 import { ComplianceReportsModule } from './components/ComplianceReportsModule';
@@ -25,7 +27,7 @@ import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
 
-type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom' | 'software-components' | 'compliance-reports' | 'compliance-reports-2' | 'admin';
+type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom-dashboard' | 'bom-dashboard-2' | 'bom' | 'software-components' | 'compliance-reports' | 'compliance-reports-2' | 'admin';
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('request');
@@ -54,6 +56,8 @@ export default function App() {
       {activePage === 'endpoints' && <EndpointsListPage onNavigate={navigate} />}
       {activePage === 'vulnerabilities' && <VulnerabilitiesListPage onNavigate={navigate} />}
       {activePage === 'detected-cves' && <DetectedCvesListPage onNavigate={navigate} />}
+      {activePage === 'bom-dashboard' && <BomDashboardPage onNavigate={navigate} />}
+      {activePage === 'bom-dashboard-2' && <BomDashboard2Page onNavigate={navigate} />}
       {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
       {activePage === 'software-components' && <SoftwareComponentsListPage onNavigate={navigate} />}
       {activePage === 'compliance-reports' && <ComplianceReportsModule onNavigate={navigate} />}

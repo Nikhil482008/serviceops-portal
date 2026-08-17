@@ -291,6 +291,10 @@ function InfoHint({ text }: { text: string }) {
 interface EndpointBomTabProps {
   endpointId: string;
   hostName: string;
+  /** Which BOM to open on. The Dashboard links to a specific one — a certificate finding is in
+   *  the CBOM and a model finding is in the AI BOM, so landing on SBOM would hide the thing the
+   *  user clicked. Defaults to SBOM for every other entry point. */
+  initialType?: BomType;
 }
 
 
@@ -304,13 +308,13 @@ const SEV_SOLID: Record<string, { bg: string; text: string }> = {
   Low: { bg: '#F2F4F7', text: '#475467' },
 };
 
-export function EndpointBomTab({ endpointId, hostName }: EndpointBomTabProps) {
+export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBomTabProps) {
   const record = bomForEndpoint(endpointId);
   // Products are editable in Manage scan paths, so they live in state rather than being read
   // straight from the record on every render.
   const [products, setProducts] = useState(record.products);
   const defaultKey = (ps: typeof products) => (ps.find((p) => p.isDefault) ?? ps.find((p) => p.key === OS_PRODUCT_KEY) ?? ps[0])?.key ?? OS_PRODUCT_KEY;
-  const [type, setType] = useState<BomType>('SBOM');
+  const [type, setType] = useState<BomType>(initialType ?? 'SBOM');
   const [productKey, setProductKey] = useState<string>(() => defaultKey(record.products));
   const [showProducts, setShowProducts] = useState(false);
   const [showTypes, setShowTypes] = useState(false);

@@ -1466,7 +1466,7 @@ onStackMinimizedChange,
   const tabInitRef = useRef(false);
   useEffect(() => {
     if (!activeAsset) return;
-    // Opened from BOM Inventory the asset lands on its BOM tab — that is the record the user
+    // Opened from Configuration Items the asset lands on its BOM tab — that is the record the user
     // clicked. A remembered tab still wins, so returning to the item does not yank them back.
     const fromBom = (activeAsset as { bomMode?: boolean } | undefined)?.bomMode ? 'bom' : 'overview';
     const want = (stackActiveTab as typeof activeMainTab | undefined) ?? fromBom;

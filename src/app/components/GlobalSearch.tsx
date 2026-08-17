@@ -1227,7 +1227,7 @@ const PAGE_SCOPE: Record<string, string> = {
   'software-licenses': 'Software Licenses', contracts: 'Contracts', purchases: 'Purchases',
   cmdb: 'CMDB', patches: 'Patches', 'patch-deployments': 'Patch Deployment',
   endpoints: 'Endpoint', vulnerabilities: 'Vulnerabilities', 'detected-cves': 'Detected CVEs',
-  bom: 'BOM Inventory', admin: 'Admin',
+  bom: 'Configuration Items', admin: 'Admin',
 };
 
 /** Which result group the scope chip narrows to when the user opts into it. */

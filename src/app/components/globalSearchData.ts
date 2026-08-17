@@ -232,7 +232,7 @@ const DESTINATIONS: DestRec[] = [
   { name: 'Endpoint', page: 'endpoints', icon: 'endpoint', hint: 'Agent-managed machines' },
   { name: 'Vulnerabilities', page: 'vulnerabilities', icon: 'vulnerability', hint: 'Detected vulnerability patches' },
   { name: 'Detected CVEs', page: 'detected-cves', icon: 'vulnerability', hint: 'CVE catalogue' },
-  { name: 'BOM Inventory', page: 'bom', icon: 'bom', hint: 'Component intelligence per CI' },
+  { name: 'Configuration Items', page: 'bom', icon: 'bom', hint: 'Component intelligence per CI' },
   { name: 'Admin', page: 'admin', icon: 'admin', hint: 'All ServiceOps settings' },
   { name: 'Knowledge', icon: 'knowledge', hint: 'Knowledge base', requesterVisible: true },
   { name: 'Projects', icon: 'project', hint: 'Project delivery' },

@@ -17,7 +17,7 @@ import {
   IconMyTeam,
   IconBom,
 } from './SidebarIcons';
-import { Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings } from 'lucide-react';
+import { Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings, LayoutDashboard } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 
 // Asset sub-modules surfaced in the hover flyout (grouped with dividers).
@@ -162,14 +162,20 @@ function PatchNavItem({ activePage, onNavigate }: { activePage?: string; onNavig
   );
 }
 
-// BOM sub-modules surfaced in the hover flyout. BOM Inventory is one row per CI, Software
+// BOM sub-modules surfaced in the hover flyout. Configuration Items is one row per CI, Software
 // Components is one row per component version across the fleet — the same data seen the other
 // way up. Compliance Reports is the same inventory read against 13 regulatory frameworks, and
 // Compliance Reports 2 is that same assessment in a split layout — a vertical framework rail
 // instead of a horizontal carousel — carried as a second entry so the two are comparable
 // side by side rather than one replacing the other unseen.
 const BOM_ITEMS: { icon: React.ReactNode; label: string; page?: string }[] = [
-  { icon: <IconBom size={16} />, label: 'BOM Inventory', page: 'bom' },
+  // First in the flyout because it is the way in: every figure on it links into one of the rows
+  // below, so it reads as the module's front page rather than a fifth report.
+  { icon: <LayoutDashboard size={16} />, label: 'Dashboard', page: 'bom-dashboard' },
+  // The same estate read visually rather than as three lists. Carried alongside the original so
+  // the two can be compared, the way Compliance Reports and Compliance Reports 2 are.
+  { icon: <LayoutDashboard size={16} />, label: 'Dashboard 2', page: 'bom-dashboard-2' },
+  { icon: <IconBom size={16} />, label: 'Configuration Items', page: 'bom' },
   { icon: <Boxes size={16} />, label: 'Software Components', page: 'software-components' },
   { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports', page: 'compliance-reports' },
   { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports 2', page: 'compliance-reports-2' },
@@ -179,7 +185,8 @@ const BOM_ITEMS: { icon: React.ReactNode; label: string; page?: string }[] = [
  *  Deliberately identical to its siblings — no title, no badge, no divider: a rail where one
  *  flyout is dressed differently reads as a different KIND of menu. */
 function BomNavItem({ activePage, onNavigate }: { activePage?: string; onNavigate?: (page: string) => void }) {
-  const sectionActive = activePage === 'bom' || activePage === 'software-components'
+  const sectionActive = activePage === 'bom-dashboard' || activePage === 'bom-dashboard-2'
+    || activePage === 'bom' || activePage === 'software-components'
     || activePage === 'compliance-reports' || activePage === 'compliance-reports-2';
   return (
     <div className="relative group">
@@ -286,7 +293,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           onClick={() => onNavigate?.('cmdb')}
         />
         <VulnerabilityNavItem activePage={activePage} onNavigate={onNavigate} />
-        {/* BOM — sits directly under Vulnerability; its flyout opens the BOM Inventory listing
+        {/* BOM — sits directly under Vulnerability; its flyout opens the Configuration Items listing
             of the fleet, plus the two sub-modules that do not have screens yet. */}
         <BomNavItem activePage={activePage} onNavigate={onNavigate} />
         <PatchNavItem activePage={activePage} onNavigate={onNavigate} />

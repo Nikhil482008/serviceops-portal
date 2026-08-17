@@ -6537,7 +6537,11 @@ onStackMinimizedChange,
 
             {/* BOM Tab Content — this endpoint's SBOM / CBOM / AI BOM per product scope */}
             {activeMainTab === 'bom' && (
-              <EndpointBomTab endpointId={activeAsset?.id ?? ''} hostName={activeAsset?.name ?? ''} />
+              <EndpointBomTab
+                endpointId={activeAsset?.id ?? ''}
+                hostName={activeAsset?.name ?? ''}
+                initialType={activePatchRecord?.bomInitialType}
+              />
             )}
 
             {/* Patches Tab Content — this endpoint's Missing / Installed / Ignored patches */}

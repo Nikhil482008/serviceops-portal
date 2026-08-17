@@ -17,7 +17,7 @@ import { RETENTION_DEFAULT } from './bomAdminData';
 export type BomType = 'SBOM' | 'CBOM' | 'AI BOM';
 
 /* The BOM screens address a host by its CI id: Component Intelligence is a CMDB-level view, and
- * the BOM Inventory listing already calls these rows "Agent CIs". The Patch/Endpoint modules
+ * the Configuration Items listing already calls these rows "Agent CIs". The Patch/Endpoint modules
  * keep their own EP-### ids for the same machines — this is a display mapping for BOM screens
  * only, so the two never have to be renumbered against each other. */
 /** Deterministic stream, so a host's graph is the same shape on every render. */
@@ -109,17 +109,24 @@ export interface CryptoAsset {
 }
 
 const CBOM_CATALOG: CryptoAsset[] = [
-  { name: 'TLS server certificate', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'TLS 1.2', location: 'LocalMachine\\My', compliance: 'Quantum-vulnerable', expiry: 'Mar 14, 2027' },
+  /* Certificates carry their SUBJECT as the name — "TLS server certificate" is a category, and
+     an operator rotating one needs to know which. Expiries are fixed dates so the countdown on
+     the dashboard is the same on every run (see DASH_TODAY in bomDashboardData.ts). */
+  { name: '*.paymentsweb.internal', primitive: 'Certificate', algorithm: 'RSA', keyLength: '3072 bit', protocol: 'TLS 1.2', location: 'LocalMachine\\My', compliance: 'Quantum-vulnerable', expiry: 'Mar 14, 2027' },
+  { name: 'db-replication-cert', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SHA256withRSA', location: 'LocalMachine\\My', compliance: 'Quantum-vulnerable', expiry: 'Aug 30, 2026' },
+  { name: 'partner-mtls-client', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '256 bit', protocol: 'SHA256withECDSA', location: 'CurrentUser\\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 01, 2026' },
+  { name: 'k8s-ingress-wildcard', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'SHA256withECDSA', location: 'k8s secret/ingress-tls', compliance: 'Quantum-vulnerable', expiry: 'Feb 14, 2027' },
+  { name: 'kafka-broker-tls', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SHA256withRSA', location: '/etc/kafka/ssl', compliance: 'Quantum-vulnerable', expiry: 'Apr 18, 2027' },
   { name: 'Session key exchange', primitive: 'Key-agreement', algorithm: 'ECDH P-256', keyLength: '256 bit', protocol: 'TLS 1.3', location: 'schannel', compliance: 'Quantum-vulnerable', expiry: null },
   { name: 'Payload encryption', primitive: 'Cipher', algorithm: 'AES-GCM', keyLength: '256 bit', protocol: 'TLS 1.3', location: 'bcrypt.dll', compliance: 'Compliant', expiry: null },
   { name: 'Legacy payload cipher', primitive: 'Cipher', algorithm: '3DES-CBC', keyLength: '168 bit', protocol: 'TLS 1.0', location: 'schannel', compliance: 'Deprecated', expiry: null },
   { name: 'Integrity digest', primitive: 'Hash', algorithm: 'SHA-256', keyLength: '256 bit', protocol: 'internal', location: 'bcrypt.dll', compliance: 'Compliant', expiry: null },
   { name: 'Legacy digest', primitive: 'Hash', algorithm: 'SHA-1', keyLength: '160 bit', protocol: 'internal', location: 'advapi32.dll', compliance: 'Deprecated', expiry: null },
-  { name: 'Code-signing certificate', primitive: 'Certificate', algorithm: 'RSA', keyLength: '4096 bit', protocol: 'Authenticode', location: 'LocalMachine\\TrustedPublisher', compliance: 'Quantum-vulnerable', expiry: 'Sep 02, 2026' },
+  { name: 'code-signing-2026', primitive: 'Certificate', algorithm: 'RSA', keyLength: '4096 bit', protocol: 'Authenticode', location: 'LocalMachine\\TrustedPublisher', compliance: 'Quantum-vulnerable', expiry: 'Sep 02, 2026' },
   { name: 'Token signature', primitive: 'Signature', algorithm: 'ECDSA P-384', keyLength: '384 bit', protocol: 'JWT ES384', location: '/opt/payments/keys', compliance: 'Quantum-vulnerable', expiry: null },
   { name: 'Message authentication', primitive: 'MAC', algorithm: 'HMAC-SHA256', keyLength: '256 bit', protocol: 'internal', location: 'bcrypt.dll', compliance: 'Compliant', expiry: null },
   { name: 'Disk volume encryption', primitive: 'Cipher', algorithm: 'AES-XTS', keyLength: '128 bit', protocol: 'BitLocker', location: 'fvevol.sys', compliance: 'Compliant', expiry: null },
-  { name: 'Client certificate', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'mTLS', location: 'CurrentUser\\My', compliance: 'Quantum-vulnerable', expiry: 'Jan 21, 2027' },
+  { name: 'connector-mtls-client', primitive: 'Certificate', algorithm: 'EC P-256', keyLength: '256 bit', protocol: 'mTLS', location: 'CurrentUser\\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 03, 2026' },
   { name: 'Password derivation', primitive: 'Hash', algorithm: 'PBKDF2-HMAC-SHA256', keyLength: '256 bit', protocol: 'internal', location: '/opt/reporting/lib', compliance: 'Compliant', expiry: null },
 ];
 
@@ -132,6 +139,14 @@ export interface AiModel {
   parameters: string;
   source: 'Hosted API' | 'Local weights' | 'Embedded';
   usage: string;
+  /** End-of-life date. A model past it receives no security fixes — that is the whole reason an
+   *  AI BOM tracks lifecycle. `undefined` means the supplier publishes no EOL for it. */
+  eol?: string;
+  /** Whether the model ships a model card (provenance, training data, intended use). Absent on
+   *  in-house models more often than on hosted ones, which is itself the finding. */
+  modelCard?: boolean;
+  /** Why this one carries extra risk beyond its age — e.g. a pickled artefact executes on load. */
+  risk?: string;
 }
 
 const AIBOM_CATALOG: AiModel[] = [
@@ -143,6 +158,13 @@ const AIBOM_CATALOG: AiModel[] = [
   { name: 'whisper-small', provider: 'OpenAI', version: '1.0', task: 'Speech-to-text', license: 'MIT', parameters: '244 M', source: 'Local weights', usage: 'Call-log transcription' },
   { name: 'prophet-forecast', provider: 'Meta', version: '1.1.5', task: 'Forecasting', license: 'MIT', parameters: 'N/A', source: 'Embedded', usage: 'SLA breach prediction' },
   { name: 'yolov8n', provider: 'Ultralytics', version: '8.1.0', task: 'Object detection', license: 'AGPL-3.0', parameters: '3.2 M', source: 'Local weights', usage: 'Asset label recognition' },
+  /* Models carrying a published lifecycle. Dates are fixed rather than relative so the dashboard
+     reports the same thing on every run — see DASH_TODAY in bomDashboardData.ts. */
+  { name: 'legacy-credit-scorer', provider: 'In-house ML platform', version: '0.9.4', task: 'Credit scoring', license: 'Proprietary', parameters: '4.1 M', source: 'Local weights', usage: 'Loan pre-approval', eol: 'Mar 31, 2026', modelCard: false },
+  { name: 'logreg-baseline (retired)', provider: 'In-house ML platform', version: '0.2.0', task: 'Classification', license: 'Proprietary', parameters: '0.1 M', source: 'Local weights', usage: 'Baseline comparison', eol: 'Dec 31, 2025', modelCard: false },
+  { name: 'legacy-scorer.pkl', provider: 'In-house (legacy)', version: '0.1.0', task: 'Credit scoring', license: 'Proprietary', parameters: 'Unknown', source: 'Local weights', usage: 'Nightly batch scoring', eol: 'Jun 30, 2025', modelCard: false, risk: 'pickle-import risk' },
+  { name: 'gpt-4o (loan-assist API)', provider: 'OpenAI', version: '2024-08-06', task: 'Text generation', license: 'Commercial API', parameters: 'Undisclosed', source: 'Hosted API', usage: 'Loan assistant', eol: 'Nov 12, 2026', modelCard: false },
+  { name: 'report-summariser', provider: 'OpenAI', version: '1.2', task: 'Summarisation', license: 'Commercial API', parameters: 'Undisclosed', source: 'Hosted API', usage: 'Report summaries', eol: 'Feb 13, 2027', modelCard: true },
 ];
 
 // ---------------------------------------------------------------------------
@@ -203,12 +225,16 @@ const productExcludePaths = (endpointId: string, productKey: string): string[] =
 };
 
 // ---------------------------------------------------------------------------
-// Per-endpoint BOM record — what the BOM Inventory listing shows.
+// Per-endpoint BOM record — what the Configuration Items listing shows.
 // ---------------------------------------------------------------------------
+
+/** How the CI itself got into the inventory — separate from where its BOM content came from. */
+export type BomOrigin = 'Agent' | 'Manual';
 
 export interface BomRecord {
   endpointId: string;
   status: BomStatus;
+  origin: BomOrigin;
   products: BomProduct[];
   /** Total SBOM components across every product on the host. */
   components: number;
@@ -234,6 +260,19 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
   // ~1 in 9 hosts has not produced a BOM yet; ~1 in 4 of the rest is mid-scan.
   const status: BomStatus = h % 9 === 0 ? 'Not Generated' : h % 4 === 0 ? 'In Progress' : 'Generated';
 
+  /* Origin and sources are the three states the product supports, and no others:
+   *
+   *   Agent   →  Agent                 the agent found the CI and scanned it
+   *   Agent   →  Agent · Ingested      agent-discovered, plus a document ingested for one product
+   *   Manual  →  Manually Ingested     the CI exists because someone ingested a BOM for it
+   *
+   * A CI with no BOM is always agent-discovered: a manual CI exists BECAUSE something was
+   * ingested for it, so "Manual with nothing generated" is not a reachable state.
+   * ~1 in 6 CIs is manual; ~1 in 3 of the agent ones carries an extra ingested document. */
+  const origin: BomOrigin = status !== 'Not Generated' && hash(`${endpointId}:origin`) % 6 === 0 ? 'Manual' : 'Agent';
+  const extraIngest = origin === 'Agent' && hash(`${endpointId}:ingest`) % 3 === 0;
+  const agentSource = origin === 'Manual' ? 'manual · file upload' : 'agent · directory scan';
+
   const appCount = status === 'Not Generated' ? 0 : h % 3; // 0-2 application products
   const products: BomProduct[] = [];
   for (let i = 0; i < appCount; i++) {
@@ -241,7 +280,9 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
     if (products.some((x) => x.key === p.key)) continue;
     products.push({
       ...p,
-      source: 'agent · directory scan',
+      /* The ingested document lands on the FIRST application scope, never on the OS one — so a
+         CI in that state always shows both sources rather than only "Ingested". */
+      source: extraIngest && i === 0 ? 'ingested · file upload' : agentSource,
       status: status === 'In Progress' && i === appCount - 1 ? 'Pending' : 'Scanned',
       lastScan: SCAN_DATES[(h + i) % SCAN_DATES.length],
       findings: (hash(`${endpointId}:${p.key}:find`) % 5),
@@ -254,7 +295,7 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
       name: 'OS / base platform',
       version: null,
       path: '/',
-      source: 'agent · directory scan',
+      source: agentSource,
       status: 'Scanned',
       lastScan: SCAN_DATES[h % SCAN_DATES.length],
       findings: hash(`${endpointId}:${OS_PRODUCT_KEY}:find`) % 4,
@@ -281,7 +322,27 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
     ? currentDates.reduce((a, b) => (SCAN_DATES.indexOf(a) <= SCAN_DATES.indexOf(b) ? a : b))
     : null;
 
-  return { endpointId, status, products, components, findings, cryptoAssets, aiModels, lastGenerated };
+  return { endpointId, status, origin, products, components, findings, cryptoAssets, aiModels, lastGenerated };
+};
+
+/** Short labels for where a CI's BOM actually came from — the listing's "BOM Sources" column.
+ *
+ *  Derived from the `source` already on each product scope rather than stored separately, so the
+ *  column cannot claim a source the CI's own scan-paths panel does not show. A CI with no BOM has
+ *  no products and therefore no sources, which is why that cell reads "—" rather than "Agent". */
+export const bomSourceLabels = (bom: BomRecord): string[] => {
+  const out: string[] = [];
+  for (const p of bom.products) {
+    const label = p.source.startsWith('manual') ? 'Manually Ingested'
+      : p.source.startsWith('ingested') ? 'Ingested'
+      : 'Agent';
+    if (!out.includes(label)) out.push(label);
+  }
+  /* Fixed order, not product order. The ingested document sits on an application scope and the
+     agent scan on the OS one, which is stored second — so left to itself the pair rendered
+     "Ingested · Agent", reading as though the ingest were the primary source. */
+  const RANK = ['Agent', 'Ingested', 'Manually Ingested'];
+  return out.sort((a, b) => RANK.indexOf(a) - RANK.indexOf(b));
 };
 
 /** BOM records for the whole fleet, in the Endpoints listing's order. */
@@ -440,6 +501,32 @@ const variant = (v: string, round: number): string => {
  * dependencies, and commonly several BUILDS of the same library side by side. So the catalog is
  * cycled to reach the reported count, bumping the version (and its PURL) on each pass — which is
  * what a large SBOM genuinely looks like, and keeps the count and the list in agreement. */
+/** How common a component is across an estate, 0–100.
+ *
+ *  Reach is a property of the COMPONENT, not of the host: openssl is on nearly everything, an
+ *  internal auth SDK is on a handful of app servers. Without this the generator had no basis on
+ *  which to include one component and not another. */
+const PREVALENCE: Record<string, number> = {
+  // ubiquitous runtime and transport
+  openssl: 94, zlib: 92, libcurl: 88, 'Microsoft .NET Runtime': 74, 'OpenJDK Runtime': 62,
+  Python: 58, 'Node.js': 52,
+  // fleet-wide agents and desktop software
+  'CrowdStrike Falcon Sensor': 86, 'com.motadata.agent-core': 84, 'com.motadata.telemetry': 78,
+  'Google Chrome': 80, '7-Zip': 66, 'Adobe Acrobat Reader DC': 60, 'Mozilla Firefox': 44,
+  'Microsoft Office Professional Plus': 56, 'Avecto DefendPoint': 34,
+  // common libraries
+  'Newtonsoft.Json': 64, 'System.Text.Json': 58, lodash: 62, axios: 46, react: 38,
+  requests: 50, urllib3: 54, 'golang.org/x/net': 36, 'golang.org/x/crypto': 34,
+  'node-forge': 24, pycryptodome: 22, Serilog: 30,
+  // server-side, present only where that role runs
+  nginx: 30, PostgreSQL: 24, Redis: 22, 'Apache Tomcat': 28, 'apache-poi': 20,
+  'hibernate-core': 18, 'spring-core': 32,
+  // the vulnerable set — deliberately spread so exposure differs row to row
+  'log4j-core': 48, 'jackson-databind': 40, 'commons-text': 26, 'commons-collections': 20,
+  'in.hdfc.auth-sdk': 12,
+};
+const prevalenceOf = (name: string) => PREVALENCE[name] ?? 30;
+
 export const bomComponents = (endpointId: string, productKey: string): BomComponent[] => {
   const total = componentCount(endpointId, productKey, 'SBOM');
   const seed = hash(`${endpointId}:${productKey}:sbom`);
@@ -447,10 +534,39 @@ export const bomComponents = (endpointId: string, productKey: string): BomCompon
   const withOs = productKey === OS_PRODUCT_KEY && !!ep;
   const n = withOs ? Math.max(0, total - 1) : total; // the OS row counts toward the total
 
+  /* WHICH components this scope carries.
+   *
+   * This used to be a contiguous walk of the catalog from a seed offset, wrapping. A scope
+   * declares 24–251 components and the catalog holds 40, so every scope wrapped several times
+   * and therefore contained EVERY component — membership was not a choice, and every component
+   * had the same reach. A ranked exposure list built on that has nothing to rank.
+   *
+   * Now the catalog is ranked per scope by a deterministic key biased by prevalence, and only the
+   * head of that ranking is carried. A common library wins the draw on most hosts, a niche one on
+   * few, and reach varies the way it does in a real estate. The COUNT is unchanged — the extra
+   * slots are further versions of the components this scope does carry, which is also truer:
+   * hosts run several versions of the same library. */
+  const ranked = SBOM_CATALOG
+    .map((c) => ({ c, k: (hash(`${endpointId}:${productKey}:${c.name}`) % 1000) / 10 - prevalenceOf(c.name) }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.c);
+  /* 8–18 distinct names per scope, chosen by a sweep rather than by feel. The value trades two
+     things off: a SMALL head is what lets prevalence select (a large one hands the scope the whole
+     catalog again and every component's reach collapses back to identical), while a small head
+     also forces more version rounds to reach the declared count. Measured across the fleet:
+        6–14  → reach 23,23,20,20,19,18,18,17 but up to 38 versions of one library
+        8–18  → reach 25,25,24,23,21,20,20,20 and up to 22          <- chosen
+       10–24  → reach 25,24,24,23,22,22,21,21, flatter at the top
+     The residual — a library appearing at up to 22 versions on one host — is a fixture limit, not
+     a rendering one: `componentCount` declares up to 251 components per scope and SBOM_CATALOG
+     holds 40 names, so SOMETHING has to repeat. Growing the catalog is the real fix. */
+  const distinct = Math.min(ranked.length, 8 + (seed % 11));
+  const picked = ranked.slice(0, distinct);
+
   const list: BomComponent[] = [];
   for (let i = 0; i < n; i++) {
-    const base = SBOM_CATALOG[(seed + i) % SBOM_CATALOG.length];
-    const round = Math.floor(((seed % SBOM_CATALOG.length) + i) / SBOM_CATALOG.length);
+    const base = picked[i % distinct];
+    const round = Math.floor(i / distinct);
     if (round === 0) { list.push(base); continue; }
     const version = variant(base.version, round);
     list.push({ ...base, version, purl: base.purl.replace(/@[^@]*$/, `@${version}`) });

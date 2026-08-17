@@ -14,7 +14,7 @@ import type { ComponentFocus } from './SoftwareComponentsKpis';
 
 /* Software Components — the BOM module's second listing, and the fleet seen the other way up.
  *
- * BOM Inventory is one row per CI ("what is on this machine"). This is one row per component
+ * Configuration Items is one row per CI ("what is on this machine"). This is one row per component
  * VERSION ("where does this thing live"), which is the question a new CVE forces. Same shell,
  * same table treatment and the same tag vocabulary as the Inventory listing — only the columns
  * change, because only the question does. */

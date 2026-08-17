@@ -1,6 +1,6 @@
 /* Software Components — the fleet rolled up the other way round.
  *
- * BOM Inventory answers "what is on this CI". This answers "where does this component live",
+ * Configuration Items answers "what is on this CI". This answers "where does this component live",
  * which is the question you ask once a CVE lands: one row per component VERSION, with the
  * blast radius (how many CIs, how many products) beside it.
  *

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, FileText, Download, RefreshCw, Columns3, MoreVertical, Plus, Layers } from 'lucide-react';
+import { X, Search, FileText, Download, RefreshCw, Columns3, MoreVertical, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -15,15 +15,13 @@ import { BomIngestPanel } from './BomIngestPanel';
 import type { IngestResult } from './BomIngestPanel';
 import type { Patch } from './PatchesListPage';
 
-/* BOM Inventory — the BOM module's listing. Same fleet as the Endpoints page, but every column
+/* Configuration Items — the BOM module's listing. Same fleet as the Endpoints page, but every column
  * answers a BOM question (what was generated, how much of it, and how much of it is a problem).
  *
  * The row addresses TWO different records and they have different homes:
  *   CI        → the asset the components hang off — Asset › Hardware Asset, on its BOM tab.
  *   End Point → the machine the agent scanned    — the endpoint detail page, on its BOM tab.
  * Both land on the same BOM content; only which record frames it differs. */
-
-type Scope = 'all' | 'agent' | 'managed';
 
 /** Adapt an endpoint onto the Patch shape the EndpointDrawer body expects, flagged so the
  *  drawer lands on the BOM tab (the same record opened from Patch/Vulnerability does not). */
@@ -60,16 +58,9 @@ const endpointToAssetShape = (e: Endpoint): HardwareAsset & { bomMode: true; bom
   bomEndpointId: e.id,
 });
 
-function BomToolbar({
-  searchQuery, setSearchQuery, scope, setScope, allCount, agentCount, managedCount, onIngest,
-}: {
+function BomToolbar({ searchQuery, setSearchQuery, onIngest }: {
   searchQuery: string;
   setSearchQuery: (q: string) => void;
-  scope: Scope;
-  setScope: (s: Scope) => void;
-  allCount: number;
-  agentCount: number;
-  managedCount: number;
   onIngest: () => void;
 }) {
   const IconBtn = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -78,17 +69,11 @@ function BomToolbar({
     </button>
   );
 
-  const TABS: { id: Scope; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: allCount },
-    { id: 'agent', label: 'Agent CIs', count: agentCount },
-    { id: 'managed', label: 'Managed CIs', count: managedCount },
-  ];
-
   return (
     <div className="bg-white">
       {/* First row: title + Ingest CTA + actions */}
       <div className="flex items-center justify-between px-6 pb-2 pt-3">
-        <h1 className="text-[16px] font-semibold text-[#364658]">BOM Inventory</h1>
+        <h1 className="text-[16px] font-semibold text-[#364658]">Configuration Items</h1>
 
         <div className="flex items-center gap-1">
           <button
@@ -105,23 +90,9 @@ function BomToolbar({
         </div>
       </div>
 
-      {/* Scope tabs — the standard content-tab treatment, under the title */}
-      <div className="flex items-center gap-2.5 border-b border-[#e5e7eb] px-6">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setScope(t.id)}
-            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-3 text-[14px] font-medium transition-colors ${
-              scope === t.id
-                ? 'border-[#3D8BD0] text-[#3D8BD0]'
-                : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
-            }`}
-          >
-            {t.label}
-            <span className={`rounded px-1 py-0.5 text-[12px] font-medium ${scope === t.id ? 'bg-[#E8F4FD] text-[#3D8BD0]' : 'bg-[#E5E7EB] text-[#364658]'}`}>{t.count}</span>
-          </button>
-        ))}
-      </div>
+      {/* Scope tabs removed: Agent CIs vs Managed CIs was the same split the Origin and BOM
+          Sources columns now carry per row, and a tab that hides two thirds of the estate to make
+          a point a column already makes is a filter pretending to be navigation. */}
 
       {/* Search */}
       <div className="px-6 pb-3 pt-3">
@@ -150,16 +121,15 @@ function BomToolbar({
 }
 
 export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string) => void }) {
-  const [scope, setScope] = useState<Scope>('agent');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
   const [showIngest, setShowIngest] = useState(false);
-  /** CIs whose BOM was ingested this session — the Managed CIs tab. */
+  /** CIs whose BOM was ingested this session — they join the one listing, marked Manual. */
   const [ingested, setIngested] = useState<{ endpoint: Endpoint; bom: BomRecord; managed: true }[]>([]);
 
-  useEffect(() => { setCurrentPage(1); setSelected(new Set()); }, [searchQuery, scope]);
+  useEffect(() => { setCurrentPage(1); setSelected(new Set()); }, [searchQuery]);
 
   /** Turn an ingest into a listing row. An ingested BOM has no scan history, so its counts come
    *  from the document rather than from the deterministic per-endpoint generator. */
@@ -174,10 +144,14 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
     const bom: BomRecord = {
       endpointId: r.ciId,
       status: 'Generated',
+      /* This CI exists because a document was ingested for it — the "Manual → Manually Ingested"
+         state. `manual ·` is the prefix `bomSourceLabels` reads, so the listing and the CI's own
+         scan-paths panel describe the same ingest in the same words. */
+      origin: 'Manual',
       products: [{
         key: r.product.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'ingested',
         name: r.product, version: null, path: r.sourceLabel,
-        source: r.source === 'file' ? 'ingested · file upload' : 'ingested · API',
+        source: r.source === 'file' ? 'manual · file upload' : 'manual · API',
         status: 'Scanned', lastScan: 'Just now', findings: seed % 6, excludePaths: [],
         isDefault: true,
       }],
@@ -189,7 +163,6 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
     };
     setIngested((prev) => [{ endpoint, bom, managed: true }, ...prev.filter((x) => x.endpoint.id !== r.ciId)]);
     setShowIngest(false);
-    setScope('managed');
     toast.success(`${r.ciName} ingested · ${components} components mapped to ${r.ciId}`);
   };
 
@@ -201,11 +174,10 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
   const handleOpenCi = (e: Endpoint) =>
     openInStack('hardware-assets', bomCiId(e.id), e.hostName, endpointToAssetShape(e));
 
-  // Agent CIs = the fleet the agent reports on. Managed CIs carry a BOM that was ingested
-  // rather than scanned, so they only exist once something has been ingested.
+  /* ONE list. What used to be the Agent/Managed split is now the Origin column, so a CI ingested
+     this session sits among the rest — newest first — instead of behind its own tab. */
   const agentRows = mockEndpoints.map((e) => ({ endpoint: e, bom: bomForEndpoint(e.id), managed: false }));
-  const managedRows = ingested;
-  const scoped = scope === 'agent' ? agentRows : scope === 'managed' ? managedRows : [...managedRows, ...agentRows];
+  const scoped = [...ingested, ...agentRows];
 
   const q = searchQuery.trim().toLowerCase();
   const filtered = !q ? scoped : scoped.filter(({ endpoint: e, bom }) =>
@@ -240,42 +212,19 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
         <BomToolbar
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          scope={scope}
-          setScope={setScope}
-          allCount={agentRows.length + managedRows.length}
-          agentCount={agentRows.length}
-          managedCount={managedRows.length}
           onIngest={() => setShowIngest(true)}
         />
         <main className="flex flex-1 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-auto bg-white">
-            {scope === 'managed' && managedRows.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="mb-3 inline-flex size-14 items-center justify-center rounded-full bg-[#F5F7FA]">
-                  <Layers className="size-6 text-[#9CA3AF]" />
-                </div>
-                <p className="text-[14px] font-medium text-[#364658]">No managed CIs yet</p>
-                <p className="mt-1 max-w-[420px] text-[13px] text-[#7B8FA5]">
-                  Managed CIs carry a BOM that was ingested rather than scanned by an agent. Use
-                  <span className="font-medium text-[#364658]"> Ingest BOM </span>
-                  to attach a CycloneDX or SPDX document to a CI.
-                </p>
-                <button
-                  onClick={() => setShowIngest(true)}
-                  className="mt-4 inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
-                ><Plus size={15} /> Ingest BOM</button>
-              </div>
-            ) : (
-              <BomInventoryTable
-                rows={paginated}
-                selected={selected}
-                allSelected={allCurrentSelected}
-                onSelectAll={handleSelectAll}
-                onSelect={handleSelect}
-                onCiClick={handleOpenCi}
-                onEndpointClick={handleOpenEndpoint}
-              />
-            )}
+            <BomInventoryTable
+              rows={paginated}
+              selected={selected}
+              allSelected={allCurrentSelected}
+              onSelectAll={handleSelectAll}
+              onSelect={handleSelect}
+              onCiClick={handleOpenCi}
+              onEndpointClick={handleOpenEndpoint}
+            />
           </div>
           <Pagination
             currentPage={currentPage}

@@ -2,7 +2,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
 /* Compliance Reports — the Compliance Report Pack, third item in the BOM flyout beside
- * BOM Inventory and Software Components.
+ * Configuration Items and Software Components.
  *
  * Like BOM Management (see AdminBomModule), the screen IS the prototype rather than a React
  * re-implementation of it. It was built in `BOM/concepts/component-inventory.html`, where the
