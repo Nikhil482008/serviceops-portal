@@ -185,8 +185,15 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
 - **Onboarding tour is TICKET-page-only**: the first-visit guide (`TicketDetailsOnboarding`, session key `hasSeenTicketDetailsOnboarding`) auto-opens ONLY in `TicketDrawer` + `TicketDrawerV2` — the auto-open `setTimeout` was replaced with a comment in the other 12 drawers. Only `TicketActionsMenu` ever rendered the manual "Restart Tour" item, so no menu edits were needed.
 
 ## Deployment
-Repo: https://github.com/zenichakalasiya/serviceops-ticket-detail
-Live URL: https://zenichakalasiya.github.io/serviceops-ticket-detail/
+Repo: https://github.com/Nikhil482008/serviceops-portal
+Live URL: https://nikhil482008.github.io/serviceops-portal/
+
+Pages serves the **gh-pages branch**, not a workflow — the token lacks the `workflow` scope, so
+`.github/workflows/deploy.yml` is git-ignored here. Deploy: `npm run build`, then push `dist/` to
+`gh-pages` as a throwaway repo (see Test4/CLAUDE.md for the exact commands). The Vite `base` must
+stay `/serviceops-portal/`, and `.nojekyll` must live in `public/` so the build reproduces it.
+
+(This repo was forked from zenichakalasiya/serviceops-ticket-detail; that is not where it deploys.)
 
 Pages serves the **`gh-pages` branch** (legacy `build_type`), not an Actions workflow — the
 workflow pipeline stalled on `deployment_queued`, so deploys run `npx gh-pages -d dist` after
