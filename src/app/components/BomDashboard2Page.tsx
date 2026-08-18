@@ -119,7 +119,7 @@ export function BomDashboard2Page({ onNavigate }: { onNavigate: (page: string) =
               </p>
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
-              <button className={crumbBtn} onClick={() => onNavigate('software-components')}><Boxes size={15} /> Software Components</button>
+              <button className={crumbBtn} onClick={() => onNavigate('software-components')}><Boxes size={15} /> BOM Inventory</button>
               <button className={crumbBtn} onClick={() => onNavigate('compliance-reports')}><ClipboardCheck size={15} /> Compliance Report Pack</button>
               <button onClick={() => onNavigate('bom')} className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"><Layers size={15} /> Configuration Items</button>
             </div>

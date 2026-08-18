@@ -5,6 +5,7 @@ import {
   Inbox, Loader, PauseCircle, XCircle, HelpCircle, ListFilter, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useDrawerStack } from './DrawerStack';
 import { DrawerTabStrip } from './DrawerTabStrip';
 import { MinimizedDrawerRail } from './MinimizedDrawerRail';
 import { HeaderKpiRow, type HeaderKpiItem } from './HeaderKpiRow';
@@ -114,6 +115,7 @@ export function ComponentDrawer({
   useEffect(() => { setMinimized(false); }, [activeAssetId]);
 
   const [tabLocal, setTabLocal] = useState<MainTab>('cis');
+  const { open: openInStack } = useDrawerStack();
   const activeTab = (stackActiveTab as MainTab) ?? tabLocal;
   const setActiveTab = (t: MainTab) => { setTabLocal(t); onStackActiveTabChange?.(t); };
 
@@ -215,6 +217,29 @@ export function ComponentDrawer({
   }
 
   const allCis = affectedCis(c);
+
+  /* Component -> the CI carrying it -> that CI's BOM, opened on the dependency tree at this
+     component. The asset drawer is the destination (not the endpoint) because the CI id is what
+     this table shows, and `bomEndpointId` keeps the BOM keyed to the host that was scanned.
+     `bomComponent` is what stops the trail going cold at the CI: without it the user lands on a
+     host's whole BOM having asked about one library. */
+  const openCi = (r: { ciId: string; endpointId: string; hostname: string; ip: string; os: string }) =>
+    openInStack('hardware-assets', r.ciId, r.hostname, {
+      id: r.ciId,
+      name: r.hostname,
+      assetType: 'Hardware',
+      status: 'In Use',
+      hostName: r.hostname,
+      ipAddress: r.ip,
+      usedBy: null,
+      managedByGroup: 'IT Operations',
+      managedBy: { name: '—' },
+      serialNumber: '—',
+      bomMode: true,
+      bomEndpointId: r.endpointId,
+      bomComponent: c.name,
+    });
+
   const cves = componentCves(c);
   const sources = componentSources(c);
   const evidence = componentEvidence(c);
@@ -691,7 +716,11 @@ export function ComponentDrawer({
                                 has no agent state to report — a permanently amber dot on every
                                 row would be reporting a status nobody set. */}
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <span className="rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0]">{r.ciId}</span>
+                              <button
+                                onClick={() => openCi(r)}
+                                title={`Open ${r.ciId} on its BOM, at ${c.name}`}
+                                className="rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-semibold text-[#3D8BD0] transition-colors hover:bg-[#d0e8f9]"
+                              >{r.ciId}</button>
                             </td>
                             <td className={`${TD} text-[#7B8FA5]`}>{r.endpointId}</td>
                             <td className={TD}><span className="block max-w-[170px] truncate">{r.hostname}</span></td>

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Layers, Boxes, ClipboardCheck } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useDrawerStack } from './DrawerStack';
@@ -9,7 +8,7 @@ import type { BomType } from './bomData';
 /* Chrome lives in one place now that a second dashboard draws it too. */
 import {
   Card, HeadPill, DayPill, SeverityBadge, ExposureMeter, BomLink, ViewAll,
-  sevColor, bomPatchRecord, EstateKpis, LicenceDistributionCard,
+  sevColor, bomPatchRecord, EstateKpis, LicenceDistributionCard, CertTimeline, CertBands,
 } from './bomDashboardUi';
 
 /* BOM Dashboard — the module's front page.
@@ -32,7 +31,6 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: (page: string) =>
     if (rec) openInStack('endpoints', rec.id, rec.name, rec);
   };
 
-  const crumbBtn = 'inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]';
   const maxCis = Math.max(1, d.ciCount);
 
   return (
@@ -43,10 +41,13 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: (page: string) =>
 
         {/* ── page head ────────────────────────────────────────────────
             The same fold every other module in this group draws: white band,
-            `px-6 pb-2 pt-3`, a 16px semibold title, actions right, one bottom
-            hairline. The 24px title and breadcrumb this used to carry were the
-            only ones in the product and made the Dashboard read as a different
-            kind of page. The positioning line stays, as the subtitle. */}
+            `px-6 pb-2 pt-3`, a 16px semibold title, one bottom hairline. The 24px
+            title and breadcrumb this used to carry were the only ones in the product
+            and made the Dashboard read as a different kind of page.
+
+            No actions in the band: the three that were here went to modules the rail
+            already reaches, and every panel below already links into the one it is
+            about. A dashboard is read, not navigated from the top. */}
         <div className="border-b border-[#e5e7eb] bg-white">
           <div className="flex items-start justify-between gap-4 px-6 pb-3 pt-3">
             <div className="min-w-0">
@@ -57,18 +58,6 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: (page: string) =>
                 {d.declared.toLocaleString()} declared components</span> — every figure below is
                 derived live from the BOM data it links to.
               </p>
-            </div>
-            <div className="flex flex-shrink-0 items-center gap-2">
-              <button className={crumbBtn} onClick={() => onNavigate('software-components')}>
-                <Boxes size={15} /> Software Components
-              </button>
-              <button className={crumbBtn} onClick={() => onNavigate('compliance-reports')}>
-                <ClipboardCheck size={15} /> Compliance Report Pack
-              </button>
-              <button
-                onClick={() => onNavigate('bom')}
-                className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
-              ><Layers size={15} /> Configuration Items</button>
             </div>
           </div>
         </div>
@@ -138,36 +127,56 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: (page: string) =>
             {/* ── certificates · AI models ─────────────────────────── */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Card
-                title="Expiring trust material" sub="certificates from the CBOM"
-                right={
-                  <div className="flex items-center gap-2">
-                    <HeadPill tone={d.certsDueSoon > 0 ? 'red' : 'neutral'}>{d.certsDueSoon} due &lt; 120d</HeadPill>
-                    <ViewAll onClick={() => onNavigate('bom')} />
-                  </div>
-                }
+                title="Expiring trust material" sub={`${d.certTotal} certificates tracked`}
+                right={<ViewAll onClick={() => onNavigate('bom')} />}
               >
-                <div className="divide-y divide-[#F0F2F5]">
-                  {d.certs.map((c) => (
-                    <div key={c.key} className="flex items-center gap-3 px-4 py-2.5">
-                      <DayPill days={c.days} />
-                      <div className="min-w-0 flex-1">
-                        <BomLink
-                          name={c.name}
-                          title={`Open the CBOM on ${c.ciId}`}
-                          onClick={() => openBom(c.endpointId, 'CBOM')}
-                        />
-                        <div className="mt-0.5 truncate text-[12px] text-[#7B8FA5]">
-                          {c.ciId}{c.cis > 1 ? ` +${c.cis - 1} more` : ''} · {c.detail}
-                          {c.quantumVulnerable && ' · quantum-vulnerable'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="border-t border-[#F0F2F5] px-4 py-3 text-[12px] leading-relaxed text-[#7B8FA5]">
-                  An expired certificate is an outage, not a finding — rotate before the clock hits zero.
-                  {' '}{d.certQuantumVulnerable} of the {d.certTotal} tracked certificates also sit on the
-                  PQC migration track.
+                {/* Windows first, then the shape they describe. The chips answer "how much, when";
+                    the rule answers "is it spread out or does it all land in one week". */}
+                <CertBands bands={d.certBands} />
+                <CertTimeline
+                  certs={d.certs}
+                  total={d.certTotal}
+                  onOpen={(key) => {
+                    const c = d.certs.find((x) => x.key === key);
+                    if (c) openBom(c.endpointId, 'CBOM');
+                  }}
+                />
+
+                {/* The reading for someone who does not know a certificate subject from a hostname.
+                    The timeline above says WHEN and HOW MANY; this says WHAT STOPS. A dashboard is
+                    read at a glance by people who will never open the CBOM, and "vpn-gateway-tls
+                    on CI-397" tells them nothing they can act on or escalate. */}
+                <div className="mt-auto border-t border-[#F0F2F5] px-4 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                    If these are not renewed
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {d.certs.slice(0, 2).map((c) => (
+                      <button
+                        key={c.key}
+                        onClick={() => openBom(c.endpointId, 'CBOM')}
+                        title={`${c.name} · ${c.detail} · open the CBOM on ${c.ciId}`}
+                        className="group flex w-full items-start gap-2.5 rounded text-left transition-colors hover:bg-[#F9FAFB]"
+                      >
+                        <DayPill days={c.days} />
+                        <span className="min-w-0 flex-1">
+                          {/* The service, not the subject — this is the half a reader outside the
+                              team can act on. */}
+                          <span className="block truncate text-[13px] font-medium text-[#364658] group-hover:text-[#3D8BD0]">
+                            {c.serves} stops
+                          </span>
+                          <span className="block truncate text-[12px] text-[#7B8FA5]">
+                            {c.cis} system{c.cis === 1 ? '' : 's'} affected · {c.name}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2.5 text-[12px] leading-relaxed text-[#7B8FA5]">
+                    An expired certificate is an outage, not a finding — the service stops until it is
+                    renewed. {d.certsDueSoon} of the {d.certs.length} certificates with a published
+                    expiry fall due within 120 days.
+                  </p>
                 </div>
               </Card>
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, ArrowUpRight, ArrowRight, Info, CheckCircle2, Layers, ShieldAlert, Bot } from 'lucide-react';
-import { mockEndpoints } from './EndpointsListPage';
+import { mockEndpoints } from './endpointsData';
 import type { LicencePolicy, BomDashboard } from './bomDashboardData';
 import type { Patch } from './PatchesListPage';
 import type { BomType } from './bomData';
@@ -532,5 +532,156 @@ export function LicenceDistributionCard({ d, onNavigate, layout = 'stack' }: {
         of {d.licenceTotal.toLocaleString()} distinct versions
       </div>
     </Card>
+  );
+}
+
+/* ── Expiring trust material, as a timeline ───────────────────────────────
+ *
+ * A list of the five soonest certificates answered "what is next" and nothing else. The estate's
+ * real question is a shape: is the next quarter clear, or is everything landing in one week? So
+ * every tracked certificate is a dot on a 180-day rule, positioned by when it expires and sized by
+ * how many CIs it would take down.
+ *
+ * The bands are the same windows the chips count, derived once in `bomDashboardData` — chips, band
+ * tints and dot colours cannot disagree about which window a certificate is in.
+ *
+ * An empty window is information too ("nothing this week"), which a top-5 list could never show:
+ * it has no way to say that the thing you are looking for is not there.
+ */
+
+const CERT_BAND_TINT: Record<string, { fill: string; dot: string; ink: string; chip: string }> = {
+  week: { fill: '#FEF2F2', dot: '#DC2626', ink: '#B42318', chip: '#FEE2E2' },
+  d30: { fill: '#FEF2F2', dot: '#EF4444', ink: '#B42318', chip: '#FEE2E2' },
+  d120: { fill: '#FFFBEB', dot: '#F59E0B', ink: '#92400E', chip: '#FDE9B5' },
+  d180: { fill: '#F8FAFC', dot: '#94A3B8', ink: '#364658', chip: 'transparent' },
+  beyond: { fill: '#F8FAFC', dot: '#CBD5E1', ink: '#7B8FA5', chip: 'transparent' },
+};
+
+/** Which window a day-count falls in — one rule, used by the chip counts and by every dot. */
+export const certBandOf = (days: number): keyof typeof CERT_BAND_TINT =>
+  (days <= 7 ? 'week' : days <= 30 ? 'd30' : days <= 120 ? 'd120' : days <= 180 ? 'd180' : 'beyond');
+
+const SPAN = 200;   // the rule runs to 200 days so a 180-day certificate is not pinned to the edge
+
+export function CertTimeline({ certs, total, onOpen }: {
+  certs: { key: string; name: string; serves: string; days: number; cis: number; ciId: string; detail: string; quantumVulnerable: boolean }[];
+  total: number;
+  onOpen: (key: string) => void;
+}) {
+  const [hover, setHover] = useState<string | null>(null);
+  const plotted = certs.filter((c) => c.days <= SPAN);
+  const at = (days: number) => `${Math.max(1.5, Math.min(98.5, (days / SPAN) * 100))}%`;
+  /* Size carries blast radius: a wildcard on 22 CIs is a different morning from one on 2. */
+  const size = (cis: number) => Math.round(8 + Math.min(cis, 24) * 0.5);
+
+  const bands: { key: keyof typeof CERT_BAND_TINT; from: number; to: number }[] = [
+    { key: 'd30', from: 0, to: 30 },
+    { key: 'd120', from: 30, to: 120 },
+    { key: 'beyond', from: 120, to: SPAN },
+  ];
+
+  /* Dots that land within a few percent of each other read as one blob, so each RUN of them
+     carries its count above the rule. Without it the picture is "some certificates, somewhere in
+     October" — the number is what makes it a quantity. Clustered by rendered position rather than
+     by day, because touching is a visual fact, not an arithmetic one. */
+  const CLUSTER_PCT = 5;
+  const clusters: { at: number; count: number }[] = [];
+  for (const c of [...plotted].sort((a, b) => a.days - b.days)) {
+    const pos = (c.days / SPAN) * 100;
+    const last = clusters[clusters.length - 1];
+    if (last && pos - last.at <= CLUSTER_PCT) {
+      // running mean, so the label sits over the middle of the run rather than its first dot
+      last.at = (last.at * last.count + pos) / (last.count + 1);
+      last.count += 1;
+    } else {
+      clusters.push({ at: pos, count: 1 });
+    }
+  }
+
+  return (
+    <div className="px-4 pb-1 pt-3">
+      <div className="relative h-[82px]">
+        {/* counts, one per visual run of dots */}
+        {clusters.map((c) => (
+          <span
+            key={c.at}
+            className="absolute top-[22px] -translate-x-1/2 text-[12px] font-semibold tabular-nums text-[#364658]"
+            style={{ left: `${Math.max(2, Math.min(98, c.at))}%` }}
+          >{c.count}</span>
+        ))}
+
+        {/* the rule */}
+        <div className="absolute inset-x-0 top-[40px] flex h-8 overflow-hidden rounded-[3px]">
+          {bands.map((b) => (
+            <span key={b.key} style={{ width: `${((b.to - b.from) / SPAN) * 100}%`, backgroundColor: CERT_BAND_TINT[b.key].fill }} />
+          ))}
+        </div>
+        <div className="absolute inset-x-0 top-[72px] h-px bg-[#E5E7EB]" />
+
+        {plotted.map((c) => {
+          const band = certBandOf(c.days);
+          const d = size(c.cis);
+          return (
+            <button
+              key={c.key}
+              onClick={() => onOpen(c.key)}
+              onMouseEnter={() => setHover(c.key)}
+              onMouseLeave={() => setHover(null)}
+              className="absolute top-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:scale-125"
+              style={{ left: at(c.days), width: d, height: d, backgroundColor: CERT_BAND_TINT[band].dot }}
+              title={`${c.serves} — ${c.name} expires in ${c.days}d · ${c.cis} CI${c.cis === 1 ? '' : 's'}`}
+              aria-label={`${c.name}, expires in ${c.days} days, on ${c.cis} CIs`}
+            />
+          );
+        })}
+
+        {/* Hovered name, in the strip's own space — a floating tooltip would cover the neighbours
+            you are comparing it against. */}
+        {hover && (() => {
+          const c = plotted.find((x) => x.key === hover)!;
+          return (
+            <div
+              className="pointer-events-none absolute top-0 -translate-x-1/2 whitespace-nowrap rounded border border-[#E5E7EB] bg-white px-2 py-0.5 text-[11px] text-[#364658] shadow-sm"
+              style={{ left: at(c.days) }}
+            >{c.serves} · {c.days}d · {c.cis} systems</div>
+          );
+        })()}
+      </div>
+
+      <div className="relative mt-1 h-4">
+        {[0, 30, 90, 120, 180].map((d) => (
+          <span key={d} className="absolute -translate-x-1/2 text-[11px] text-[#9CA3AF]" style={{ left: at(d) }}>
+            {d === 0 ? 'now' : `${d}d`}
+          </span>
+        ))}
+      </div>
+
+      <p className="mt-2 text-[12px] text-[#9CA3AF]">
+        Each dot is a certificate · hover for name · size grows with CIs affected · {total} tracked
+      </p>
+    </div>
+  );
+}
+
+/** The five rotation windows as chips. Empty ones stay, quietly — "nothing this week" is an
+ *  answer, and a chip that disappears when it hits zero can only ever report bad news. */
+export function CertBands({ bands }: { bands: { key: string; label: string; count: number }[] }) {
+  return (
+    <div className="flex flex-wrap items-stretch gap-2 px-4 pt-3">
+      {bands.map((b) => {
+        const t = CERT_BAND_TINT[b.key] ?? CERT_BAND_TINT.beyond;
+        const tinted = t.chip !== 'transparent';
+        return (
+          <div
+            key={b.key}
+            className={`min-w-[86px] rounded-md px-2.5 py-1.5 ${tinted ? '' : 'px-1.5'}`}
+            style={tinted ? { backgroundColor: t.chip } : undefined}
+          >
+            <div className="text-[17px] font-semibold leading-none tabular-nums" style={{ color: t.ink }}>{b.count}</div>
+            <div className="mt-1 text-[12px]" style={{ color: t.ink }}>{b.label}</div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

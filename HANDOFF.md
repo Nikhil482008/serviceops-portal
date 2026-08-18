@@ -1,4 +1,41 @@
-# Handoff — 2026-08-13 19:11
+# Handoff — 2026-08-18 14:46
+
+## The BOM module, reshaped (this session)
+
+Roughly thirty requested changes across the Dashboard, Configuration Items and BOM Inventory. The
+short version, file by file:
+
+| area | what changed |
+|---|---|
+| `BomDashboardPage` · `bomDashboardUi` · `bomDashboardData` | KPI cards state estate reach instead of naming one item (`vulnerableCis`, `eolModelCis`); header actions removed; **Expiring trust material is a 180-day timeline** — 15 certificates as dots sized by CI reach, cluster counts, five window chips; each certificate carries a plain-language `serves`, and the footer block leads with what stops |
+| `BomInventoryListPage` · `BomInventoryTable` | **Origin** + **BOM Sources** columns (three legal states, derived); scope tabs removed; `SBOMs` replaced `Products` |
+| `BomManageProductsPanel` | replaced the scan-paths table — hand-declared products open, agent-found collapsed into one group, search opens it |
+| `EndpointBomTab` | a product opens as a **drawer over the list** (`DRAWER_W`), no Product picker inside it, stacked panels inset `STACK_INSET = 20`; BOM type menu offers only what a scope carries |
+| `SoftwareComponentsListPage` | renamed **BOM Inventory**; its two halves are ROUTES (`software-components`, `ai-components`) selected in the rail; no tab strips; KEV is a dropdown |
+| `SoftwareComponentsKpis` | shared `KpiCard`: action top-right **on hover**, selected state, `info` tip beside the heading; first card counts vulnerabilities |
+| `AiModelsTab` · `aiModelsData` · `AiComponentDrawer` | AI register widened to **29 components across 9 types**, lifecycle filter, Unverified card replacing the licence donut, per-component drawer (Installed on · Risk signals), component → CI → BOM trail |
+| `endpointsData.ts` | **new** — the fleet fixture, extracted from `EndpointsListPage` to break an import cycle |
+| `BomSubTabs.tsx` | **deleted** — both halves' cuts became card actions, so it had no users |
+
+## The three things that cost real time
+
+1. **An import cycle rendered a screen with no error.** Registering `AiComponentDrawer` in
+   `DrawerStack` closed `DrawerStack → AiComponentDrawer → aiModelsData → EndpointsListPage →
+   DrawerStack`. It resolved to `undefined` at module-init and `HardwareAssetDrawer` rendered **with
+   no tabs at all** — silently. The fleet fixture was living in a page module that imports the
+   drawer stack. It is now `endpointsData.ts`, which imports nothing. **Keep data modules off page
+   modules.**
+2. **jsdom has no `ResizeObserver`**, and the drawer tab strip measures once on a `0ms` timeout, so
+   a drawer "opened on the BOM tab" sits on Overview under test. Dispatch a `resize` — the
+   component's own recalculation path — rather than working around it.
+3. **A passing suite proves nothing if checks went missing.** Two rewrites cut wider regions than
+   intended (once in `EndpointBomTab.tsx`, once in a check suite) and the suite went green at a
+   LOWER count. Compare counts after every edit.
+
+## Restore point
+
+`53fce7d` — committed before the products-overview experiment.
+`git reset --hard 53fce7d` undoes that experiment and everything after it.
 
 ## Read first
 `CLAUDE.md` → the **Admin listing layout** bullet (still the standard for every admin listing) and

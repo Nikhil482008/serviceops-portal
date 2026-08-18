@@ -88,9 +88,12 @@ function Mark({ text, q }: { text: string; q: string }) {
   );
 }
 
-export function BomDependencyTree({ graph, onInspect, changeOf }: Props) {
-  const [query, setQuery] = useState('');
-  const [q, setQ] = useState('');
+export function BomDependencyTree({ graph, onInspect, changeOf, initialQuery = '' }: Props & { initialQuery?: string }) {
+  /* Arriving from a component's own drawer, the question is already "where does log4j come from
+     on this host" — so the tree opens on that name rather than on the whole graph. It is the
+     tree's own search, not a second mechanism: whatever the user types next behaves the same. */
+  const [query, setQuery] = useState(initialQuery);
+  const [q, setQ] = useState(initialQuery);
   const [vulnOnly, setVulnOnly] = useState(false);
   /* Null = every change kind. The graph is the default view; "Added" and the rest are cuts
      through it, so none of them is a starting state. */

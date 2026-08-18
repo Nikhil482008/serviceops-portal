@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Download, Columns3, ChevronRight, Check, Filter, ShieldAlert } from 'lucide-react';
+import { X, Search, Download, Columns3, ChevronLeft, ChevronRight, Check, Filter, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
-import { bomComponents, bomCryptoAssets, bomAiModels, bomDiff, bomCiId, bomDependencies } from './bomData';
+import { bomComponents, bomCryptoAssets, bomAiAssets, bomDiff, bomCiId, bomDependencies } from './bomData';
+import { describeAiAsset, KIND_TITLE } from './aiModelsData';
 import { BomDependencyTree } from './BomDependencyTree';
 import type { BomType } from './bomData';
 
@@ -76,16 +77,25 @@ interface BomComponentsPanelProps {
   cveFirst?: boolean;
   /** Which change tab to open on — set by whichever count the user clicked. */
   initialTab?: ChangeTab;
+  /** Opened from a component's "Installed on" list: land on the dependency tree, already looking
+   *  at that component. The question that got the user here is "why is this on this host", and
+   *  the flat list cannot answer it. */
+  focusComponent?: string;
+  /** Rendered width. A caller that opened this from its own drawer passes a smaller one so the
+   *  level underneath stays visible. */
+  width?: number;
+  /** Names what dismissing this returns to. Set when it is stacked on another drawer. */
+  backLabel?: string;
 }
 
 export function BomComponentsPanel({
   isOpen, onClose, endpointId, hostName, productKey, productLabel, type, version, format,
-  cveFirst = false, initialTab = 'All',
+  cveFirst = false, initialTab = 'All', focusComponent, width, backLabel,
 }: BomComponentsPanelProps) {
   const [tab, setTab] = useState<ChangeTab>(initialTab);
   /* Two views of the same BOM. The list says WHAT is installed; the tree says why it is here.
      Only SBOM has a graph — a crypto asset or a model has no manifest to resolve. */
-  const [view, setView] = useState<'components' | 'dependencies'>('components');
+  const [view, setView] = useState<'components' | 'dependencies'>(focusComponent && type === 'SBOM' ? 'dependencies' : 'components');
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -104,7 +114,13 @@ export function BomComponentsPanel({
   }, [isOpen, type, productKey, version]);
   // Each opening honours the count that was clicked, so re-opening on a different metric lands
   // on that metric's tab rather than wherever the panel was last left.
-  useEffect(() => { if (isOpen) { setTab(initialTab); setCurrentPage(1); setView('components'); } }, [isOpen, initialTab, version]);
+  useEffect(() => {
+    if (!isOpen) return;
+    setTab(initialTab); setCurrentPage(1);
+    /* Only an SBOM resolves a graph. Landing an AI BOM on 'dependencies' would show a
+       view its own tab strip does not even offer. */
+    setView(focusComponent && type === 'SBOM' ? 'dependencies' : 'components');
+  }, [isOpen, initialTab, version, focusComponent, type]);
 
   if (!isOpen) return null;
 
@@ -112,8 +128,21 @@ export function BomComponentsPanel({
   const title = type === 'SBOM' ? 'Software components' : type === 'CBOM' ? 'Cryptographic assets' : 'AI models';
   const noun = type === 'SBOM' ? 'components' : type === 'CBOM' ? 'crypto assets' : 'models';
 
+  const PROVENANCE_STYLE: Record<string, { bg: string; text: string }> = {
+    Verified: { bg: '#ECFDF3', text: '#22A06B' },
+    Unverified: { bg: '#FEF3F2', text: '#DC2626' },
+    Internal: { bg: '#F1F5F9', text: '#64748B' },
+  };
+  /* Lifecycle is a phrase, not an enum, so the pill is keyed on what the phrase SAYS: anything
+     already past gets the red, anything ahead gets amber, and "Unknown" stays grey rather than
+     being coloured as though it were an answer. */
+  const lifecycleStyle = (label: string) => (label === 'Unknown'
+    ? { bg: '#F1F5F9', text: '#94A3B8' }
+    : label.includes('ago') ? { bg: '#FEF3F2', text: '#DC2626' } : { bg: '#FFFAEB', text: '#B45309' });
+
   // Every row is a field map (drives filtering) plus the cells to render.
-  type Cell = string | { pill: string; map: Record<string, { bg: string; text: string }> } | { cves: string[] };
+  type Cell = string | { pill: string; map: Record<string, { bg: string; text: string }> } | { cves: string[] }
+    | { two: [string, string]; tone?: 'LOW' | 'MEDIUM' | 'HIGH' };
   interface Row { id: string; fields: Record<string, string>; cells: Cell[]; mono: number[]; link?: number; cveCount?: number }
 
   let headers: string[] = [];
@@ -163,13 +192,32 @@ export function BomComponentsPanel({
       mono: [2, 3, 5],
     }));
   } else {
-    headers = ['Model', 'Provider', 'Version', 'Task', 'Parameters', 'Source', 'License', 'Used For'];
-    rows = bomAiModels(endpointId, productKey).map((m, i) => ({
-      id: `${m.name}#${i}`,
-      fields: { Model: m.name, Provider: m.provider, Version: m.version, Task: m.task, Parameters: m.parameters, Source: m.source, License: m.license, 'Used For': m.usage },
-      cells: [m.name, m.provider, m.version, m.task, m.parameters, m.source, m.license, m.usage],
-      mono: [0, 2],
-    }));
+    /* The AI BOM answers the same three questions the AI Components register does — what it is,
+       whether its origin can be attested, what its licence costs, and whether it is still
+       supported. Parameter counts and task labels were describing the model rather than judging
+       it, which is what a bill of materials is for. */
+    headers = ['Component', 'Kind', 'Version', 'Provider / source', 'License · risk', 'Provenance', 'Lifecycle'];
+    rows = bomAiAssets(endpointId, productKey).map((m, i) => {
+      const row = describeAiAsset(m);
+      return {
+        id: `${m.name}#${i}`,
+        fields: {
+          Component: m.name, Kind: row.kind, Version: row.version, 'Provider / source': m.provider,
+          'License · risk': `${m.license} · ${row.licenseRisk}`, Provenance: row.provenance,
+          Lifecycle: row.lifecycleLabel,
+        },
+        cells: [
+          m.name,
+          { two: [KIND_TITLE[row.kind], m.subtitle ?? m.task] },
+          row.version,
+          m.provider,
+          { two: [m.license, row.licenseRisk], tone: row.licenseRisk },
+          { pill: row.provenance, map: PROVENANCE_STYLE },
+          { pill: row.lifecycleLabel, map: { [row.lifecycleLabel]: lifecycleStyle(row.lifecycleLabel) } },
+        ],
+        mono: [0],
+      };
+    });
   }
 
   // Removed components are no longer in the BOM, but they are part of what this version did —
@@ -254,15 +302,26 @@ export function BomComponentsPanel({
   const exportLabel = selected.size > 0 ? `Export ${selected.size}` : 'Export All';
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-end bg-black/50">
-      <div className="flex h-full w-[1240px] max-w-[96vw] flex-col bg-white shadow-xl">
+    <div className="fixed inset-0 z-[10010] flex items-center justify-end bg-black/40">
+      {/* `width` lets a caller inset this panel inside the drawer that opened it, so the drawer
+          underneath stays visible as the level it came from. Default unchanged. */}
+      <div className="flex h-full max-w-[96vw] flex-col bg-white shadow-xl" style={{ width: width ?? 1240 }}>
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
-          <div className="min-w-0">
-            <h3 className="text-[16px] font-semibold text-[#364658]">{title}</h3>
-            <p className="mt-0.5 text-[13px] text-[#7B8FA5]">
-              {bomCiId(endpointId)} · {hostName} · {productLabel} · {type} v{version} · {format}
-            </p>
+          <div className="flex min-w-0 items-center gap-2.5">
+            {backLabel && (
+              <button
+                onClick={onClose}
+                title={`Back to ${backLabel}`}
+                className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
+              ><ChevronLeft size={16} /></button>
+            )}
+            <div className="min-w-0">
+              <h3 className="text-[16px] font-semibold text-[#364658]">{title}</h3>
+              <p className="mt-0.5 text-[13px] text-[#7B8FA5]">
+                {bomCiId(endpointId)} · {hostName} · {productLabel} · {type} v{version} · {format}
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
             <X size={18} />
@@ -272,10 +331,11 @@ export function BomComponentsPanel({
         {/* Components vs Dependencies — a different QUESTION, not a different filter, so it
             sits above the change tabs rather than beside them.
 
-            Dependencies leads: "why is this here" is the question the flat list cannot answer,
-            and it is the one worth offering first. The SELECTION still follows what was clicked
-            — opening the panel from a CVE count lands on Components filtered to it — because a
-            number you clicked should give you the list it counted, not a different screen.
+            Components leads, and matches what the panel opens on: the list is what the title and
+            every count in this panel refer to, so the first tab is the thing you were already
+            looking at. Dependencies answers "why is this here", which is the follow-up question,
+            not the opening one. (This order was the other way round; a tab strip whose first tab
+            is not the default view reads as though something has been skipped.)
 
             Both use the product's content-tab treatment (2px underline, count badge), the same
             one the change tabs below and the Software Components listing use. A segmented pill
@@ -283,8 +343,8 @@ export function BomComponentsPanel({
         {type === 'SBOM' && (
           <div className="flex items-center gap-2.5 border-b border-[#EEF2F6] px-5">
             {([
-              ['dependencies', 'Dependencies', graph.edges],
               ['components', 'Components', rows.length],
+              ['dependencies', 'Dependencies', graph.edges],
             ] as const).map(([id, label, n]) => (
               <button
                 key={id}
@@ -306,6 +366,8 @@ export function BomComponentsPanel({
 
         {view === 'dependencies' ? (
           <BomDependencyTree
+            key={focusComponent ?? 'all'}
+            initialQuery={focusComponent ?? ''}
             graph={graph}
             /* The panel already computed what this version changed. Handing the SAME map down
                means the tree's filter counts and the Components tab counts cannot disagree —
@@ -541,6 +603,24 @@ export function BomComponentsPanel({
                           className={`block max-w-[300px] truncate ${r.mono.includes(ci) ? 'font-mono' : ''} ${r.link === ci ? 'text-[#3D8BD0]' : ''}`}
                           title={c}
                         >{c}</span>
+                      ) : 'two' in c ? (
+                        /* A value over its qualifier: "Framework / ML framework", "MIT / Low".
+                           Two columns would have been two half-empty ones. */
+                        <span className="block">
+                          <span className="block max-w-[220px] truncate text-[12px] text-[#364658]" title={c.two[0]}>{c.two[0]}</span>
+                          {c.tone ? (
+                            <span
+                              className="mt-0.5 inline-flex items-center rounded-sm px-1.5 py-0.5 text-[11px] font-medium"
+                              style={c.tone === 'HIGH'
+                                ? { backgroundColor: '#FEF3F2', color: '#B42318' }
+                                : c.tone === 'MEDIUM'
+                                  ? { backgroundColor: '#FFFAEB', color: '#B54708' }
+                                  : { backgroundColor: '#ECFDF3', color: '#22A06B' }}
+                            >{c.two[1] === 'LOW' ? 'Low' : c.two[1] === 'MEDIUM' ? 'Medium' : 'High'}</span>
+                          ) : (
+                            <span className="mt-0.5 block max-w-[220px] truncate text-[11px] text-[#9CA3AF]" title={c.two[1]}>{c.two[1]}</span>
+                          )}
+                        </span>
                       ) : 'cves' in c ? (
                         c.cves.length ? (
                           <span

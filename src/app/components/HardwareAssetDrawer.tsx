@@ -4269,6 +4269,8 @@ onStackMinimizedChange,
             {activeMainTab === 'bom' && (
               <EndpointBomTab
                 endpointId={(activeAsset as { bomEndpointId?: string } | undefined)?.bomEndpointId ?? activeAsset?.id ?? ''}
+                initialComponent={(activeAsset as { bomComponent?: string } | undefined)?.bomComponent}
+                initialType={(activeAsset as { bomType?: 'SBOM' | 'CBOM' | 'AI BOM' } | undefined)?.bomType}
                 hostName={activeAsset?.hostName ?? activeAsset?.name ?? ''}
               />
             )}

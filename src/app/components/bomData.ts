@@ -11,7 +11,7 @@
  * BOM, so the listing counts and the detail page never disagree.
  */
 
-import { mockEndpoints } from './EndpointsListPage';
+import { mockEndpoints } from './endpointsData';
 import { RETENTION_DEFAULT } from './bomAdminData';
 
 export type BomType = 'SBOM' | 'CBOM' | 'AI BOM';
@@ -97,6 +97,9 @@ const SBOM_CATALOG: BomComponent[] = [
 ];
 
 export interface CryptoAsset {
+  /** What stops working if this expires, in words a reader outside the team can act on. A
+   *  certificate subject is an engineer's identifier; "Remote access (VPN)" is the outage. */
+  serves?: string;
   name: string;
   primitive: 'Cipher' | 'Hash' | 'Signature' | 'Key-agreement' | 'Certificate' | 'MAC';
   algorithm: string;
@@ -112,22 +115,34 @@ const CBOM_CATALOG: CryptoAsset[] = [
   /* Certificates carry their SUBJECT as the name — "TLS server certificate" is a category, and
      an operator rotating one needs to know which. Expiries are fixed dates so the countdown on
      the dashboard is the same on every run (see DASH_TODAY in bomDashboardData.ts). */
-  { name: '*.paymentsweb.internal', primitive: 'Certificate', algorithm: 'RSA', keyLength: '3072 bit', protocol: 'TLS 1.2', location: 'LocalMachine\\My', compliance: 'Quantum-vulnerable', expiry: 'Mar 14, 2027' },
-  { name: 'db-replication-cert', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SHA256withRSA', location: 'LocalMachine\\My', compliance: 'Quantum-vulnerable', expiry: 'Aug 30, 2026' },
-  { name: 'partner-mtls-client', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '256 bit', protocol: 'SHA256withECDSA', location: 'CurrentUser\\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 01, 2026' },
-  { name: 'k8s-ingress-wildcard', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'SHA256withECDSA', location: 'k8s secret/ingress-tls', compliance: 'Quantum-vulnerable', expiry: 'Feb 14, 2027' },
-  { name: 'kafka-broker-tls', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SHA256withRSA', location: '/etc/kafka/ssl', compliance: 'Quantum-vulnerable', expiry: 'Apr 18, 2027' },
+  { name: '*.paymentsweb.internal', serves: 'Customer payments website', primitive: 'Certificate', algorithm: 'RSA', keyLength: '3072 bit', protocol: 'TLS 1.2', location: 'LocalMachine\\My', compliance: 'Quantum-vulnerable', expiry: 'Mar 14, 2027' },
+  { name: 'db-replication-cert', serves: 'Database replication', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SHA256withRSA', location: 'LocalMachine\\My', compliance: 'Quantum-vulnerable', expiry: 'Aug 30, 2026' },
+  { name: 'partner-mtls-client', serves: 'Partner integrations', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '256 bit', protocol: 'SHA256withECDSA', location: 'CurrentUser\\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 01, 2026' },
+  { name: 'k8s-ingress-wildcard', serves: 'Customer-facing web traffic', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'SHA256withECDSA', location: 'k8s secret/ingress-tls', compliance: 'Quantum-vulnerable', expiry: 'Feb 14, 2027' },
+  { name: 'kafka-broker-tls', serves: 'Event streaming between services', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SHA256withRSA', location: '/etc/kafka/ssl', compliance: 'Quantum-vulnerable', expiry: 'Apr 18, 2027' },
   { name: 'Session key exchange', primitive: 'Key-agreement', algorithm: 'ECDH P-256', keyLength: '256 bit', protocol: 'TLS 1.3', location: 'schannel', compliance: 'Quantum-vulnerable', expiry: null },
   { name: 'Payload encryption', primitive: 'Cipher', algorithm: 'AES-GCM', keyLength: '256 bit', protocol: 'TLS 1.3', location: 'bcrypt.dll', compliance: 'Compliant', expiry: null },
   { name: 'Legacy payload cipher', primitive: 'Cipher', algorithm: '3DES-CBC', keyLength: '168 bit', protocol: 'TLS 1.0', location: 'schannel', compliance: 'Deprecated', expiry: null },
   { name: 'Integrity digest', primitive: 'Hash', algorithm: 'SHA-256', keyLength: '256 bit', protocol: 'internal', location: 'bcrypt.dll', compliance: 'Compliant', expiry: null },
   { name: 'Legacy digest', primitive: 'Hash', algorithm: 'SHA-1', keyLength: '160 bit', protocol: 'internal', location: 'advapi32.dll', compliance: 'Deprecated', expiry: null },
-  { name: 'code-signing-2026', primitive: 'Certificate', algorithm: 'RSA', keyLength: '4096 bit', protocol: 'Authenticode', location: 'LocalMachine\\TrustedPublisher', compliance: 'Quantum-vulnerable', expiry: 'Sep 02, 2026' },
+  { name: 'code-signing-2026', serves: 'Signed software updates', primitive: 'Certificate', algorithm: 'RSA', keyLength: '4096 bit', protocol: 'Authenticode', location: 'LocalMachine\\TrustedPublisher', compliance: 'Quantum-vulnerable', expiry: 'Sep 02, 2026' },
   { name: 'Token signature', primitive: 'Signature', algorithm: 'ECDSA P-384', keyLength: '384 bit', protocol: 'JWT ES384', location: '/opt/payments/keys', compliance: 'Quantum-vulnerable', expiry: null },
   { name: 'Message authentication', primitive: 'MAC', algorithm: 'HMAC-SHA256', keyLength: '256 bit', protocol: 'internal', location: 'bcrypt.dll', compliance: 'Compliant', expiry: null },
   { name: 'Disk volume encryption', primitive: 'Cipher', algorithm: 'AES-XTS', keyLength: '128 bit', protocol: 'BitLocker', location: 'fvevol.sys', compliance: 'Compliant', expiry: null },
-  { name: 'connector-mtls-client', primitive: 'Certificate', algorithm: 'EC P-256', keyLength: '256 bit', protocol: 'mTLS', location: 'CurrentUser\\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 03, 2026' },
+  { name: 'connector-mtls-client', serves: 'Third-party connectors', primitive: 'Certificate', algorithm: 'EC P-256', keyLength: '256 bit', protocol: 'mTLS', location: 'CurrentUser\\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 03, 2026' },
   { name: 'Password derivation', primitive: 'Hash', algorithm: 'PBKDF2-HMAC-SHA256', keyLength: '256 bit', protocol: 'internal', location: '/opt/reporting/lib', compliance: 'Compliant', expiry: null },
+
+  /* Certificates spread across the rotation windows the dashboard's timeline draws. Fixed dates,
+     read against DASH_TODAY (17 Aug 2026): a countdown against a real clock would make the page
+     report something different every morning and its checks unrepeatable. */
+  { name: 'vpn-gateway-tls', serves: 'Remote access (VPN)', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'TLS 1.2', location: 'LocalMachine\My', compliance: 'Quantum-vulnerable', expiry: 'Aug 19, 2026' },
+  { name: 'sso-saml-signing', serves: 'Staff sign-in (single sign-on)', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SAML', location: 'LocalMachine\My', compliance: 'Quantum-vulnerable', expiry: 'Aug 22, 2026' },
+  { name: 'internal-ca-issuing', serves: 'Issuing new internal certificates', primitive: 'Certificate', algorithm: 'RSA', keyLength: '4096 bit', protocol: 'PKI', location: 'LocalMachine\CA', compliance: 'Quantum-vulnerable', expiry: 'Sep 10, 2026' },
+  { name: 'payments-api-tls', serves: 'Payments API', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '256 bit', protocol: 'TLS 1.3', location: '/etc/ssl/payments', compliance: 'Quantum-vulnerable', expiry: 'Oct 05, 2026' },
+  { name: 'branch-vpn-client', serves: 'Branch-office connectivity', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'IPsec', location: 'CurrentUser\My', compliance: 'Quantum-vulnerable', expiry: 'Nov 12, 2026' },
+  { name: 'ldap-directory-tls', serves: 'Directory lookups', primitive: 'Certificate', algorithm: 'RSA', keyLength: '3072 bit', protocol: 'LDAPS', location: 'LocalMachine\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 28, 2026' },
+  { name: 'mq-broker-tls', serves: 'Message queues', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'AMQPS', location: '/etc/mq/ssl', compliance: 'Quantum-vulnerable', expiry: 'Jan 30, 2027' },
+  { name: 'device-enrolment-ca', serves: 'Enrolling new devices', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'SCEP', location: 'LocalMachine\CA', compliance: 'Quantum-vulnerable', expiry: 'Jun 20, 2027' },
 ];
 
 export interface AiModel {
@@ -147,6 +162,22 @@ export interface AiModel {
   modelCard?: boolean;
   /** Why this one carries extra risk beyond its age — e.g. a pickled artefact executes on load. */
   risk?: string;
+
+  /* ── the wider AI BOM ────────────────────────────────────────────────
+   * An AI Bill of Materials is not only the models. It is the frameworks that load them, the
+   * runtime they execute on, and the data they were trained on — each with its own licence,
+   * provenance and end-of-life. These fields describe that wider set; entries without a `kind`
+   * are models, which is what `bomAiModels` and the dashboard still mean by the word. */
+  kind?: 'hosted-llm' | 'local-model-file' | 'embedding-model' | 'framework' | 'vector-db'
+    | 'prompt' | 'dataset' | 'infra' | 'rag-pipeline';
+  /** The line under the name — what this asset IS, in the register's own words. */
+  subtitle?: string;
+  /** Whether the artefact's origin can be attested. Internal = ours, so there is nobody to verify
+   *  it against; Unverified = came from somewhere with nothing to check it by. */
+  provenance?: 'Verified' | 'Unverified' | 'Internal';
+  /** How much the licence constrains what may be built on it. Unknown licences are HIGH: an
+   *  unanswered licence question is a worse position than a restrictive but known one. */
+  licenseRisk?: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 
 const AIBOM_CATALOG: AiModel[] = [
@@ -165,6 +196,27 @@ const AIBOM_CATALOG: AiModel[] = [
   { name: 'legacy-scorer.pkl', provider: 'In-house (legacy)', version: '0.1.0', task: 'Credit scoring', license: 'Proprietary', parameters: 'Unknown', source: 'Local weights', usage: 'Nightly batch scoring', eol: 'Jun 30, 2025', modelCard: false, risk: 'pickle-import risk' },
   { name: 'gpt-4o (loan-assist API)', provider: 'OpenAI', version: '2024-08-06', task: 'Text generation', license: 'Commercial API', parameters: 'Undisclosed', source: 'Hosted API', usage: 'Loan assistant', eol: 'Nov 12, 2026', modelCard: false },
   { name: 'report-summariser', provider: 'OpenAI', version: '1.2', task: 'Summarisation', license: 'Commercial API', parameters: 'Undisclosed', source: 'Hosted API', usage: 'Report summaries', eol: 'Feb 13, 2027', modelCard: true },
+
+  /* The stack around the models. A model that is fine on its own still runs on a framework with
+     its own licence and its own end-of-life, and was trained on data with its own provenance —
+     which is the whole argument for an AI BOM being wider than a model list. */
+  { name: 'langchain', provider: 'OSS', version: '0.1.16', task: 'Orchestration', license: 'MIT', parameters: 'N/A', source: 'Embedded', usage: 'Agent orchestration', kind: 'framework', subtitle: 'ML framework', provenance: 'Verified', licenseRisk: 'LOW', eol: 'Jun 25, 2026' },
+  { name: 'transformers', provider: 'OSS', version: '4.38.2', task: 'Model runtime', license: 'Apache-2.0', parameters: 'N/A', source: 'Embedded', usage: 'Local model loading', kind: 'framework', subtitle: 'ML framework', provenance: 'Verified', licenseRisk: 'LOW' },
+  { name: 'scikit-learn', provider: 'OSS', version: '1.4.0', task: 'Classical ML', license: 'BSD-3-Clause', parameters: 'N/A', source: 'Embedded', usage: 'Feature pipelines', kind: 'framework', subtitle: 'ML framework', provenance: 'Verified', licenseRisk: 'LOW', eol: 'Jul 10, 2026' },
+  { name: 'onnxruntime', provider: 'OSS', version: '1.17.0', task: 'Inference runtime', license: 'MIT', parameters: 'N/A', source: 'Embedded', usage: 'Model inference', kind: 'infra', subtitle: 'Inference runtime', provenance: 'Verified', licenseRisk: 'LOW', eol: 'Jan 25, 2026' },
+  { name: 'torch', provider: 'OSS', version: '2.2.1', task: 'Model runtime', license: 'BSD-3-Clause', parameters: 'N/A', source: 'Embedded', usage: 'Tensor runtime', kind: 'infra', subtitle: 'Inference runtime', provenance: 'Verified', licenseRisk: 'LOW' },
+  { name: 'interest-rate-predictor', provider: 'In-house ML platform', version: '0.8.0', task: 'Forecasting', license: 'Proprietary', parameters: '0.6 M', source: 'Local weights', usage: 'Rate forecasting', kind: 'local-model-file', subtitle: 'Model · no model card', provenance: 'Unverified', licenseRisk: 'LOW', modelCard: false },
+  { name: 'aml-alerts-history', provider: 'In-house', version: '2023-2025', task: 'Training data', license: 'Proprietary · PII', parameters: 'N/A', source: 'Embedded', usage: 'Fraud model training', kind: 'dataset', subtitle: 'Training data', provenance: 'Internal', licenseRisk: 'HIGH' },
+  { name: 'kyc-documents-sample', provider: 'In-house', version: '2024-Q4', task: 'Training data', license: 'Proprietary · PII', parameters: 'N/A', source: 'Embedded', usage: 'KYC model evaluation', kind: 'dataset', subtitle: 'Training data · PII', provenance: 'Internal', licenseRisk: 'HIGH' },
+  { name: 'ticket-corpus-2025', provider: 'In-house', version: '2025', task: 'Training data', license: 'Unknown', parameters: 'N/A', source: 'Embedded', usage: 'Summariser fine-tuning', kind: 'dataset', subtitle: 'Training data', provenance: 'Unverified', licenseRisk: 'HIGH' },
+
+  { name: 'pgvector', provider: 'OSS', version: '0.7.0', task: 'Vector store', license: 'PostgreSQL', parameters: 'N/A', source: 'Embedded', usage: 'Knowledge embeddings', kind: 'vector-db', subtitle: 'Vector store · embeddings at rest', provenance: 'Verified', licenseRisk: 'LOW' },
+  { name: 'qdrant', provider: 'Qdrant', version: '1.9.0', task: 'Vector store', license: 'Apache-2.0', parameters: 'N/A', source: 'Embedded', usage: 'Similarity search', kind: 'vector-db', subtitle: 'Vector store · embeddings at rest', provenance: 'Verified', licenseRisk: 'LOW', eol: 'Apr 30, 2026' },
+  { name: 'ticket-summary-prompt', provider: 'In-house', version: 'v3', task: 'Prompt template', license: 'Proprietary', parameters: 'N/A', source: 'Embedded', usage: 'Ticket summarisation', kind: 'prompt', subtitle: 'Prompt template · sends ticket text', provenance: 'Internal', licenseRisk: 'LOW' },
+  { name: 'kyc-extraction-prompt', provider: 'In-house', version: 'v1', task: 'Prompt template', license: 'Proprietary · PII', parameters: 'N/A', source: 'Embedded', usage: 'Document field extraction', kind: 'prompt', subtitle: 'Prompt template · sends PII', provenance: 'Unverified', licenseRisk: 'HIGH' },
+  { name: 'kb-search-rag', provider: 'In-house', version: '2.1', task: 'Retrieval pipeline', license: 'Proprietary', parameters: 'N/A', source: 'Embedded', usage: 'Knowledge-base answers', kind: 'rag-pipeline', subtitle: 'RAG pipeline · retrieval + generation', provenance: 'Internal', licenseRisk: 'LOW' },
+  { name: 'loan-docs-rag', provider: 'In-house ML platform', version: '0.4', task: 'Retrieval pipeline', license: 'Proprietary', parameters: 'N/A', source: 'Embedded', usage: 'Loan document Q&A', kind: 'rag-pipeline', subtitle: 'RAG pipeline · no evaluation record', provenance: 'Unverified', licenseRisk: 'LOW' },
+  { name: 'bge-small-en', provider: 'BAAI', version: '1.5', task: 'Embeddings', license: 'MIT', parameters: '33 M', source: 'Local weights', usage: 'Ticket similarity', kind: 'embedding-model', subtitle: 'Embedding model', provenance: 'Verified', licenseRisk: 'LOW' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -185,6 +237,10 @@ export interface BomProduct {
   excludePaths: string[];
   /** The scope whose versions the BOM tab lands on. Exactly one product per host. */
   isDefault?: boolean;
+  /** Declared by a person in Manage products, rather than found by the agent. The distinction is
+   *  about who created the scope, not where its data comes from — a manually declared path is
+   *  still scanned by the agent on its next check-in. */
+  addedManually?: boolean;
 }
 
 export const OS_PRODUCT_KEY = 'os-base';
@@ -196,6 +252,74 @@ const APP_PRODUCTS: { key: string; name: string; version: string; path: string }
   { key: 'ledger-api', name: 'Ledger API', version: '1.8.3', path: '/srv/ledger' },
   { key: 'identity-broker', name: 'Identity Broker', version: '2.0.7', path: '/opt/identity' },
 ];
+
+/* ── the many-products host ───────────────────────────────────────────────
+ * A products PICKER is easy at three scopes and unusable at forty, so one host in the fleet is
+ * an application server carrying 41 — the case the overview exists to handle. Everything about
+ * it is behind this one constant: delete `MANY_PRODUCT_HOST` and the fleet is exactly as it was.
+ *
+ * Their component counts are deliberately SMALL (`smallScope`): forty scopes on one host means
+ * forty narrow application roots, not forty platforms. Sizing them like the ordinary scopes would
+ * have added ~6,000 components to a fleet of ~6,900 and roughly doubled every dashboard total for
+ * a demo about a dropdown. */
+export const MANY_PRODUCT_HOST = 'EP-408';
+
+const MANY_PRODUCT_NAMES: { name: string; version: string; root: string }[] = [
+  { name: 'Payments Web', version: '2.4.1', root: '/opt/payments' },
+  { name: 'Claims Portal', version: '5.2.0', root: 'C:\\inetpub\\claims' },
+  { name: 'Ledger API', version: '1.8.3', root: '/srv/ledger' },
+  { name: 'Identity Broker', version: '2.0.7', root: '/opt/identity' },
+  { name: 'Reporting Service', version: '3.1.0', root: '/opt/reporting' },
+  { name: 'Settlement Engine', version: '4.6.2', root: '/srv/settlement' },
+  { name: 'Card Tokeniser', version: '1.2.9', root: '/opt/tokeniser' },
+  { name: 'Fraud Scoring', version: '2.9.4', root: '/opt/fraud' },
+  { name: 'KYC Verifier', version: '3.3.1', root: '/srv/kyc' },
+  { name: 'Statement Renderer', version: '1.7.0', root: '/opt/statements' },
+  { name: 'Notification Hub', version: '5.0.3', root: '/srv/notify' },
+  { name: 'Batch Scheduler', version: '2.2.8', root: '/opt/batch' },
+  { name: 'Recon Service', version: '1.4.6', root: '/srv/recon' },
+  { name: 'Mandate Manager', version: '3.0.1', root: '/opt/mandates' },
+  { name: 'Dispute Workflow', version: '2.5.5', root: 'C:\\inetpub\\disputes' },
+  { name: 'Merchant Onboarding', version: '4.1.2', root: '/opt/onboarding' },
+  { name: 'Payout Router', version: '1.9.7', root: '/srv/payouts' },
+  { name: 'FX Rate Service', version: '2.3.4', root: '/opt/fx' },
+  { name: 'Limit Engine', version: '1.1.3', root: '/srv/limits' },
+  { name: 'Audit Collector', version: '3.8.0', root: '/opt/audit' },
+  { name: 'Document Vault', version: '2.7.2', root: '/srv/vault' },
+  { name: 'Customer Portal', version: '6.0.4', root: 'C:\\inetpub\\portal' },
+  { name: 'Agent Console', version: '4.4.9', root: 'C:\\inetpub\\console' },
+  { name: 'Rules Authoring', version: '1.6.1', root: '/opt/rules' },
+  { name: 'Ledger Archiver', version: '2.0.0', root: '/srv/archive' },
+  { name: 'Sanctions Screening', version: '5.5.3', root: '/opt/sanctions' },
+  { name: 'Chargeback Handler', version: '1.3.8', root: '/srv/chargeback' },
+  { name: 'Interest Calculator', version: '2.8.1', root: '/opt/interest' },
+  { name: 'Statement Mailer', version: '1.0.6', root: '/srv/mailer' },
+  { name: 'Data Masking Proxy', version: '3.2.2', root: '/opt/masking' },
+  { name: 'Session Broker', version: '2.1.5', root: '/srv/session' },
+  { name: 'Config Distributor', version: '1.5.4', root: '/opt/configd' },
+  { name: 'Health Prober', version: '4.0.9', root: '/srv/health' },
+  { name: 'Metrics Shipper', version: '2.6.7', root: '/opt/metrics' },
+  { name: 'Log Forwarder', version: '3.4.0', root: '/srv/logfwd' },
+  { name: 'Backup Agent', version: '5.1.8', root: '/opt/backup' },
+  { name: 'Certificate Rotator', version: '1.8.2', root: '/srv/certrot' },
+  { name: 'Secrets Sidecar', version: '2.4.3', root: '/opt/secrets' },
+  { name: 'Queue Bridge', version: '3.7.6', root: '/srv/queue' },
+  { name: 'Legacy COBOL Gateway', version: '1.0.1', root: 'C:\\legacy\\gateway' },
+];
+
+/** Hand-declared scopes on the demo host — see MANY_PRODUCT_HOST. Two existing products are
+ *  marked rather than new ones added, so no count anywhere else moves. */
+const MANUALLY_ADDED = ['Legacy COBOL Gateway', 'Data Masking Proxy'];
+
+const manyProducts = (endpointId: string): { key: string; name: string; version: string; path: string }[] =>
+  MANY_PRODUCT_NAMES.map((p) => ({
+    key: p.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    name: p.name, version: p.version, path: p.root,
+  }));
+
+/** True for a scope on the many-products host — see `MANY_PRODUCT_HOST` for why it is sized down. */
+export const smallScope = (endpointId: string, productKey: string): boolean =>
+  endpointId === MANY_PRODUCT_HOST && productKey !== OS_PRODUCT_KEY;
 
 // Dates used across the module — kept as a fixed spread so the demo never drifts.
 const SCAN_DATES = ['Jun 16, 2026', 'Jun 15, 2026', 'Jun 14, 2026', 'Jun 12, 2026', 'Jun 09, 2026', 'Jun 04, 2026'];
@@ -248,6 +372,8 @@ export interface BomRecord {
 /** How many components a given (endpoint, product, type) scope reports. */
 export const componentCount = (endpointId: string, productKey: string, type: BomType): number => {
   const h = hash(`${endpointId}:${productKey}:${type}`);
+  // Forty narrow application roots on one host, not forty platforms — see MANY_PRODUCT_HOST.
+  if (smallScope(endpointId, productKey)) return type === 'SBOM' ? 8 + (h % 34) : type === 'CBOM' ? h % 4 : h % 3;
   if (type === 'SBOM') return productKey === OS_PRODUCT_KEY ? 24 + (h % 190) : 42 + (h % 210);
   if (type === 'CBOM') return 3 + (h % 9);
   // AI BOM only exists where an application actually ships models.
@@ -273,10 +399,13 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
   const extraIngest = origin === 'Agent' && hash(`${endpointId}:ingest`) % 3 === 0;
   const agentSource = origin === 'Manual' ? 'manual · file upload' : 'agent · directory scan';
 
-  const appCount = status === 'Not Generated' ? 0 : h % 3; // 0-2 application products
+  // 0-2 application products — except the one application server, which carries forty.
+  const many = endpointId === MANY_PRODUCT_HOST && status !== 'Not Generated';
+  const pool = many ? manyProducts(endpointId) : APP_PRODUCTS;
+  const appCount = status === 'Not Generated' ? 0 : many ? pool.length : h % 3;
   const products: BomProduct[] = [];
   for (let i = 0; i < appCount; i++) {
-    const p = APP_PRODUCTS[(h + i * 7) % APP_PRODUCTS.length];
+    const p = many ? pool[i] : pool[(h + i * 7) % pool.length];
     if (products.some((x) => x.key === p.key)) continue;
     products.push({
       ...p,
@@ -285,7 +414,12 @@ export const bomForEndpoint = (endpointId: string): BomRecord => {
       source: extraIngest && i === 0 ? 'ingested · file upload' : agentSource,
       status: status === 'In Progress' && i === appCount - 1 ? 'Pending' : 'Scanned',
       lastScan: SCAN_DATES[(h + i) % SCAN_DATES.length],
-      findings: (hash(`${endpointId}:${p.key}:find`) % 5),
+      /* On the many-products host most scopes are clean and a handful are not — which is both
+         realistic and the whole point: the overview has to make those few findable among forty. */
+      findings: many
+        ? (hash(`${endpointId}:${p.key}:find`) % 6 === 0 ? 1 + (hash(`${endpointId}:${p.key}:n`) % 3) : 0)
+        : (hash(`${endpointId}:${p.key}:find`) % 5),
+      addedManually: many && MANUALLY_ADDED.includes(p.name),
       excludePaths: productExcludePaths(endpointId, p.key),
     });
   }
@@ -590,8 +724,17 @@ export const bomComponents = (endpointId: string, productKey: string): BomCompon
 export const bomCryptoAssets = (endpointId: string, productKey: string): CryptoAsset[] =>
   slice(CBOM_CATALOG, hash(`${endpointId}:${productKey}:cbom`), componentCount(endpointId, productKey, 'CBOM'));
 
+/** MODELS only — what the dashboard and a CI's AI BOM tab mean by the word. Frameworks, runtimes
+ *  and datasets are AI assets but not models, and folding them in here would have turned the
+ *  dashboard's "3 of 13 models past EOL" into a different claim without anyone saying so. */
 export const bomAiModels = (endpointId: string, productKey: string): AiModel[] =>
-  slice(AIBOM_CATALOG, hash(`${endpointId}:${productKey}:aibom`), componentCount(endpointId, productKey, 'AI BOM'));
+  slice(AIBOM_CATALOG.filter((m) => !m.kind || m.kind === 'local-model-file' || m.kind === 'hosted-llm'),
+    hash(`${endpointId}:${productKey}:aibom`), componentCount(endpointId, productKey, 'AI BOM'));
+
+/** The WHOLE AI bill of materials for a scope — models plus the stack around them. */
+export const bomAiAssets = (endpointId: string, productKey: string): AiModel[] =>
+  slice(AIBOM_CATALOG, hash(`${endpointId}:${productKey}:aibom`),
+    Math.min(AIBOM_CATALOG.length, componentCount(endpointId, productKey, 'AI BOM') * 2));
 
 // ---------------------------------------------------------------------------
 // Version diff — powers the Compare versions modal.

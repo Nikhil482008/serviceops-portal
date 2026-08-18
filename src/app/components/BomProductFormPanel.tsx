@@ -3,7 +3,7 @@ import { X, Check } from 'lucide-react';
 import { DEFAULT_EXCLUDE_PATHS } from './bomData';
 import type { BomProduct } from './bomData';
 
-/* Add / edit one scan scope on a host. Opened from the Manage scan paths drawer, and stacked on
+/* Add / edit one scan scope on a host. Opened from the Manage products drawer, and stacked on
  * top of it — the two form one flow, so this sits at a higher z-index rather than replacing it. */
 
 export interface ProductFormValue {
@@ -93,7 +93,7 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
     }`;
 
   return (
-    // Sits above the Manage scan paths drawer (z-[10000] vs its z-[9999]).
+    // Sits above the Manage products drawer (z-[10000] vs its z-[9999]).
     <div className="fixed inset-0 z-[10000] flex items-center justify-end bg-black/40">
       <div className="flex h-full w-[560px] max-w-[95vw] flex-col bg-white shadow-xl">
         {/* Header */}

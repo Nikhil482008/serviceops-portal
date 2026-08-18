@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ScanLine, ArrowRight, Trash2, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronLeft, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ScanLine, ArrowRight, Trash2, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { toast } from 'sonner';
 import { BomComponentsPanel } from './BomComponentsPanel';
 import { BomCompareVersionsPanel } from './BomCompareVersionsPanel';
-import { BomScanPathsPanel } from './BomScanPathsPanel';
+import { BomProductsOverview } from './BomProductsOverview';
+import { BomManageProductsPanel } from './BomManageProductsPanel';
 import { BomScanRunsPanel } from './BomScanRunsPanel';
-import { bomForEndpoint, bomVersions, componentCount, bomRetention, bomCiId, OS_PRODUCT_KEY, bomVersionStats, BOM_SEVERITIES } from './bomData';
+import { bomForEndpoint, bomVersions, bomComponents, bomAiAssets, componentCount, bomRetention, bomCiId, OS_PRODUCT_KEY, bomVersionStats, BOM_SEVERITIES } from './bomData';
 import type { BomType, BomVersion, BomScanRun } from './bomData';
 import type { ChangeTab } from './BomComponentsPanel';
 
@@ -295,6 +296,10 @@ interface EndpointBomTabProps {
    *  the CBOM and a model finding is in the AI BOM, so landing on SBOM would hide the thing the
    *  user clicked. Defaults to SBOM for every other entry point. */
   initialType?: BomType;
+  /** Arriving from a component's "Installed on" list: open this host's BOM already looking at
+   *  that component, in the scope that actually contains it. Without picking the scope the tab
+   *  would land on the OS catch-all and the component would not be in the tree at all. */
+  initialComponent?: string;
 }
 
 
@@ -308,15 +313,26 @@ const SEV_SOLID: Record<string, { bg: string; text: string }> = {
   Low: { bg: '#F2F4F7', text: '#475467' },
 };
 
-export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBomTabProps) {
+/** The product drawer, and the inset every panel opened FROM it gets. 20px is enough to show the
+ *  drawer's edge underneath, which is what tells you the panel is a level deeper rather than a
+ *  replacement — the same reading the rule-studio conflict drawer uses. */
+const DRAWER_W = typeof window !== 'undefined'
+  ? Math.round(Math.min(1400, window.innerWidth * 0.86) * 0.9)
+  : 1116;
+const STACK_INSET = 20;
+
+export function EndpointBomTab({ endpointId, hostName, initialType, initialComponent }: EndpointBomTabProps) {
   const record = bomForEndpoint(endpointId);
-  // Products are editable in Manage scan paths, so they live in state rather than being read
+  // Products can be added in Manage products, so they live in state rather than being read
   // straight from the record on every render.
   const [products, setProducts] = useState(record.products);
   const defaultKey = (ps: typeof products) => (ps.find((p) => p.isDefault) ?? ps.find((p) => p.key === OS_PRODUCT_KEY) ?? ps[0])?.key ?? OS_PRODUCT_KEY;
   const [type, setType] = useState<BomType>(initialType ?? 'SBOM');
-  const [productKey, setProductKey] = useState<string>(() => defaultKey(record.products));
-  const [showProducts, setShowProducts] = useState(false);
+  /* null = the products overview. Modelled as "no product selected" rather than a separate
+     showOverview flag, so the two can never disagree about which screen is up.
+     A deep link that names a BOM type (the dashboard's "open the CBOM on CI-408") came for a
+     specific thing, so it still lands scoped; a plain visit lands on the overview. */
+  const [productKey, setProductKey] = useState<string | null>(() => (initialType ? defaultKey(record.products) : null));
   const [showTypes, setShowTypes] = useState(false);
   const [showPaths, setShowPaths] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
@@ -336,12 +352,67 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
   useEffect(() => {
     const ps = bomForEndpoint(endpointId).products;
     setProducts(ps);
-    setProductKey(defaultKey(ps));
-    setType('SBOM'); setComponentsFor(null); setShowProducts(false); setDateFilter({ kind: 'all' });
+    setProductKey(initialType ? defaultKey(ps) : null);
+    setType(initialType ?? 'SBOM'); setComponentsFor(null); setDateFilter({ kind: 'all' });
   }, [endpointId]);
 
-  const product = products.find((p) => p.key === productKey) ?? products[0];
+  /* A deep link that names a BOM type came for a specific thing — honour it even when the tab is
+     already mounted, which is what happens when the same record is reopened from the dashboard
+     for a different BOM. Without this the tab would sit on the overview and ignore the request. */
+  useEffect(() => {
+    if (!initialType) return;
+    setType(initialType);
+    setProductKey((k) => k ?? defaultKey(bomForEndpoint(endpointId).products));
+  }, [initialType, endpointId]);
+
+  /* Arriving from a component: choose the scope that actually carries it, then open that scope's
+     current version straight onto the dependency tree. Landing on the overview or on the OS
+     catch-all would answer a question nobody asked. */
+  useEffect(() => {
+    if (!initialComponent) return;
+    const ps = bomForEndpoint(endpointId).products;
+    /* Look in the bill the component actually belongs to. An AI component is not in the SBOM, so
+       searching `bomComponents` for it would find nothing and land on the OS catch-all. */
+    const want = initialType ?? 'SBOM';
+    const carries = (key: string) => (want === 'AI BOM'
+      ? bomAiAssets(endpointId, key).some((m) => m.name === initialComponent)
+      : bomComponents(endpointId, key).some((c) => c.name === initialComponent));
+    const owner = ps.find((p) => carries(p.key));
+    const key = (owner ?? ps.find((p) => p.key === OS_PRODUCT_KEY) ?? ps[0])?.key;
+    if (!key) return;
+    setType(want);
+    setProductKey(key);
+    /* The version whose listing is the host as it stands now — the same one the rail marks
+       Current, so the tree is not showing a historical answer. */
+    const vs = bomVersions(endpointId, key, want);
+    const cur = vs.findIndex((v) => v.state === 'Current');
+    setComponentsFor(cur >= 0 ? cur : 0);
+    setComponentsTab('All');
+    setComponentsCveFirst(false);
+  }, [initialComponent, initialType, endpointId]);
+
+  /* Carrying a type across products would land you on a BOM the new scope does not have — the
+     rail would be empty and read as "nothing scanned" rather than "not applicable here". If the
+     selected type is not one this product carries, fall to the first it does.
+     
+     It must NOT overrule a deep link. Both effects run in the same commit, and this one saw the
+     landing's default scope rather than the one the component actually lives in — so it corrected
+     an "AI BOM" request to SBOM a moment before the other effect could point it at the right
+     product. An explicitly requested type is left alone. */
+  useEffect(() => {
+    if (!productKey || type === initialType) return;
+    const avail = BOM_TYPES.filter((t) => componentCount(endpointId, productKey, t) > 0);
+    if (avail.length && !avail.includes(type)) setType(avail[0]);
+  }, [productKey, endpointId, type, initialType]);
+
+  const onOverview = productKey === null;
+  const product = onOverview ? undefined : (products.find((p) => p.key === productKey) ?? products[0]);
   const productLabel = product ? (product.version ? `${product.name} ${product.version}` : product.name) : 'OS / base platform';
+  /* The BOMs this scope actually carries. `componentCount` is the same function the overview's
+     type chips read, so the drawer and the list cannot disagree about what exists. */
+  const availableTypes = product
+    ? BOM_TYPES.filter((t) => componentCount(endpointId, product.key, t) > 0)
+    : BOM_TYPES;
   const versions = product ? bomVersions(endpointId, product.key, type) : [];
   const count = product ? componentCount(endpointId, product.key, type) : 0;
   const retention = bomRetention(endpointId, product?.key ?? OS_PRODUCT_KEY, type);
@@ -387,8 +458,77 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
     );
   }
 
+  /* The landing. Everything below this line is the scoped view, unchanged — the overview is a
+     layer in front of it, not a replacement, because versions and diffs are only meaningful
+     inside one product. */
+  if (onOverview) {
+    /* The stacked panels live at the BOTTOM of this component, so returning early here left the
+       overview's gear opening nothing at all — it rendered the button and none of the drawer.
+       The one it needs comes with it. */
+    return (
+      <>
+        <BomProductsOverview
+          endpointId={endpointId}
+          products={products}
+          onOpen={(k) => { setProductKey(k); setComponentsFor(null); setDateFilter({ kind: 'all' }); }}
+          onManagePaths={() => setShowPaths(true)}
+          onScan={() => toast.success(`BOM scan queued for ${hostName}`)}
+        />
+        <BomManageProductsPanel
+          isOpen={showPaths}
+          onClose={() => setShowPaths(false)}
+          endpointId={endpointId}
+          hostName={hostName}
+          products={products}
+          onProductsChange={(next) => { setProducts(next); setShowPaths(false); }}
+        />
+      </>
+    );
+  }
+
+  /* A product opens as a DRAWER over the overview, which stays mounted behind it — the list you
+     came from is where you left it, and closing is a dismissal rather than a navigation. */
   return (
-    <div className="px-6 py-4">
+    <>
+      <BomProductsOverview
+        endpointId={endpointId}
+        products={products}
+        onOpen={(k) => { setProductKey(k); setComponentsFor(null); setDateFilter({ kind: 'all' }); }}
+        onManagePaths={() => setShowPaths(true)}
+        onScan={() => toast.success(`BOM scan queued for ${hostName}`)}
+      />
+      <div className="fixed inset-0 z-[9998] flex items-stretch justify-end bg-black/40" onClick={() => { setProductKey(null); setComponentsFor(null); }}>
+      <div
+        className="flex h-full max-w-[96vw] flex-col bg-white shadow-2xl"
+        style={{ width: DRAWER_W }}
+        onClick={(e) => e.stopPropagation()}
+      >
+      {/* The module's drawer header, unchanged in shape: a band that does not scroll, title over
+          one metadata line, close on the right. The back button is this drawer's own addition —
+          it is the only one opened FROM a list, and the list is where closing should land you. */}
+      <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <button
+            onClick={() => { setProductKey(null); setComponentsFor(null); }}
+            title={`Back to all ${products.length} products`}
+            className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
+          ><ChevronLeft size={16} /></button>
+          <div className="min-w-0">
+            <h3 className="truncate text-[16px] font-semibold text-[#364658]">{productLabel}</h3>
+            <p className="mt-0.5 truncate text-[13px] text-[#7B8FA5]">
+              {bomCiId(endpointId)} · {hostName} · <span className="font-mono">{product?.path}</span>
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => { setProductKey(null); setComponentsFor(null); }}
+          className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]"
+          title="Close"
+        ><X size={18} /></button>
+      </div>
+
+    <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+
       {/* Control bar — BOM type and scope are both selects now, with the scan config and the
           scan action bracketing them. One row, so the versions start higher up the page. */}
       <div className="mb-6 flex items-end gap-2">
@@ -406,7 +546,7 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowTypes(false)} />
               <div className="absolute left-0 top-full z-50 mt-1 w-[260px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                {BOM_TYPES.map((t) => (
+                {availableTypes.map((t) => (
                   <button
                     key={t}
                     onClick={() => { setType(t); setShowTypes(false); setComponentsFor(null); }}
@@ -415,7 +555,14 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
                     }`}
                   >
                     {t}
-                    {t === type && <Check size={15} className="text-[#3D8BD0]" />}
+                    <span className="flex flex-shrink-0 items-center gap-2">
+                      {/* What picking it would give you — the reason one BOM is worth opening
+                          over another. */}
+                      <span className="text-[12px] text-[#7B8FA5] tabular-nums">
+                        {componentCount(endpointId, product?.key ?? OS_PRODUCT_KEY, t)}
+                      </span>
+                      {t === type && <Check size={15} className="text-[#3D8BD0]" />}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -424,63 +571,14 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
           </div>
         </div>
 
-        <div className="flex-shrink-0">
-          {/* The scope hint belongs to this field, so it sits on its label */}
-          <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[#7B8FA5]">
-            {/* The control selects a PRODUCT; the path it was scanned at is a property of that
-                product and stays in the hint, where it explains rather than labels. */}
-            Product
-            <InfoHint
-              text={product?.key === OS_PRODUCT_KEY
-                ? 'Everything not claimed by another product on this host rolls up here.'
-                : `Scanned at ${product?.path} on this host · ${count} component${count === 1 ? '' : 's'}.`}
-            />
-          </label>
-          <div className="relative">
-            <button
-              onClick={() => setShowProducts((v) => !v)}
-              className="inline-flex h-9 w-[260px] items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
-            >
-              <span className="truncate">
-                {product?.name}
-                {product?.version && <span className="ml-1.5 text-[#7B8FA5]">{product.version}</span>}
-              </span>
-              <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${showProducts ? 'rotate-180' : ''}`} />
-            </button>
-            {showProducts && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowProducts(false)} />
-                <div className="absolute left-0 top-full z-50 mt-1 w-[300px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                  <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Products on this host</div>
-                  {products.map((p) => (
-                    <button
-                      key={p.key}
-                      onClick={() => { setProductKey(p.key); setShowProducts(false); setComponentsFor(null); }}
-                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
-                        p.key === productKey ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
-                      }`}
-                    >
-                      <span className="truncate">
-                        {p.name}
-                        {p.version && <span className={`ml-1.5 ${p.key === productKey ? 'text-[#3D8BD0]/70' : 'text-[#7B8FA5]'}`}>{p.version}</span>}
-                      </span>
-                      {/* findings on that scope — the reason to look at it */}
-                      <span
-                        className={`inline-flex h-[18px] min-w-[18px] flex-shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-semibold ${
-                          p.findings > 0 ? 'bg-[#FEF7E6] text-[#D97706]' : 'bg-[#EEF2F6] text-[#94A3B8]'
-                        }`}
-                      >{p.findings}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        {/* The Product picker is gone: this drawer IS one product, and a control that can
+            change what a drawer is showing turns it into a second navigation surface. The
+            scope is named in the drawer header, and the way to another one is the list
+            behind it. */}
 
         <button
           onClick={() => setShowPaths(true)}
-          title="Manage scan paths"
+          title="Manage products"
           className="flex size-9 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
         >
           <Settings size={16} />
@@ -863,8 +961,11 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
         format="CycloneDX 1.6"
         cveFirst={componentsCveFirst}
         initialTab={componentsTab}
+        focusComponent={initialComponent}
+        width={DRAWER_W - STACK_INSET}
+        backLabel={productLabel}
       />
-      <BomScanPathsPanel
+      <BomManageProductsPanel
         isOpen={showPaths}
         onClose={() => setShowPaths(false)}
         endpointId={endpointId}
@@ -888,6 +989,8 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
         products={products}
         productKey={product?.key ?? OS_PRODUCT_KEY}
         type={type}
+        width={DRAWER_W - STACK_INSET}
+        backLabel={productLabel}
       />
       <BomScanRunsPanel
         isOpen={!!runsPanel}
@@ -895,8 +998,12 @@ export function EndpointBomTab({ endpointId, hostName, initialType }: EndpointBo
         title={runsPanel?.title ?? ''}
         subtitle={runsPanel?.subtitle ?? ''}
         runs={runsPanel?.runs ?? []}
+        backLabel={productLabel}
       />
     </div>
+      </div>
+      </div>
+    </>
   );
 }
 

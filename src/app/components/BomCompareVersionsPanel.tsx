@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Folder, List as ListIcon, Columns2 } from 'lucide-react';
+import { X, Search, ChevronDown, ChevronLeft, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Folder, List as ListIcon, Columns2 } from 'lucide-react';
 import { BomDiffView } from './BomDiffView';
 import type { DiffKind } from './BomDiffView';
 import { bomDiff, bomVersions, componentCount, bomCiId } from './bomData';
@@ -220,10 +220,14 @@ interface BomCompareVersionsPanelProps {
   products: BomProduct[];
   productKey: string;
   type: BomType;
+  /** Rendered width — a caller that opened this from its own drawer insets it. */
+  width?: number;
+  /** Names what dismissing this returns to. Set when it is stacked on another drawer. */
+  backLabel?: string;
 }
 
 export function BomCompareVersionsPanel({
-  isOpen, onClose, endpointId, hostName, products, productKey, type,
+  isOpen, onClose, endpointId, hostName, products, productKey, type, width, backLabel,
 }: BomCompareVersionsPanelProps) {
   const [scopeKey, setScopeKey] = useState(productKey);
   const [showScopes, setShowScopes] = useState(false);
@@ -319,14 +323,25 @@ export function BomCompareVersionsPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-end bg-black/50">
+    <div className="fixed inset-0 z-[10010] flex items-center justify-end bg-black/40">
       {/* Wide enough that an expanded component's six identity fields sit on one line */}
-      <div className="flex h-full w-[1240px] max-w-[96vw] flex-col bg-white shadow-xl">
+      {/* `width` lets a caller inset this panel inside the drawer that opened it, so the drawer
+          underneath stays visible as the level it came from. Default unchanged. */}
+      <div className="flex h-full max-w-[96vw] flex-col bg-white shadow-xl" style={{ width: width ?? 1240 }}>
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
-          <div className="min-w-0">
-            <h3 className="text-[16px] font-semibold text-[#364658]">Compare BOMs</h3>
-            <p className="mt-0.5 text-[13px] text-[#7B8FA5]">{bomCiId(endpointId)} · {hostName} · {type}</p>
+          <div className="flex min-w-0 items-center gap-2.5">
+            {backLabel && (
+              <button
+                onClick={onClose}
+                title={`Back to ${backLabel}`}
+                className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
+              ><ChevronLeft size={16} /></button>
+            )}
+            <div className="min-w-0">
+              <h3 className="text-[16px] font-semibold text-[#364658]">Compare BOMs</h3>
+              <p className="mt-0.5 text-[13px] text-[#7B8FA5]">{bomCiId(endpointId)} · {hostName} · {type}</p>
+            </div>
           </div>
           <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
             <X size={18} />

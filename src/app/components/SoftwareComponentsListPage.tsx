@@ -8,11 +8,13 @@ import { Header } from './Header';
 import { SoftwareComponentsTable } from './SoftwareComponentsTable';
 import { Pagination } from './Pagination';
 import { useDrawerStack } from './DrawerStack';
-import { SOFTWARE_COMPONENTS, isVulnerable, isKev } from './softwareComponentsData';
+import { SOFTWARE_COMPONENTS, isKev } from './softwareComponentsData';
+import { AiModelsTab } from './AiModelsTab';
+import { aiAssets } from './aiModelsData';
 import { SoftwareComponentsKpis, focusFn, FOCUS_LABEL } from './SoftwareComponentsKpis';
 import type { ComponentFocus } from './SoftwareComponentsKpis';
 
-/* Software Components — the BOM module's second listing, and the fleet seen the other way up.
+/* BOM Inventory — the fleet seen the other way up from Configuration Items.
  *
  * Configuration Items is one row per CI ("what is on this machine"). This is one row per component
  * VERSION ("where does this thing live"), which is the question a new CVE forces. Same shell,
@@ -22,8 +24,8 @@ import type { ComponentFocus } from './SoftwareComponentsKpis';
 /* Two top-level scopes. "Known exploited" stopped being one of them: it is not a peer
    of All — it is a slice of Vulnerable, and a tab row that mixes levels invites the
    reading that a component could be exploited without being vulnerable. */
-type Scope = 'all' | 'vulnerable';
-type VulnSub = 'all' | 'kev';
+/** Known-exploited is a filter, not a place: it narrows whatever the page is showing. */
+type KevFilter = '' | 'kev';
 /* Severity is single-select: a component has exactly one top severity, so choosing two
    would be asking for rows that cannot exist. */
 type SevFilter = '' | 'Critical' | 'High' | 'Medium' | 'None';
@@ -35,27 +37,37 @@ const SEV_DOT: Record<Exclude<SevFilter, ''>, string> = {
   Critical: '#EF4444', High: '#F59E0B', Medium: '#EAB308', None: '#22C55E',
 };
 
+type BomTab = 'components' | 'models';
+
 function ComponentsToolbar({
-  searchQuery, setSearchQuery, scope, setScope, vulnSub, setVulnSub, sev, setSev,
-  focus, setFocus, allCount, vulnCount, kevCount, sevCount, allShown,
+  tab,
+  searchQuery, setSearchQuery, kev, setKev, kevCount, sev, setSev,
+  focus, setFocus, sevCount, allShown,
 }: {
+  tab: BomTab;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
-  scope: Scope;
-  setScope: (s: Scope) => void;
-  vulnSub: VulnSub;
-  setVulnSub: (v: VulnSub) => void;
+  kev: KevFilter;
+  setKev: (k: KevFilter) => void;
+  kevCount: number;
   sev: SevFilter;
   setSev: (s: SevFilter) => void;
   focus: ComponentFocus;
   setFocus: (f: ComponentFocus) => void;
-  allCount: number;
-  vulnCount: number;
-  kevCount: number;
   sevCount: (s: Exclude<SevFilter, ''>) => number;
   allShown: number;
 }) {
   const [sevOpen, setSevOpen] = useState(false);
+  const [kevOpen, setKevOpen] = useState(false);
+  const kevRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!kevOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (kevRef.current && !kevRef.current.contains(e.target as Node)) setKevOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [kevOpen]);
   const sevRef = useRef<HTMLDivElement>(null);
   /* Closing on outside click as well as on the scrim: the scrim alone misses a click that
      lands on another control inside the toolbar. */
@@ -73,21 +85,16 @@ function ComponentsToolbar({
     </button>
   );
 
-  const TABS: { id: Scope; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: allCount },
-    { id: 'vulnerable', label: 'Vulnerable', count: vulnCount },
-  ];
-  const SUBS: { id: VulnSub; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: vulnCount },
-    { id: 'kev', label: 'Known Exploited', count: kevCount },
-  ];
 
   return (
     <div className="bg-white">
       {/* First row: title + actions. No primary CTA — this listing is read-only, and the
           standard is to drop the CTA rather than fake one. */}
       <div className="flex items-center justify-between px-6 pb-2 pt-3">
-        <h1 className="text-[16px] font-semibold text-[#364658]">Software Components</h1>
+        <h1 className="text-[16px] font-semibold text-[#364658]">
+          BOM Inventory <span className="text-[#9CA3AF]">·</span>{' '}
+          <span className="text-[#7B8FA5]">{tab === 'models' ? 'AI Components' : 'Software components'}</span>
+        </h1>
 
         <div className="flex items-center gap-1">
           <IconBtn title="Export"><FileText size={16} /></IconBtn>
@@ -98,61 +105,22 @@ function ComponentsToolbar({
         </div>
       </div>
 
-      {/* The three readings, directly under the heading. Their actions filter the table
-          below rather than navigating, which is why they live inside the toolbar. */}
-      <div className="px-6 pb-4 pt-1">
+      {/* No tab strip: which half you are reading is a ROUTE now, chosen in the rail's flyout.
+          A strip here and a flyout there were offering the same choice at two levels, and only
+          one of them could be linked to. */}
+      {tab === 'components' && (
+        <>
+      {/* The three readings. Their actions filter the table below rather than navigating, which
+          is why they live inside the toolbar. */}
+      <div className="px-6 pb-4 pt-4">
         <SoftwareComponentsKpis rows={SOFTWARE_COMPONENTS} focus={focus} setFocus={setFocus} />
       </div>
 
-      {/* Scope tabs — the standard content-tab treatment, under the title */}
-      <div className="flex items-center gap-2.5 border-b border-[#e5e7eb] px-6">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => { setScope(t.id); setFocus(null); setSev(''); setVulnSub('all'); }}
-            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-3 text-[14px] font-medium transition-colors ${
-              scope === t.id
-                ? 'border-[#3D8BD0] text-[#3D8BD0]'
-                : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
-            }`}
-          >
-            {t.label}
-            <span className={`rounded px-1 py-0.5 text-[12px] font-medium ${scope === t.id ? 'bg-[#E8F4FD] text-[#3D8BD0]' : 'bg-[#E5E7EB] text-[#364658]'}`}>{t.count}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* One control row. Whatever narrows the list sits on the left of the search:
-          the severity filter on All, the sub-tabs on Vulnerable. They never both apply,
-          so they share the slot rather than stacking into two rows. */}
+      {/* One control row. No tab strip above it: the list shows everything by default, and the
+          cuts through it — severity, known-exploited, and whatever a KPI card is filtering — all
+          live here as controls rather than as places you navigate to. */}
       <div className="flex items-center gap-2.5 px-6 pb-3 pt-3">
-        {scope === 'vulnerable' && (
-          <>
-            {/* Pills, not underlines: the underline row above is the top level, and a
-                nested set that looked the same would read as a peer of it. */}
-            {SUBS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => { setVulnSub(t.id); setFocus(null); }}
-                className={`inline-flex h-[34px] flex-shrink-0 items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
-                  vulnSub === t.id
-                    ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
-                    : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
-                }`}
-              >
-                {t.label}
-                <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-semibold ${
-                  vulnSub === t.id ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#64748B]'
-                }`}>{t.count}</span>
-              </button>
-            ))}
-            <span className="mx-0.5 h-5 w-px flex-shrink-0 bg-[#E3E8EF]" />
-          </>
-        )}
-        {/* Offered on All only: on Vulnerable every row is already vulnerable, and
-            "No known vulnerabilities" would be an option that can never match. */}
-        {scope === 'all' && (
-          <div className="relative flex-shrink-0" ref={sevRef}>
+        <div className="relative flex-shrink-0" ref={sevRef}>
             <button
               onClick={() => setSevOpen((v) => !v)}
               className={`inline-flex h-[34px] items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
@@ -192,8 +160,43 @@ function ComponentsToolbar({
                 </div>
               </>
             )}
-          </div>
-        )}
+        </div>
+        {/* Known-exploited: a filter now, not a sub-tab. As a tab it could only be reached from
+            Vulnerable; here it narrows whatever is on screen. */}
+        <div className="relative flex-shrink-0" ref={kevRef}>
+          <button
+            onClick={() => setKevOpen((v) => !v)}
+            className={`inline-flex h-[34px] items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
+              kev ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]' : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
+            }`}
+          >
+            <ShieldAlert size={14} className={kev ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
+            {kev ? 'Known exploited' : 'All components'}
+            <ChevronDown size={14} className={`transition-transform ${kevOpen ? 'rotate-180' : ''} ${kev ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
+          </button>
+          {kevOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setKevOpen(false)} />
+              <div className="absolute left-0 top-full z-50 mt-1 w-[260px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+                {([['', 'All components', allShown], ['kev', 'Known exploited (KEV)', kevCount]] as const).map(([id, label, n]) => (
+                  <button
+                    key={id || 'all'}
+                    onClick={() => { setKev(id as KevFilter); setKevOpen(false); }}
+                    className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-[13px] transition-colors ${
+                      kev === id ? 'bg-[#F1F5F9] text-[#364658]' : 'text-[#364658] hover:bg-[#F9FAFB]'
+                    }`}
+                  >
+                    <span className="truncate">{label}</span>
+                    <span className="flex flex-shrink-0 items-center gap-2">
+                      <span className="text-[12px] text-[#7B8FA5]">{n}</span>
+                      {kev === id && <Check size={15} className="flex-shrink-0 text-[#3D8BD0]" />}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         {/* A card's filter announces itself here and is removable here — the only two
             places it can be cleared are its own card and this chip. */}
         {focus && (
@@ -224,26 +227,33 @@ function ComponentsToolbar({
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" size={16} />
           )}
         </div>
-
       </div>
+        </>
+      )}
     </div>
   );
 }
 
-export function SoftwareComponentsListPage({ onNavigate }: { onNavigate: (page: string) => void }) {
-  const [scope, setScope] = useState<Scope>('all');
-  const [vulnSub, setVulnSub] = useState<VulnSub>('all');
+/** Counted once: the tab label needs it before the tab is ever opened. */
+const AI_ASSETS = aiAssets();
+
+export function SoftwareComponentsListPage({ onNavigate, tab = 'components' }: {
+  onNavigate: (page: string) => void;
+  /** Which half to render. The rail routes to it, so the page does not own the choice. */
+  tab?: BomTab;
+}) {
+  const [kev, setKev] = useState<KevFilter>('');
   const [sev, setSev] = useState<SevFilter>('');
   const [focus, setFocus] = useState<ComponentFocus>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, scope, vulnSub, sev, focus]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, kev, sev, focus]);
 
-  const byScope = scope === 'vulnerable'
-    ? (vulnSub === 'kev' ? SOFTWARE_COMPONENTS.filter(isKev) : SOFTWARE_COMPONENTS.filter(isVulnerable))
-    : SOFTWARE_COMPONENTS;
+  /* Everything by default. Known-exploited narrows it, and so does whatever a KPI card is
+     filtering — one after the other, rather than two states that can contradict each other. */
+  const byScope = kev === 'kev' ? SOFTWARE_COMPONENTS.filter(isKev) : SOFTWARE_COMPONENTS;
   /* A card's focus narrows whatever the tab already chose — one filter, applied after the
      other, rather than two that can contradict each other. */
   const focused = focus ? byScope.filter(focusFn[focus]) : byScope;
@@ -269,41 +279,48 @@ export function SoftwareComponentsListPage({ onNavigate }: { onNavigate: (page: 
 
   return (
     <div className="flex h-screen bg-[#f9fafb]">
-      <Sidebar activePage="software-components" onNavigate={onNavigate} />
+      {/* Which ROUTE this is, not which component is rendering — the page serves both halves, and
+          the rail highlights the row you actually came from. */}
+      <Sidebar activePage={tab === 'models' ? 'ai-components' : 'software-components'} onNavigate={onNavigate} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header selectedCount={0} onOpenAdmin={() => onNavigate('admin')} />
         <ComponentsToolbar
+          tab={tab}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          scope={scope}
-          setScope={setScope}
-          vulnSub={vulnSub}
-          setVulnSub={setVulnSub}
           sev={sev}
           setSev={setSev}
           sevCount={sevCount}
           allShown={focused.length}
           focus={focus}
           setFocus={setFocus}
-          allCount={SOFTWARE_COMPONENTS.length}
-          vulnCount={SOFTWARE_COMPONENTS.filter(isVulnerable).length}
+          kev={kev}
+          setKev={setKev}
           kevCount={SOFTWARE_COMPONENTS.filter(isKev).length}
         />
         <main className="flex flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-auto bg-white">
-            <SoftwareComponentsTable
-              rows={paginated}
-              onRowClick={(c) => openInStack('software-components', c.id, `${c.name} ${c.version}`, c)}
-            />
-          </div>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            itemsPerPage={itemsPerPage}
-            totalItems={filtered.length}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={(v) => { setItemsPerPage(v); setCurrentPage(1); }}
-          />
+          {tab === 'models' ? (
+            /* The AI tab owns its own readings, controls and table — the two BOMs share a header
+               and nothing else, because a severity split says nothing about a model. */
+            <AiModelsTab />
+          ) : (
+            <>
+              <div className="min-h-0 flex-1 overflow-auto bg-white">
+                <SoftwareComponentsTable
+                  rows={paginated}
+                  onRowClick={(c) => openInStack('software-components', c.id, `${c.name} ${c.version}`, c)}
+                />
+              </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                itemsPerPage={itemsPerPage}
+                totalItems={filtered.length}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={(v) => { setItemsPerPage(v); setCurrentPage(1); }}
+              />
+            </>
+          )}
         </main>
       </div>
     </div>

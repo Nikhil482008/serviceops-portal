@@ -26,12 +26,13 @@ import { mockContracts } from './ContractsListPage';
 import { mockPurchases } from './PurchasesListPage';
 import { mockCis } from './CmdbListPage';
 import { DrawerShortcuts } from './DrawerShortcuts';
+import { AiComponentDrawer } from './AiComponentDrawer';
 import { ComponentDrawer } from './ComponentDrawer';
 
 export type StackModule =
   | 'request' | 'request-v2' | 'problem' | 'change' | 'release'
   | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets'
-  | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'software-components';
+  | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'software-components' | 'ai-components';
 
 export interface StackItem { key: string; module: StackModule; id: string; subject: string; data: any }
 export interface Relation { ticketId: string; subject: string; type: string; status: string; priority: string; assignedTo: { name: string } }
@@ -195,6 +196,9 @@ export function DrawerStackProvider({ children, activePage }: { children: ReactN
       // Software Component detail — the same shell, but the record is a component version
       // rather than a machine, so it carries its own drawer instead of adapting onto a Patch.
       case 'software-components': drawer = <ComponentDrawer openAssets={[active.data]} activeAssetId={active.id} {...shared} />; break;
+      // AI Component detail — the same shell as the software one; what differs is that an AI
+      // component has checks rather than CVEs.
+      case 'ai-components': drawer = <AiComponentDrawer openAssets={[active.data]} activeAssetId={active.id} {...shared} />; break;
     }
   }
 

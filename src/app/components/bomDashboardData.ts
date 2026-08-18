@@ -1,4 +1,4 @@
-import { mockEndpoints } from './EndpointsListPage';
+import { mockEndpoints } from './endpointsData';
 import {
   bomForEndpoint, bomComponents, bomCryptoAssets, bomAiModels, bomCiId, cveSeverity,
 } from './bomData';
@@ -82,6 +82,8 @@ export interface LicenceSlice {
 export interface ExpiringCert {
   key: string;
   name: string;
+  /** What stops working if it lapses — the reading for anyone who does not know the subject. */
+  serves: string;
   /** The CI whose copy expires soonest — the one the CBOM button opens. */
   endpointId: string;
   ciId: string;
@@ -133,7 +135,12 @@ export interface BomDashboard {
   licenceTotal: number;
   licenceCounts: Record<LicencePolicy, number>;
 
+  /** Every tracked certificate with a published expiry, soonest first — the timeline plots all of
+   *  them rather than a top-N, because a rotation window with nothing in it is itself the answer. */
   certs: ExpiringCert[];
+  /** How many fall in each rotation window. Derived here so the chips, the band tints and the
+   *  dots can never disagree about which window a certificate is in. */
+  certBands: { key: 'week' | 'd30' | 'd120' | 'd180' | 'beyond'; label: string; count: number }[];
   certsDueSoon: number;
   certTotal: number;
   certQuantumVulnerable: number;
@@ -201,7 +208,8 @@ export const bomDashboard = (): BomDashboard => {
         // Keep the copy that expires soonest — that is the one setting the deadline.
         if (!prev || days < prev.days) {
           certByName.set(a.name, {
-            key: a.name, name: a.name, endpointId: ep.id, ciId: bomCiId(ep.id), cis: 0,
+            key: a.name, name: a.name, serves: a.serves ?? 'A service on this host',
+            endpointId: ep.id, ciId: bomCiId(ep.id), cis: 0,
             detail: `${a.algorithm} ${a.keyLength}`,
             days, quantumVulnerable: a.compliance === 'Quantum-vulnerable',
           });
@@ -363,9 +371,18 @@ export const bomDashboard = (): BomDashboard => {
     licenceTotal,
     licenceCounts,
 
-    // Top 5, soonest first. The panel is a "what do I rotate next" list, not the register —
-    // the sixth row was pushing the card past its neighbour for no extra decision.
-    certs: certs.slice(0, 5),
+    /* All of them, soonest first. The panel is a timeline now, not a list: every certificate is a
+       dot, so slicing to five would have drawn a picture of the estate with most of it missing. */
+    certs,
+    certBands: [
+      { key: 'week' as const, label: 'this week', count: certs.filter((c) => c.days <= 7).length },
+      { key: 'd30' as const, label: '≤ 30 days', count: certs.filter((c) => c.days > 7 && c.days <= 30).length },
+      { key: 'd120' as const, label: '31–120 days', count: certs.filter((c) => c.days > 30 && c.days <= 120).length },
+      { key: 'd180' as const, label: '120–180 days', count: certs.filter((c) => c.days > 120 && c.days <= 180).length },
+      /* Everything else, including the certificates with no published expiry — they are tracked,
+         they are simply not a rotation this cycle. */
+      { key: 'beyond' as const, label: 'beyond 180d', count: certTotal - certs.filter((c) => c.days <= 180).length },
+    ],
     certsDueSoon: certs.filter((c) => c.days < 120).length,
     certTotal,
     certQuantumVulnerable: certQuantum,

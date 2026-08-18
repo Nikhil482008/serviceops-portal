@@ -24,7 +24,7 @@ import { mockLicenses } from './SoftwareLicensesListPage';
 import { mockContracts } from './ContractsListPage';
 import { mockPurchases } from './PurchasesListPage';
 import { mockCis } from './CmdbListPage';
-import { mockEndpoints } from './EndpointsListPage';
+import { mockEndpoints } from './endpointsData';
 import { mockPatches } from './PatchesListPage';
 import { mockPatchDeployments } from './PatchDeploymentsListPage';
 import { mockVulnerabilities } from './VulnerabilitiesListPage';

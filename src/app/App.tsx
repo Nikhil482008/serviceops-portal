@@ -27,7 +27,7 @@ import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
 
-type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom-dashboard' | 'bom-dashboard-2' | 'bom' | 'software-components' | 'compliance-reports' | 'compliance-reports-2' | 'admin';
+type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom-dashboard' | 'bom-dashboard-2' | 'bom' | 'software-components' | 'ai-components' | 'compliance-reports' | 'compliance-reports-2' | 'admin';
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('request');
@@ -59,7 +59,10 @@ export default function App() {
       {activePage === 'bom-dashboard' && <BomDashboardPage onNavigate={navigate} />}
       {activePage === 'bom-dashboard-2' && <BomDashboard2Page onNavigate={navigate} />}
       {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
-      {activePage === 'software-components' && <SoftwareComponentsListPage onNavigate={navigate} />}
+      {/* One page, two halves — which half is the ROUTE now, not a tab inside it, so the rail can
+          land on either and a link can name one. */}
+      {activePage === 'software-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="components" />}
+      {activePage === 'ai-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="models" />}
       {activePage === 'compliance-reports' && <ComplianceReportsModule onNavigate={navigate} />}
       {activePage === 'compliance-reports-2' && <ComplianceReports2Module onNavigate={navigate} />}
       {activePage === 'admin' && <AdminPage onNavigate={navigate} />}
