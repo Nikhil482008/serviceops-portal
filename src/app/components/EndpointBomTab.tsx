@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, ChevronLeft, Settings, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ScanLine, ArrowRight, Trash2, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ScanLine, ArrowRight, Trash2, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { toast } from 'sonner';
 import { BomComponentsPanel } from './BomComponentsPanel';
@@ -503,21 +503,14 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
         style={{ width: DRAWER_W }}
         onClick={(e) => e.stopPropagation()}
       >
-      {/* The module's drawer header, unchanged in shape: a band that does not scroll, title over
-          one metadata line, close on the right. The back button is this drawer's own addition —
-          it is the only one opened FROM a list, and the list is where closing should land you. */}
+      {/* The module's drawer header: a band that does not scroll, the product over the path it
+          was found at, close on the right. Closing is the only way back — the list is still
+          behind this drawer, so a back arrow beside a close button offered the same exit twice. */}
       <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <button
-            onClick={() => { setProductKey(null); setComponentsFor(null); }}
-            title={`Back to all ${products.length} products`}
-            className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
-          ><ChevronLeft size={16} /></button>
           <div className="min-w-0">
             <h3 className="truncate text-[16px] font-semibold text-[#364658]">{productLabel}</h3>
-            <p className="mt-0.5 truncate text-[13px] text-[#7B8FA5]">
-              {bomCiId(endpointId)} · {hostName} · <span className="font-mono">{product?.path}</span>
-            </p>
+            <p className="mt-0.5 truncate font-mono text-[13px] text-[#7B8FA5]">{product?.path}</p>
           </div>
         </div>
         <button
@@ -533,7 +526,8 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
           scan action bracketing them. One row, so the versions start higher up the page. */}
       <div className="mb-6 flex items-end gap-2">
         <div className="flex-shrink-0">
-          <label className="mb-1.5 block text-[12px] font-medium text-[#7B8FA5]">BOM type</label>
+          {/* No label: the control's value IS the category ("SBOM"), so a "BOM type" caption
+              above it spent a line saying the same word twice. */}
           <div className="relative">
           <button
             onClick={() => setShowTypes((v) => !v)}
@@ -575,14 +569,6 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
             change what a drawer is showing turns it into a second navigation surface. The
             scope is named in the drawer header, and the way to another one is the list
             behind it. */}
-
-        <button
-          onClick={() => setShowPaths(true)}
-          title="Manage products"
-          className="flex size-9 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
-        >
-          <Settings size={16} />
-        </button>
 
         <button
           onClick={() => toast.success(`BOM scan queued for ${hostName}`)}
@@ -709,11 +695,22 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
                           <Unit>{label}</Unit>
                         </>
                       );
-                      return onClick && n > 0 ? (
-                        <button onClick={onClick} title={title}
-                          className="flex items-baseline gap-1.5 transition-opacity hover:opacity-75">{body}</button>
-                      ) : (
-                        <span title={title} className="flex cursor-help items-baseline gap-1.5">{body}</span>
+                      /* Same treatment as Component changes above: underline on hover, and the
+                         product's own tooltip rather than the browser's. */
+                      return (
+                        <Tooltip delayDuration={0}>
+                          <TooltipTrigger asChild>
+                            {onClick && n > 0 ? (
+                              <button
+                                onClick={onClick}
+                                className="flex items-baseline gap-1.5 rounded transition-colors hover:underline"
+                              >{body}</button>
+                            ) : (
+                              <span className="flex cursor-help items-baseline gap-1.5">{body}</span>
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent side="top">{title}</TooltipContent>
+                        </Tooltip>
                       );
                     };
                     /* overflow-y MUST be stated. CSS will not let one axis scroll while the other
@@ -772,7 +769,9 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
                                     tone="#DC2626"
                                     size={20}
                                     onClick={open}
-                                    title={`${st.cves} finding${st.cves === 1 ? '' : 's'} on this host — open the vulnerable components`}
+                                    title={st.cves > 0
+                                      ? `View the ${st.cves} vulnerable component${st.cves === 1 ? '' : 's'}`
+                                      : 'No findings in this version'}
                                   />
                                   {BOM_SEVERITIES.map((sv) => (
                                     <Metric
@@ -781,7 +780,11 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
                                       label={sv}
                                       tone={SEV_SOLID[sv].text}
                                       onClick={open}
-                                      title={`${st.bySeverity[sv]} ${sv} CVE${st.bySeverity[sv] === 1 ? '' : 's'} — open the vulnerable components`}
+                                      /* A zero has no list to open, so it says what it is
+                                         rather than offering a door to an empty room. */
+                                      title={st.bySeverity[sv] > 0
+                                        ? `View the ${st.bySeverity[sv]} ${sv} CVE${st.bySeverity[sv] === 1 ? '' : 's'}`
+                                        : `No ${sv} CVEs in this version`}
                                     />
                                   ))}
                                 </div>
@@ -963,23 +966,6 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
         initialTab={componentsTab}
         focusComponent={initialComponent}
         width={DRAWER_W - STACK_INSET}
-        backLabel={productLabel}
-      />
-      <BomManageProductsPanel
-        isOpen={showPaths}
-        onClose={() => setShowPaths(false)}
-        endpointId={endpointId}
-        hostName={hostName}
-        products={products}
-        onProductsChange={(next) => {
-          setProducts(next);
-          // Follow the default scope if it moved, or if the selected product was deleted.
-          if (!next.some((p) => p.key === productKey)) setProductKey(defaultKey(next));
-          else {
-            const movedDefault = next.find((p) => p.isDefault);
-            if (movedDefault && !record.products.find((p) => p.key === movedDefault.key)?.isDefault) setProductKey(movedDefault.key);
-          }
-        }}
       />
       <BomCompareVersionsPanel
         isOpen={showCompare}
@@ -990,7 +976,6 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
         productKey={product?.key ?? OS_PRODUCT_KEY}
         type={type}
         width={DRAWER_W - STACK_INSET}
-        backLabel={productLabel}
       />
       <BomScanRunsPanel
         isOpen={!!runsPanel}
@@ -998,7 +983,6 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
         title={runsPanel?.title ?? ''}
         subtitle={runsPanel?.subtitle ?? ''}
         runs={runsPanel?.runs ?? []}
-        backLabel={productLabel}
       />
     </div>
       </div>

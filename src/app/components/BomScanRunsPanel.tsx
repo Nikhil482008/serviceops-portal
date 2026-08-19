@@ -1,4 +1,4 @@
-import { ChevronLeft, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { BomScanRun } from './bomData';
 
 /* Scan runs that happened in one gap of the version timeline. A version only appears when a scan
@@ -12,10 +12,9 @@ interface BomScanRunsPanelProps {
   subtitle: string;
   runs: BomScanRun[];
   /** Names what dismissing this returns to. Set when it is stacked on another drawer. */
-  backLabel?: string;
 }
 
-export function BomScanRunsPanel({ isOpen, onClose, title, subtitle, runs, backLabel,
+export function BomScanRunsPanel({ isOpen, onClose, title, subtitle, runs,
 }: BomScanRunsPanelProps) {
   if (!isOpen) return null;
 
@@ -25,13 +24,6 @@ export function BomScanRunsPanel({ isOpen, onClose, title, subtitle, runs, backL
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            {backLabel && (
-              <button
-                onClick={onClose}
-                title={`Back to ${backLabel}`}
-                className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
-              ><ChevronLeft size={16} /></button>
-            )}
             <div className="min-w-0">
               <h3 className="text-[16px] font-semibold text-[#364658]">{title}</h3>
               <p className="mt-0.5 font-mono text-[13px] text-[#7B8FA5]">{subtitle}</p>

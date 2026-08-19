@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Search, X, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { bomDocument } from './bomData';
 import type { BomType } from './bomData';
 
@@ -24,8 +24,10 @@ const KIND_STYLE: Record<Exclude<DiffKind, 'same'>, { bg: string; bar: string; l
 };
 
 /** Longest-common-subsequence line diff, then adjacent delete/insert runs are paired into
- *  "modified" rows so a changed line reads as one change rather than two. */
-function diffLines(a: string[], b: string[]): Row[] {
+ *  "modified" rows so a changed line reads as one change rather than two.
+ *  Exported because it is the ONLY thing that knows which line kinds a comparison contains — a
+ *  checker that re-implemented it would be testing its own copy, not this one. */
+export function diffLines(a: string[], b: string[]): Row[] {
   const n = a.length, m = b.length;
   // Int32Array keeps the table cheap at document scale (~1.5k x 1.5k lines).
   const lcs = new Int32Array((n + 1) * (m + 1));
@@ -82,9 +84,7 @@ interface BomDiffViewProps {
 export function BomDiffView({ endpointId, productKey, type, older, newer, spotlight }: BomDiffViewProps) {
   const [leftQ, setLeftQ] = useState('');
   const [rightQ, setRightQ] = useState('');
-  const [cursor, setCursor] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rowRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const rows = useMemo(() => {
     const a = bomDocument(endpointId, productKey, type, older).split('\n');
@@ -103,29 +103,20 @@ export function BomDiffView({ endpointId, productKey, type, older, newer, spotli
   const [kind, setKind] = useState<DiffKind | 'all'>(spotlight ?? 'all');
   useEffect(() => { setKind(spotlight ?? 'all'); }, [spotlight]);
 
+  /* Only the kinds this comparison actually contains are offered — a "Deleted 0" swatch and its
+     matching option are filters that can only ever empty the document. Changing versions can
+     retire the selected one, so the ACTIVE kind is derived rather than trusted. */
+  const liveKinds = (['modified', 'inserted', 'deleted'] as const).filter((k) => counts[k] > 0);
+  const activeKind: DiffKind | 'all' =
+    kind === 'all' || kind === 'same' || counts[kind as Exclude<DiffKind, 'same'>] > 0 ? kind : 'all';
+
   /* Picking a kind FILTERS the document to those lines rather than only tinting them, so the
    * changes come to the top instead of being hunted for between hundreds of identical lines.
    * Line numbers ride along, so a filtered row still says where it sits in the real document. */
   const shown = useMemo(
-    () => (kind === 'all' ? rows : rows.filter((r) => r.kind === kind)),
-    [rows, kind],
+    () => (activeKind === 'all' ? rows : rows.filter((r) => r.kind === activeKind)),
+    [rows, activeKind],
   );
-
-  // Rows ˄ ˅ steps through. With a kind selected everything on screen is a target.
-  const targets = useMemo(
-    () => (kind === 'all'
-      ? shown.map((r, i) => (r.kind !== 'same' ? i : -1)).filter((i) => i >= 0)
-      : shown.map((_, i) => i)),
-    [shown, kind],
-  );
-  useEffect(() => { setCursor(0); }, [kind, older, newer, productKey, type]);
-
-  const jump = (dir: 1 | -1) => {
-    if (!targets.length) return;
-    const next = (cursor + dir + targets.length) % targets.length;
-    setCursor(next);
-    rowRefs.current[targets[next]]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
 
   const lq = leftQ.trim().toLowerCase();
   const rq = rightQ.trim().toLowerCase();
@@ -163,22 +154,22 @@ export function BomDiffView({ endpointId, productKey, type, older, newer, spotli
       <div className="flex items-center gap-4 px-5 py-2.5">
         <div className="relative">
           <select
-            value={kind}
+            value={activeKind}
             onChange={(e) => setKind(e.target.value as DiffKind | 'all')}
             className="app-select h-8 rounded border border-[#DFE5ED] bg-white pl-2.5 pr-8 text-[13px] font-medium text-[#364658] focus:border-[#3D8BD0] focus:outline-none"
           >
             <option value="all">All lines ({rows.length})</option>
-            <option value="inserted">Inserted ({counts.inserted})</option>
-            <option value="modified">Modified ({counts.modified})</option>
-            <option value="deleted">Removed ({counts.deleted})</option>
+            {liveKinds.includes('inserted') && <option value="inserted">Inserted ({counts.inserted})</option>}
+            {liveKinds.includes('modified') && <option value="modified">Modified ({counts.modified})</option>}
+            {liveKinds.includes('deleted') && <option value="deleted">Removed ({counts.deleted})</option>}
           </select>
         </div>
-        {(['modified', 'inserted', 'deleted'] as const).map((k) => (
+        {liveKinds.map((k) => (
           <button
             key={k}
-            onClick={() => setKind(kind === k ? 'all' : k)}
+            onClick={() => setKind(activeKind === k ? 'all' : k)}
             className={`inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 transition-colors ${
-              kind === k ? 'bg-[#F1F5F9]' : 'hover:bg-[#F9FAFB]'
+              activeKind === k ? 'bg-[#F1F5F9]' : 'hover:bg-[#F9FAFB]'
             }`}
           >
             <span className="size-2 rounded-sm" style={{ backgroundColor: KIND_STYLE[k].swatch }} />
@@ -186,25 +177,6 @@ export function BomDiffView({ endpointId, productKey, type, older, newer, spotli
             <span className="text-[12px] font-semibold text-[#364658]">{counts[k]}</span>
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-1">
-          <span className="mr-1 text-[12px] text-[#7B8FA5]">
-            {targets.length
-              ? `${cursor + 1} of ${targets.length}`
-              : kind === 'all' ? 'no changes' : 'none'}
-          </span>
-          <button
-            onClick={() => jump(-1)}
-            disabled={!targets.length}
-            title="Previous change"
-            className="flex size-7 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658] disabled:cursor-not-allowed disabled:opacity-40"
-          ><ChevronUp size={14} /></button>
-          <button
-            onClick={() => jump(1)}
-            disabled={!targets.length}
-            title="Next change"
-            className="flex size-7 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658] disabled:cursor-not-allowed disabled:opacity-40"
-          ><ChevronDown size={14} /></button>
-        </div>
       </div>
 
       {/* Pane headers */}
@@ -221,20 +193,13 @@ export function BomDiffView({ endpointId, productKey, type, older, newer, spotli
       >
         {!shown.length && (
           <div className="px-4 py-10 text-center text-[13px] text-[#9CA3AF]">
-            No {kind === 'all' ? '' : `${KIND_STYLE[kind as Exclude<DiffKind, 'same'>].label.toLowerCase()} `}lines between v{older} and v{newer}.
+            No {activeKind === 'all' ? '' : `${KIND_STYLE[activeKind as Exclude<DiffKind, 'same'>].label.toLowerCase()} `}lines between v{older} and v{newer}.
           </div>
         )}
         {shown.map((r, i) => {
           const style = r.kind === 'same' ? null : KIND_STYLE[r.kind];
-          const isCursor = targets[cursor] === i;
           return (
-            <div
-              key={i}
-              ref={(el) => { rowRefs.current[i] = el; }}
-              className={`flex font-mono text-[12px] leading-[1.6] ${
-                isCursor ? 'ring-1 ring-inset ring-[#3D8BD0]' : ''
-              }`}
-            >
+            <div key={i} className="flex font-mono text-[12px] leading-[1.6]">
               <Half cell={r.left} bg={r.kind === 'inserted' ? '#FAFBFC' : style?.bg} bar={r.kind === 'inserted' ? undefined : style?.bar} q={lq} hit={hit(r.left?.text, lq)} />
               <div className="w-px flex-shrink-0 bg-[#E5E7EB]" />
               <Half cell={r.right} bg={r.kind === 'deleted' ? '#FAFBFC' : style?.bg} bar={r.kind === 'deleted' ? undefined : style?.bar} q={rq} hit={hit(r.right?.text, rq)} />

@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Search, X, ChevronRight, AlertTriangle, ShieldCheck, Boxes, Settings, ScanLine } from 'lucide-react';
+import { useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Search, X, ChevronRight, ChevronDown, Check, AlertTriangle, ShieldCheck, Boxes, Settings, ScanLine } from 'lucide-react';
 import { componentCount, OS_PRODUCT_KEY } from './bomData';
 import type { BomProduct } from './bomData';
 
@@ -73,11 +74,23 @@ function Row({ r, onOpen }: { r: ProductRow; onOpen: (k: string) => void }) {
   );
 }
 
-function GroupHead({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+/** One of the two halves. Both are always offered, even at zero: "Needs attention 0" is the
+ *  reassurance a host with nothing wrong is entitled to, in the way an absent tab never is. */
+function PartTab({ active, icon, label, n, onClick }: {
+  active: boolean; icon: React.ReactNode; label: string; n: number; onClick: () => void;
+}) {
   return (
-    <div className="flex items-center gap-1.5 border-b border-[#F0F2F5] bg-[#FCFDFE] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">
-      {icon}{children}
-    </div>
+    <button
+      onClick={onClick}
+      aria-selected={active}
+      role="tab"
+      className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-3 text-[13px] font-medium transition-colors ${
+        active ? 'border-[#3D8BD0] text-[#3D8BD0]' : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
+      }`}
+    >
+      {icon}{label}
+      <span className={`rounded px-1 py-0.5 text-[12px] font-medium ${active ? 'bg-[#E8F4FD] text-[#3D8BD0]' : 'bg-[#E5E7EB] text-[#364658]'}`}>{n}</span>
+    </button>
   );
 }
 
@@ -91,6 +104,31 @@ export function BomProductsOverview({ endpointId, products, onOpen, onManagePath
   onScan: () => void;
 }) {
   const [q, setQ] = useState('');
+  /** Which half is on screen. Findings first when there are any — a host with something wrong
+   *  should not open on the list of things that are fine. */
+  const [part, setPart] = useState<'attention' | 'clean'>(
+    () => (products.some((p) => p.findings > 0) ? 'attention' : 'clean'));
+  const [bomType, setBomType] = useState<'all' | (typeof TYPES)[number]>('all');
+  const [showTypes, setShowTypes] = useState(false);
+  /* The menu is PORTALLED to the body: the list card is `overflow-hidden` for its rounded
+     corners, which clipped an absolutely-positioned menu at the card's edge — the last option
+     was simply cut off. Position is measured from the trigger and clamped to the viewport. */
+  const typeBtnRef = useRef<HTMLButtonElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!showTypes) { setMenuPos(null); return; }
+    const place = () => {
+      const r = typeBtnRef.current?.getBoundingClientRect();
+      if (!r) return;
+      setMenuPos({ top: Math.min(r.bottom + 4, window.innerHeight - 8), right: Math.max(8, window.innerWidth - r.right) });
+    };
+    place();
+    /* Any scroll moves the trigger out from under the menu, so close rather than chase it. */
+    const close = () => setShowTypes(false);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', close, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', close, true); };
+  }, [showTypes]);
 
   const rows: ProductRow[] = useMemo(() => products.map((p) => ({
     p,
@@ -100,19 +138,28 @@ export function BomProductsOverview({ endpointId, products, onOpen, onManagePath
     types: TYPES.filter((t) => componentCount(endpointId, p.key, t) > 0),
   })), [endpointId, products]);
 
+  /* Only the types some product on this host actually carries — a filter that can only ever
+     return nothing is worse than no filter. */
+  const liveTypes = TYPES.filter((t) => rows.some((r) => r.types.includes(t)));
+  const typeChoice = bomType !== 'all' && !liveTypes.includes(bomType) ? 'all' : bomType;
+
   const query = q.trim().toLowerCase();
-  const filtered = query
+  const searched = query
     ? rows.filter((r) => r.p.name.toLowerCase().includes(query)
       || (r.p.version ?? '').toLowerCase().includes(query)
       || r.p.path.toLowerCase().includes(query))
     : rows;
+  const filtered = typeChoice === 'all' ? searched : searched.filter((r) => r.types.includes(typeChoice));
 
-  /* Grouped, not just sorted. Ranking everything by findings would reorder the whole list every
-     time a scan lands; two groups keep the signal at the top AND keep the clean scopes in a
-     predictable order underneath. */
+  /* Two halves, not two sorted groups. Ranking everything by findings would reorder the whole
+     list every time a scan lands; splitting keeps the signal in one place AND keeps the clean
+     scopes in a predictable order in the other. Counts follow the search and the type filter, so
+     the number on a tab always matches what opening it shows. */
   const attention = filtered.filter((r) => r.p.findings > 0).sort((a, b) => b.p.findings - a.p.findings || a.p.name.localeCompare(b.p.name));
   const clean = filtered.filter((r) => r.p.findings === 0).sort((a, b) => a.p.name.localeCompare(b.p.name));
+  const shown = part === 'attention' ? attention : clean;
   const totalFindings = rows.reduce((n, r) => n + r.p.findings, 0);
+  const narrowed = !!query || typeChoice !== 'all';
 
   return (
     <div className="px-6 py-5">
@@ -158,30 +205,93 @@ export function BomProductsOverview({ endpointId, products, onOpen, onManagePath
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#E5E7EB] bg-white">
-        {filtered.length === 0 ? (
+        {/* The two halves, and the one filter that cuts across both. */}
+        <div className="flex items-center gap-2.5 border-b border-[#e5e7eb] px-4">
+          <div role="tablist" className="flex items-center gap-2.5">
+            <PartTab
+              active={part === 'attention'}
+              icon={<AlertTriangle size={13} className={part === 'attention' ? 'text-[#D97706]' : 'text-[#9CA3AF]'} />}
+              label="Needs attention"
+              n={attention.length}
+              onClick={() => setPart('attention')}
+            />
+            <PartTab
+              active={part === 'clean'}
+              icon={<ShieldCheck size={13} className={part === 'clean' ? 'text-[#22A06B]' : 'text-[#9CA3AF]'} />}
+              label="No findings"
+              n={clean.length}
+              onClick={() => setPart('clean')}
+            />
+          </div>
+
+          {/* BOM type is a property of a product, not a half of the list, so it filters both. */}
+          {liveTypes.length > 1 && (
+            <div className="ml-auto py-2">
+              <button
+                ref={typeBtnRef}
+                onClick={() => setShowTypes((v) => !v)}
+                className={`inline-flex h-8 items-center gap-1.5 rounded border bg-white px-2.5 text-[13px] transition-colors ${
+                  typeChoice !== 'all' ? 'border-[#3D8BD0] text-[#3D8BD0]' : 'border-[#DFE5ED] text-[#364658] hover:border-[#3D8BD0]'
+                }`}
+              >
+                {typeChoice === 'all' ? 'All BOM types' : typeChoice}
+                <ChevronDown size={14} className={`text-[#7B8FA5] transition-transform ${showTypes ? 'rotate-180' : ''}`} />
+              </button>
+              {showTypes && menuPos && createPortal(
+                <>
+                  <div className="fixed inset-0 z-[10050]" onClick={() => setShowTypes(false)} />
+                  <div
+                    className="fixed z-[10051] w-[200px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg"
+                    style={{ top: menuPos.top, right: menuPos.right }}
+                  >
+                    {(['all', ...liveTypes] as const).map((t) => {
+                      /* The count each option would leave, so no choice is made blind. */
+                      const n = t === 'all' ? searched.length : searched.filter((r) => r.types.includes(t)).length;
+                      return (
+                        <button
+                          key={t}
+                          onClick={() => { setBomType(t); setShowTypes(false); }}
+                          className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
+                            t === typeChoice ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
+                          }`}
+                        >
+                          <span className="truncate">{t === 'all' ? 'All BOM types' : t}</span>
+                          <span className="flex flex-shrink-0 items-center gap-2">
+                            <span className="text-[12px] tabular-nums text-[#9CA3AF]">{n}</span>
+                            {t === typeChoice && <Check size={15} className="text-[#3D8BD0]" />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>,
+                document.body,
+              )}
+            </div>
+          )}
+        </div>
+
+        {shown.length === 0 ? (
           <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
             <Boxes size={20} className="text-[#CBD5E1]" />
-            <span className="text-[13px] text-[#7B8FA5]">No product matches “{q}”.</span>
+            {/* Say which of the two things emptied it — "no results" over a filtered list is the
+                one message that never tells you what to change. */}
+            <span className="text-[13px] text-[#7B8FA5]">
+              {narrowed
+                ? <>No {part === 'attention' ? 'product with findings' : 'clean product'} matches {query ? <>“{q}”</> : 'this filter'}{query && typeChoice !== 'all' ? ` in ${typeChoice}` : ''}.</>
+                : part === 'attention'
+                  ? 'Nothing needs attention on this host.'
+                  : 'Every product on this host has findings.'}
+            </span>
+            {narrowed && (
+              <button
+                onClick={() => { setQ(''); setBomType('all'); }}
+                className="text-[13px] font-medium text-[#3D8BD0] hover:underline"
+              >Clear filters</button>
+            )}
           </div>
         ) : (
-          <>
-            {attention.length > 0 && (
-              <>
-                <GroupHead icon={<AlertTriangle size={12} className="text-[#D97706]" />}>
-                  Needs attention · {attention.length}
-                </GroupHead>
-                <div className="divide-y divide-[#F0F2F5]">{attention.map((r) => <Row key={r.p.key} r={r} onOpen={onOpen} />)}</div>
-              </>
-            )}
-            {clean.length > 0 && (
-              <>
-                <GroupHead icon={<ShieldCheck size={12} className="text-[#22A06B]" />}>
-                  No findings · {clean.length}
-                </GroupHead>
-                <div className="divide-y divide-[#F0F2F5]">{clean.map((r) => <Row key={r.p.key} r={r} onOpen={onOpen} />)}</div>
-              </>
-            )}
-          </>
+          <div className="divide-y divide-[#F0F2F5]">{shown.map((r) => <Row key={r.p.key} r={r} onOpen={onOpen} />)}</div>
         )}
       </div>
     </div>

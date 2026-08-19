@@ -136,6 +136,9 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
 
   return (
     <>
+      {/* Everything above the table lives in ONE scroll container: the readings scroll away,
+          the control row pins to the top of it. Two containers is what made them permanent. */}
+      <div className="min-h-0 flex-1 overflow-auto bg-white">
       <div className="bg-white px-6 pb-4 pt-4">
         {/* The SAME card the Software Components tab uses — imported, not reproduced. Two copies
             is how the two tabs ended up different heights in the first place. */}
@@ -146,12 +149,12 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
             active={focus === 'eol'} onToggle={() => setFocus(focus === 'eol' ? null : 'eol')}
             cta="Review deprecated"
           >
-            <div className={`${KPI_NUM} ${sum.pastEol ? 'text-[#B42318]' : 'text-[#364658]'}`}>{sum.pastEol}</div>
-            {sum.eolSoon > 0 && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <KpiChip tone="warn">{sum.eolSoon} more within 6 months</KpiChip>
-              </div>
-            )}
+            {/* Figure and evidence on ONE line: what is coming qualifies the number, so it
+                reads beside it rather than as a second thing underneath. */}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              <span className={`${KPI_NUM} ${sum.pastEol ? 'text-[#B42318]' : 'text-[#364658]'}`}>{sum.pastEol}</span>
+              {sum.eolSoon > 0 && <KpiChip tone="warn">{sum.eolSoon} more within 6 months</KpiChip>}
+            </div>
           </KpiCard>
 
           <KpiCard
@@ -160,12 +163,10 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
             active={focus === 'hosted'} onToggle={() => setFocus(focus === 'hosted' ? null : 'hosted')}
             cta="Review egress"
           >
-            <div className={`${KPI_NUM} ${sum.hosted ? 'text-[#B45309]' : 'text-[#364658]'}`}>{sum.hosted}</div>
-            {sum.hostedProviders.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {sum.hostedProviders.map((p) => <KpiChip key={p} tone="warn">{p}</KpiChip>)}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              <span className={`${KPI_NUM} ${sum.hosted ? 'text-[#B45309]' : 'text-[#364658]'}`}>{sum.hosted}</span>
+              {sum.hostedProviders.map((p) => <KpiChip key={p} tone="warn">{p}</KpiChip>)}
+            </div>
           </KpiCard>
 
           {/* Provenance, in place of the licence donut: a distribution was true but not
@@ -176,18 +177,17 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
             active={focus === 'unverified'} onToggle={() => setFocus(focus === 'unverified' ? null : 'unverified')}
             cta="Review unverified"
           >
-            <div className={`${KPI_NUM} ${sum.unverified ? 'text-[#B42318]' : 'text-[#364658]'}`}>{sum.unverified}</div>
-            {sum.unverifiedKinds.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {sum.unverifiedKinds.map((k) => <KpiChip key={k} tone="warn">{k}</KpiChip>)}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              <span className={`${KPI_NUM} ${sum.unverified ? 'text-[#B42318]' : 'text-[#364658]'}`}>{sum.unverified}</span>
+              {sum.unverifiedKinds.map((k) => <KpiChip key={k} tone="warn">{k}</KpiChip>)}
+            </div>
           </KpiCard>
         </div>
       </div>
 
-      {/* One control row, the same shape Software Components uses. */}
-      <div className="flex items-center gap-2.5 bg-white px-6 pb-3 pt-2">
+      {/* One control row, the same shape Software Components uses — and the one thing that
+          stays on screen: you filter at any depth in a list. */}
+      <div className="sticky top-0 z-20 flex items-center gap-2.5 border-b border-[#E5E7EB] bg-white px-6 pb-3 pt-2">
         <div className="relative flex-shrink-0" ref={kindRef}>
           <button
             onClick={() => setKindOpen((v) => !v)}
@@ -264,20 +264,22 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
           )}
         </div>
 
-        {focus && (
-          <span className="inline-flex h-[34px] flex-shrink-0 items-center gap-1.5 rounded border border-[#3D8BD0] bg-[#EBF5FF] px-2.5 text-[13px] font-medium text-[#3D8BD0]">
-            {FOCUS_LABEL[focus]}
-            <button onClick={() => setFocus(null)} className="text-[#3D8BD0] hover:text-[#1d4ed8]" title="Clear"><X size={14} /></button>
-          </span>
-        )}
-
-        <div className="relative flex-1">
+        {/* A card's filter rides INSIDE the search box, the same as the register's — both are
+            ways of narrowing this list, so they read as one control. */}
+        <div className="relative flex flex-1 items-center gap-2 rounded border border-[#d1d5db] bg-white pl-2 pr-10 focus-within:border-[#3D8BD0] focus-within:ring-1 focus-within:ring-[#3D8BD0]">
+          {focus && (
+            <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-sm bg-[#EBF5FF] px-2 py-0.5 text-[13px] text-[#3D8BD0]">
+              {FOCUS_LABEL[focus]}
+              <button onClick={() => setFocus(null)} aria-label={`Clear the ${FOCUS_LABEL[focus]} filter`}
+                      className="text-[#3D8BD0]/70 transition-colors hover:text-[#DC2626]"><X size={13} /></button>
+            </span>
+          )}
           <input
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search ID, asset, version, provider, licence or component type..."
-            className="h-[34px] w-full rounded border border-[#d1d5db] bg-white pl-3 pr-10 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+            placeholder={focus ? 'Search within this…' : 'Search ID, asset, version, provider, licence or component type...'}
+            className="h-[34px] min-w-0 flex-1 bg-transparent text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:outline-none"
           />
           {q ? (
             <button onClick={() => setQ('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9ca3af] hover:text-[#364658]"><X size={16} /></button>
@@ -287,7 +289,6 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto bg-white">
         <table className="w-full min-w-[1280px]">
           <thead className="border-b border-[#e5e7eb]">
             <tr className="bg-white">

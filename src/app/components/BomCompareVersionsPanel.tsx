@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { X, Search, ChevronDown, ChevronLeft, ChevronRight, Check, ShieldAlert, SlidersHorizontal, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, Folder, List as ListIcon, Columns2 } from 'lucide-react';
+import { X, Search, ChevronDown, ChevronRight, Check, ShieldAlert, CirclePlus, CircleMinus, RefreshCw, CircleDashed, ExternalLink, List as ListIcon, Columns2 } from 'lucide-react';
 import { BomDiffView } from './BomDiffView';
 import type { DiffKind } from './BomDiffView';
 import { bomDiff, bomVersions, componentCount, bomCiId } from './bomData';
 import type { BomType, BomProduct, BomDiffEntry } from './bomData';
+import { BomFilterSearch, passesConditions } from './BomFilterSearch';
+import type { Condition } from './BomFilterSearch';
 import { useDrawerStack } from './DrawerStack';
 import { mockDetectedCves, cveToPatchShape } from './DetectedCvesListPage';
 import type { DetectedCve } from './DetectedCvesListPage';
@@ -223,24 +225,21 @@ interface BomCompareVersionsPanelProps {
   /** Rendered width — a caller that opened this from its own drawer insets it. */
   width?: number;
   /** Names what dismissing this returns to. Set when it is stacked on another drawer. */
-  backLabel?: string;
 }
 
 export function BomCompareVersionsPanel({
-  isOpen, onClose, endpointId, hostName, products, productKey, type, width, backLabel,
+  isOpen, onClose, endpointId, hostName, products, productKey, type, width,
 }: BomCompareVersionsPanelProps) {
-  const [scopeKey, setScopeKey] = useState(productKey);
-  const [showScopes, setShowScopes] = useState(false);
   const [newer, setNewer] = useState(0);
   const [older, setOlder] = useState(0);
   const [tab, setTab] = useState<TabKey>('CVEs');
   const [view, setView] = useState<'list' | 'diff'>('list');
-  const [search, setSearch] = useState('');
-  // One filter popup holds every dimension, so the toolbar stays a search box and an icon.
-  const [showFilter, setShowFilter] = useState(false);
-  const [kindFilter, setKindFilter] = useState<string[]>([]);
-  const [ecoFilter, setEcoFilter] = useState<string[]>([]);
-  const [cveOnly, setCveOnly] = useState(false);
+  /* Conditions, not a query string: the same field → operator → value search the component
+     list uses, so "Ecosystem is Maven" is asked the same way on both screens. */
+  const [conditions, setConditions] = useState<Condition[]>([]);
+  /* Hidden until asked for — the same treatment the components panel uses, so the two
+     drawers do not teach two different ways to narrow a list. */
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const { open: openInStack } = useDrawerStack();
   const openCve = (id: string) => {
@@ -248,14 +247,14 @@ export function BomCompareVersionsPanel({
     openInStack('detected-cves', rec.id, rec.description, cveToPatchShape(rec));
   };
 
-  const scope = products.find((p) => p.key === scopeKey) ?? products[0];
+  /* The product is settled by whoever opened this drawer — there is no picker to change it. */
+  const scope = products.find((p) => p.key === productKey) ?? products[0];
   const versions = scope ? bomVersions(endpointId, scope.key, type) : [];
   const nums = versions.map((v) => v.v).sort((a, b) => b - a);
 
   useEffect(() => {
     if (!isOpen) return;
-    setScopeKey(productKey); setTab('CVEs'); setSearch('');
-    setKindFilter([]); setEcoFilter([]); setCveOnly(false); setShowFilter(false);
+    setTab('CVEs'); setConditions([]); setSearchOpen(false);
   }, [isOpen, productKey, type]);
 
   useEffect(() => {
@@ -263,7 +262,7 @@ export function BomCompareVersionsPanel({
     const vs = (scope ? bomVersions(endpointId, scope.key, type) : []).map((v) => v.v).sort((a, b) => b - a);
     setNewer(vs[0] ?? 0);
     setOlder(vs[1] ?? vs[0] ?? 0);
-  }, [isOpen, scopeKey, type, endpointId]);
+  }, [isOpen, productKey, type, endpointId]);
 
   if (!isOpen || !scope) return null;
 
@@ -285,31 +284,35 @@ export function BomCompareVersionsPanel({
   // CVEs leads — the vulnerable packages are why anyone opens a diff. "All" is gone: it
   // duplicated the four category tabs underneath it.
   const cveCarriers = everything.filter((e) => (e.cves?.length ?? 0) > 0);
+  /* A change kind this diff has none of is dropped entirely — a tab reading "Removed 0" is an
+     invitation to an empty screen. CVEs always shows: zero vulnerabilities is a finding. */
+  const liveKinds = KINDS.filter((k) => byKind[k].length > 0);
   const TABS: { key: TabKey; n: number }[] = [
     { key: 'CVEs', n: cveCarriers.reduce((n, e) => n + (e.cves?.length ?? 0), 0) },
-    ...KINDS.map((k) => ({ key: k as TabKey, n: byKind[k].length })),
+    ...liveKinds.map((k) => ({ key: k as TabKey, n: byKind[k].length })),
   ];
+  /* Changing the versions can retire the tab that was open. Derive the active one rather than
+     trusting the stored value, or the body renders a section that is no longer on the strip. */
+  const activeTab: TabKey = TABS.some((t) => t.key === tab) ? tab : 'CVEs';
 
-  const ecosystems = Array.from(new Set(everything.map((e) => e.ecosystem).filter(Boolean))).sort();
-  const activeFilters = kindFilter.length + ecoFilter.length + (cveOnly ? 1 : 0);
+  /* The fields the search offers, and where each one reads from. Ecosystem is here rather than
+     in the filter menu — it is one property among several, not a mode. */
+  const FIELDS = ['Component', 'Version', 'Ecosystem'] as const;
+  const fieldOf = (e: BomDiffEntry, field: string) =>
+    field === 'Component' ? e.name : field === 'Version' ? e.version : (e.ecosystem ?? '');
+  const valuesFor = (field: string) =>
+    Array.from(new Set(everything.map((e) => fieldOf(e, field)).filter(Boolean))).sort();
 
-  const q = search.trim().toLowerCase();
-  const passes = (e: BomDiffEntry) =>
-    (!q || e.name.toLowerCase().includes(q)) &&
-    (kindFilter.length === 0 || kindFilter.includes(e.kind)) &&
-    (ecoFilter.length === 0 || ecoFilter.includes(e.ecosystem)) &&
-    (!cveOnly || (e.cves?.length ?? 0) > 0);
+  /* The tabs ARE the change filter, so a row passes on the search alone. */
+  const passes = (e: BomDiffEntry) => passesConditions(e, conditions, fieldOf);
 
   // CVEs tab keeps the same four-way split, but only the packages that carry vulnerabilities.
   const cveRows = (k: BomDiffEntry['kind']) => byKind[k].filter((e) => (e.cves?.length ?? 0) > 0).filter(passes);
   const sectionRows = (k: BomDiffEntry['kind']) => byKind[k].filter(passes);
 
-  const toggle = (list: string[], set: (v: string[]) => void, v: string) =>
-    set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-
-  const visibleCount = tab === 'CVEs'
-    ? KINDS.reduce((n, k) => n + cveRows(k).length, 0)
-    : byKind[tab as BomDiffEntry['kind']].filter(passes).length;
+  const visibleCount = activeTab === 'CVEs'
+    ? liveKinds.reduce((n, k) => n + cveRows(k).length, 0)
+    : byKind[activeTab as BomDiffEntry['kind']].filter(passes).length;
 
   const SectionHeader = ({ k, n }: { k: BomDiffEntry['kind']; n: number }) => {
     const m = KIND_META[k];
@@ -331,16 +334,9 @@ export function BomCompareVersionsPanel({
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            {backLabel && (
-              <button
-                onClick={onClose}
-                title={`Back to ${backLabel}`}
-                className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
-              ><ChevronLeft size={16} /></button>
-            )}
             <div className="min-w-0">
-              <h3 className="text-[16px] font-semibold text-[#364658]">Compare BOMs</h3>
-              <p className="mt-0.5 text-[13px] text-[#7B8FA5]">{bomCiId(endpointId)} · {hostName} · {type}</p>
+              <h3 className="text-[16px] font-semibold text-[#364658]">Compare versions</h3>
+              <p className="mt-0.5 truncate text-[13px] text-[#7B8FA5]">{scope.name}{scope.version ? ` ${scope.version}` : ''}</p>
             </div>
           </div>
           <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
@@ -357,50 +353,6 @@ export function BomCompareVersionsPanel({
               <VersionBox value={newer} options={nums} onChange={setNewer} dateOf={dateOf} countOf={countOf} />
               <span className="flex-shrink-0 text-[13px] text-[#7B8FA5]">with</span>
               <VersionBox value={older} options={nums} onChange={setOlder} dateOf={dateOf} countOf={countOf} />
-            </div>
-          </div>
-
-          {/* The path is now a CONTROL, not a read-out with a link beside it. "in <path>" finishes
-              the sentence the version pickers start, and one pill does the job the old
-              "Scanned path : X" + "Change path" pair did in two. */}
-          <div className="flex h-9 items-center gap-2">
-            <span className="flex-shrink-0 text-[13px] text-[#7B8FA5]">in</span>
-            <div className="relative">
-              <button
-                onClick={() => setShowScopes((v) => !v)}
-                className={`inline-flex h-9 max-w-[340px] items-center gap-2 rounded border bg-white px-3 text-[13px] transition-colors ${
-                  showScopes ? 'border-[#3D8BD0]' : 'border-[#DFE5ED] hover:border-[#3D8BD0]'
-                }`}
-              >
-                <Folder size={14} className="flex-shrink-0 text-[#7B8FA5]" />
-                <span className="truncate font-semibold text-[#364658]" title={scope.name}>{scope.name}</span>
-                {scope.version && <span className="flex-shrink-0 text-[#7B8FA5]">{scope.version}</span>}
-                {/* A hairline where the reference sketch has a slash: the path already contains
-                    "OS / base platform", so a trailing "/" would read as a truncated path. */}
-                <span className="h-4 w-px flex-shrink-0 bg-[#E5E7EB]" />
-                <ChevronDown size={15} className={`flex-shrink-0 text-[#7B8FA5] transition-transform ${showScopes ? 'rotate-180' : ''}`} />
-              </button>
-              {showScopes && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowScopes(false)} />
-                  <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                    <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Scanned paths on this host</div>
-                    {products.map((p) => (
-                      <button
-                        key={p.key}
-                        onClick={() => { setScopeKey(p.key); setShowScopes(false); }}
-                        className={`flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] transition-colors ${
-                          p.key === scopeKey ? 'bg-[#F5FAFF] font-medium text-[#3D8BD0]' : 'text-[#364658] hover:bg-[#F9FAFB]'
-                        }`}
-                      >
-                        <Folder size={14} className={`flex-shrink-0 ${p.key === scopeKey ? 'text-[#3D8BD0]' : 'text-[#9CA3AF]'}`} />
-                        <span className="truncate">{p.name}{p.version && <span className="ml-1.5 text-[#7B8FA5]">{p.version}</span>}</span>
-                        {p.key === scopeKey && <Check size={15} className="ml-auto flex-shrink-0 text-[#3D8BD0]" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
           </div>
 
@@ -422,115 +374,50 @@ export function BomCompareVersionsPanel({
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs, with the controls that narrow them at the far right of the same row. */}
         <div className="flex items-center gap-2.5 border-b border-[#e5e7eb] px-5">
           {TABS.map((t) => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
               className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-3 text-[14px] font-medium transition-colors ${
-                tab === t.key ? 'border-[#3D8BD0] text-[#3D8BD0]' : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
+                activeTab === t.key ? 'border-[#3D8BD0] text-[#3D8BD0]' : 'border-transparent text-[#6b7280] hover:border-[#CBD5E1] hover:bg-[#F5F7FA] hover:text-[#364658]'
               }`}
             >
               {t.key}
-              <span className={`rounded px-1 py-0.5 text-[12px] font-medium ${tab === t.key ? 'bg-[#E8F4FD] text-[#3D8BD0]' : 'bg-[#E5E7EB] text-[#364658]'}`}>{t.n}</span>
+              <span className={`rounded px-1 py-0.5 text-[12px] font-medium ${activeTab === t.key ? 'bg-[#E8F4FD] text-[#3D8BD0]' : 'bg-[#E5E7EB] text-[#364658]'}`}>{t.n}</span>
             </button>
           ))}
+
+          {/* List view only: the diff has its own per-pane search, so offering a second one
+              would be two searches over one screen. */}
+          {view !== 'diff' && (
+            <div className="ml-auto flex flex-shrink-0 items-center gap-2 py-2">
+              <button
+                onClick={() => { setSearchOpen((v) => !v); if (searchOpen) setConditions([]); }}
+                aria-pressed={searchOpen}
+                title={searchOpen ? 'Hide search' : 'Search components'}
+                className={`flex size-8 items-center justify-center rounded border transition-colors ${
+                  searchOpen || conditions.length > 0
+                    ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+                    : 'border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
+                }`}
+              ><Search size={16} /></button>
+            </div>
+          )}
         </div>
 
-        {/* Search + one filter icon — list view only; the diff has its own per-pane search */}
-        <div className={`flex items-center gap-2 px-5 pt-3 ${view === 'diff' ? 'hidden' : ''}`}>
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search components..."
-              className="h-8 w-full rounded border border-[#d1d5db] bg-white pl-3 pr-10 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
-            />
-            {search ? (
-              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9ca3af] hover:text-[#364658]"><X size={16} /></button>
-            ) : (
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" size={16} />
-            )}
-          </div>
-          <div className="relative flex-shrink-0">
-            <button
-              onClick={() => setShowFilter((v) => !v)}
-              title="Filter"
-              className={`flex h-8 items-center gap-1.5 rounded border px-2.5 transition-colors ${
-                activeFilters > 0 || showFilter
-                  ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
-                  : 'border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
-              }`}
-            >
-              <SlidersHorizontal size={16} />
-              {activeFilters > 0 && (
-                <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#3D8BD0] px-1 text-[11px] font-semibold text-white">{activeFilters}</span>
-              )}
-            </button>
-            {showFilter && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowFilter(false)} />
-                <div className="absolute right-0 top-full z-50 mt-1 w-[280px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                  <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Change</div>
-                  {KINDS.map((k) => (
-                    <button
-                      key={k}
-                      onClick={() => toggle(kindFilter, setKindFilter, k)}
-                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <span className="size-2 rounded-full" style={{ backgroundColor: KIND_META[k].color }} />
-                        {k}
-                      </span>
-                      {kindFilter.includes(k) && <Check size={15} className="text-[#3D8BD0]" />}
-                    </button>
-                  ))}
-
-                  <div className="my-1 border-t border-[#F0F2F5]" />
-                  <button
-                    onClick={() => setCveOnly((v) => !v)}
-                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
-                  >
-                    <span className="inline-flex items-center gap-2"><ShieldAlert size={14} className="text-[#DC2626]" />With vulnerabilities</span>
-                    {cveOnly && <Check size={15} className="text-[#3D8BD0]" />}
-                  </button>
-
-                  {ecosystems.length > 0 && (
-                    <>
-                      <div className="my-1 border-t border-[#F0F2F5]" />
-                      <div className="px-3 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Ecosystem</div>
-                      <div className="max-h-[160px] overflow-y-auto">
-                        {ecosystems.map((eco) => (
-                          <button
-                            key={eco}
-                            onClick={() => toggle(ecoFilter, setEcoFilter, eco)}
-                            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
-                          >
-                            <span className="truncate">{eco}</span>
-                            {ecoFilter.includes(eco) && <Check size={15} className="flex-shrink-0 text-[#3D8BD0]" />}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  <div className="mt-1 flex items-center justify-between border-t border-[#F0F2F5] px-3 py-2">
-                    <button
-                      onClick={() => { setKindFilter([]); setEcoFilter([]); setCveOnly(false); }}
-                      className="text-[12px] font-medium text-[#3D8BD0] hover:underline"
-                    >Clear all</button>
-                    <button
-                      onClick={() => setShowFilter(false)}
-                      className="inline-flex h-7 items-center rounded bg-[#3D8BD0] px-2.5 text-[12px] font-medium text-white transition-colors hover:bg-[#3479b5]"
-                    >Done</button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+        {/* Search on its own full-width line, revealed by the toggle above. */}
+        {searchOpen && view !== 'diff' && (
+        <div className="flex items-center gap-2 px-5 pt-3">
+          <BomFilterSearch
+            fields={[...FIELDS]}
+            valuesFor={valuesFor}
+            conditions={conditions}
+            onChange={setConditions}
+          />
         </div>
+        )}
 
         {/* Diff view — the two CycloneDX documents, line by line. The active tab spotlights its
             change kind inside the diff, so the tab strip means the same thing in both views. */}
@@ -544,7 +431,7 @@ export function BomCompareVersionsPanel({
               type={type}
               older={lo}
               newer={hi}
-              spotlight={TAB_TO_DIFF_KIND[tab]}
+              spotlight={TAB_TO_DIFF_KIND[activeTab]}
             />
           )
         )}
@@ -555,12 +442,12 @@ export function BomCompareVersionsPanel({
             <div className="py-14 text-center text-[13px] text-[#9CA3AF]">Pick two different versions to compare.</div>
           ) : visibleCount === 0 ? (
             <div className="py-14 text-center text-[13px] text-[#9CA3AF]">No components match your search and filters.</div>
-          ) : tab === 'CVEs' ? (
+          ) : activeTab === 'CVEs' ? (
             /* Vulnerable packages only, still split by what the version did to them — a CVE that
                arrived with an added package is a different problem from one that was already
                there and stayed. */
             <>
-              {KINDS.map((k) => {
+              {liveKinds.map((k) => {
                 const rows = cveRows(k);
                 if (!rows.length) return null;
                 return (
@@ -579,8 +466,8 @@ export function BomCompareVersionsPanel({
             </>
           ) : (
             <div className="space-y-2">
-              {byKind[tab as BomDiffEntry['kind']].filter(passes).map((e, i) => (
-                <DiffRow key={`${tab}-${e.name}-${i}`} e={e} showKindPill={false} onOpenCve={openCve} />
+              {byKind[activeTab as BomDiffEntry['kind']].filter(passes).map((e, i) => (
+                <DiffRow key={`${activeTab}-${e.name}-${i}`} e={e} showKindPill={false} onOpenCve={openCve} />
               ))}
             </div>
           )}

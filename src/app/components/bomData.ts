@@ -703,7 +703,12 @@ export const bomComponents = (endpointId: string, productKey: string): BomCompon
     const round = Math.floor(i / distinct);
     if (round === 0) { list.push(base); continue; }
     const version = variant(base.version, round);
-    list.push({ ...base, version, purl: base.purl.replace(/@[^@]*$/, `@${version}`) });
+    /* A LATER build of the same component, and it does not inherit the advisory. An advisory
+       applies to a version range; spreading `base` carried its `cves` onto every generated
+       version, so one library reported the same CVE at nine different versions — including the
+       ones that would be the fix. The catalogue's version is the one that carries the finding. */
+    const { cves: _fixed, ...clean } = base;
+    list.push({ ...clean, version, purl: base.purl.replace(/@[^@]*$/, `@${version}`) });
   }
 
   // The OS scope also reports the host OS itself, as the first component.

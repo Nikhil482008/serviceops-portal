@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Search, Plus, ChevronRight, ShieldCheck, Clock, TriangleAlert, Check, Star, Boxes } from 'lucide-react';
+import { X, Search, Plus, ChevronRight, ShieldCheck, Clock, TriangleAlert, Check, Pencil, Trash2, Boxes } from 'lucide-react';
 import { toast } from 'sonner';
 import { BomExcludedPaths } from './BomExcludedPaths';
 import { BomProductFormPanel } from './BomProductFormPanel';
 import type { ProductFormValue } from './BomProductFormPanel';
-import { componentCount, OS_PRODUCT_KEY } from './bomData';
+import { componentCount } from './bomData';
 import type { BomProduct } from './bomData';
 
 /* Manage products — the host's scan configuration, as a collapsed list.
@@ -48,8 +48,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
  *  hangs off a rule dropped from the row's own chevron. Before that, all three started at the
  *  same x and read as one flat list.
  */
-function ProductRow({ r, endpointId, isOpen, onToggle }: {
+function ProductRow({ r, endpointId, isOpen, onToggle, onEdit, onDelete }: {
   r: BomProduct; endpointId: string; isOpen: boolean; onToggle: (key: string) => void;
+  /* Only hand-declared products get these — the agent's list is its own record. */
+  onEdit?: (r: BomProduct) => void; onDelete?: (r: BomProduct) => void;
 }) {
   const s = STATUS_STYLE[r.status];
   const Icon = s.icon;
@@ -59,7 +61,7 @@ function ProductRow({ r, endpointId, isOpen, onToggle }: {
       <button
         onClick={() => onToggle(r.key)}
         aria-expanded={isOpen}
-        className={`flex w-full items-center gap-2.5 py-2.5 pl-8 pr-4 text-left transition-colors ${isOpen ? 'bg-[#F9FAFB]' : 'hover:bg-[#F9FAFB]'}`}
+        className={`group flex w-full items-center gap-2.5 py-2.5 pl-8 pr-4 text-left transition-colors ${isOpen ? 'bg-[#F9FAFB]' : 'hover:bg-[#F9FAFB]'}`}
       >
         <ChevronRight
           size={14}
@@ -69,15 +71,38 @@ function ProductRow({ r, endpointId, isOpen, onToggle }: {
           {r.name}
           {r.version && <span className="ml-1.5 font-normal text-[#7B8FA5]">{r.version}</span>}
         </span>
-        {r.isDefault && (
-          <span
-            className="inline-flex flex-shrink-0 items-center gap-1 rounded-sm bg-[#E8F4FD] px-1.5 py-0.5 text-[11px] font-medium text-[#3D8BD0]"
-            title="Its versions are shown when the BOM tab opens"
-          ><Star size={10} className="fill-current" />Default</span>
+        {/* Edit / Delete, on hover — a row that can be changed says so when you reach for it,
+            rather than carrying two buttons down the whole list. */}
+        {(onEdit || onDelete) && (
+          <span className="flex flex-shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            {onEdit && (
+              <span
+                role="button"
+                tabIndex={0}
+                title={`Edit ${r.name}`}
+                onClick={(e) => { e.stopPropagation(); onEdit(r); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onEdit(r); } }}
+                className="flex size-7 cursor-pointer items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#EBF5FF] hover:text-[#3D8BD0]"
+              ><Pencil size={14} /></span>
+            )}
+            {onDelete && (
+              <span
+                role="button"
+                tabIndex={0}
+                title={`Delete ${r.name}`}
+                onClick={(e) => { e.stopPropagation(); onDelete(r); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); onDelete(r); } }}
+                className="flex size-7 cursor-pointer items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#FEF3F2] hover:text-[#DC2626]"
+              ><Trash2 size={14} /></span>
+            )}
+          </span>
         )}
-        <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-sm px-2 py-0.5 text-[12px] font-medium" style={{ backgroundColor: s.bg, color: s.text }}>
-          <Icon size={12} />{r.status}
-        </span>
+        {/* Scanned is the state every row is in, so it is not stated. Pending and Failed are. */}
+        {r.status !== 'Scanned' && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1 rounded-sm px-2 py-0.5 text-[12px] font-medium" style={{ backgroundColor: s.bg, color: s.text }}>
+            <Icon size={12} />{r.status}
+          </span>
+        )}
         <span
           className={`inline-flex h-[20px] min-w-[20px] flex-shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${
             r.findings > 0 ? 'bg-[#FEF7E6] text-[#D97706]' : 'bg-[#EEF2F6] text-[#94A3B8]'
@@ -127,7 +152,9 @@ interface BomManageProductsPanelProps {
 export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, products, onProductsChange }: BomManageProductsPanelProps) {
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<BomProduct[]>(products);
-  const [addOpen, setAddOpen] = useState(false);
+  /* null = closed, a product = editing that one, 'new' = adding. One piece of state, so the
+     form cannot be open in two modes at once. */
+  const [form, setForm] = useState<BomProduct | 'new' | null>(null);
   /** Which rows are expanded. Everything starts collapsed — the list is the view, not the detail. */
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** The agent-discovered group. Shut by default: the BOM tab behind this drawer is already that
@@ -137,15 +164,23 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
   // Re-seed from the host each time the panel opens (edits are local to the session).
   useEffect(() => {
     if (!isOpen) return;
-    setRows(products); setSearch(''); setAddOpen(false); setOpen(new Set()); setShowFound(false);
+    setRows(products); setSearch(''); setForm(null); setOpen(new Set()); setShowFound(false);
   }, [isOpen, endpointId]);
 
   if (!isOpen) return null;
 
-  /* Add only. The same shape the old panel used for a NEW product, minus its edit branch. */
+  /* One save for both modes. Editing keeps the row's scan history — a change of path or
+     excludes does not un-scan what the agent already found. */
+  const editing = form !== 'new' ? form : null;
   const saveProduct = (v: ProductFormValue) => {
+    const wasEditing = !!editing;
     setRows((prev) => {
-      let next: BomProduct[] = [
+      if (editing) {
+        return prev.map((r) => (r.key === editing.key
+          ? { ...r, key: v.key, name: v.name, version: v.version || null, path: v.path, excludePaths: v.excludePaths }
+          : r));
+      }
+      return [
         {
           key: v.key, name: v.name, version: v.version || null, path: v.path,
           source: 'agent · directory scan', status: 'Pending', lastScan: '—', findings: 0,
@@ -155,18 +190,21 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
         },
         ...prev.filter((r) => r.key !== v.key),
       ];
-      // Only one product can be the default — setting one clears the rest.
-      if (v.isDefault) next = next.map((r) => ({ ...r, isDefault: r.key === v.key }));
-      if (!next.some((r) => r.isDefault)) {
-        const fb = next.find((r) => r.key === OS_PRODUCT_KEY) ?? next[0];
-        if (fb) fb.isDefault = true;
-      }
-      return next;
     });
-    setAddOpen(false);
-    // Opened straight away, so the thing just added is the thing on screen.
+    setForm(null);
+    // Opened straight away, so the thing just saved is the thing on screen.
     setOpen((prev) => new Set(prev).add(v.key));
-    toast.success(`${v.name} added — it will be scanned on the next agent check-in`);
+    toast.success(wasEditing
+      ? `${v.name} updated`
+      : `${v.name} added — it will be scanned on the next agent check-in`);
+  };
+
+  /* Staged, not immediate: the drawer's own Cancel is the undo, which is why this asks nothing
+     first. Nothing leaves the host until Save changes. */
+  const deleteProduct = (r: BomProduct) => {
+    setRows((prev) => prev.filter((x) => x.key !== r.key));
+    setOpen((prev) => { const n = new Set(prev); n.delete(r.key); return n; });
+    toast.success(`${r.name} removed — Save changes to apply it`);
   };
 
   const q = search.trim().toLowerCase();
@@ -218,7 +256,7 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
               )}
             </div>
             <button
-              onClick={() => setAddOpen(true)}
+              onClick={() => setForm('new')}
               className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
             >
               <Plus size={15} /> Add product
@@ -236,9 +274,10 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
             <>
               {/* Declared by hand — the only thing this drawer can change, so it stands open. */}
               <div className="overflow-hidden rounded-lg border border-[#E5E7EB]">
-                <div className="flex items-center gap-2 border-b border-[#F0F2F5] bg-[#FCFDFE] py-2 pl-4 pr-4">
-                  {/* Same band as the group below it — level is carried by typography, and these
-                      two are the same level. The 14px chevron slot keeps both labels on one x. */}
+                <div className="flex items-center gap-2.5 border-b border-[#F0F2F5] bg-[#FCFDFE] py-2 pl-8 pr-4">
+                  {/* One left edge for the heading and the rows under it: the heading used to sit
+                      in its own column, which read as a third level that does not exist. The
+                      14px chevron slot keeps both groups' labels on that same x. */}
                   <span className="w-3.5 flex-shrink-0" />
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Added manually</span>
                   <span className="text-[11px] font-semibold text-[#9CA3AF]">{manual.length}</span>
@@ -253,7 +292,11 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
                 ) : (
                   <div className="divide-y divide-[#F0F2F5]">
                     {manual.map((r) => (
-                      <ProductRow key={r.key} r={r} endpointId={endpointId} isOpen={open.has(r.key)} onToggle={toggle} />
+                      <ProductRow
+                        key={r.key} r={r} endpointId={endpointId}
+                        isOpen={open.has(r.key)} onToggle={toggle}
+                        onEdit={setForm} onDelete={deleteProduct}
+                      />
                     ))}
                   </div>
                 )}
@@ -266,7 +309,7 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
                   <button
                     onClick={() => setShowFound((v) => !v)}
                     aria-expanded={foundOpen}
-                    className={`flex w-full items-center gap-2 py-2 pl-4 pr-4 text-left transition-colors ${foundOpen ? 'bg-[#FCFDFE]' : 'hover:bg-[#F9FAFB]'}`}
+                    className={`flex w-full items-center gap-2.5 py-2 pl-8 pr-4 text-left transition-colors ${foundOpen ? 'bg-[#FCFDFE]' : 'hover:bg-[#F9FAFB]'}`}
                   >
                     <ChevronRight size={14} className={`flex-shrink-0 text-[#9CA3AF] transition-transform ${foundOpen ? 'rotate-90' : ''}`} />
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Found by the agent</span>
@@ -302,11 +345,12 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
         </div>
       </div>
 
-      {/* Add form, stacked above this drawer — the same flow as before. */}
+      {/* Add / edit form, stacked above this drawer. One mount for both: the form already knew
+          how to edit, so a second copy would only be a way for the two to disagree. */}
       <BomProductFormPanel
-        isOpen={addOpen}
-        onClose={() => setAddOpen(false)}
-        editing={null}
+        isOpen={form !== null}
+        onClose={() => setForm(null)}
+        editing={editing}
         onSave={saveProduct}
       />
     </div>

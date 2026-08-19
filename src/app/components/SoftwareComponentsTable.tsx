@@ -38,11 +38,19 @@ const SOURCE_LABEL: Record<ComponentSource, { label: string; icon: typeof Upload
   vendor: { label: 'Vendor SBOM', icon: FileText },
 };
 
+/* One chip shape for License and Sources, so the two columns cannot drift apart. Colour is a
+   SIGNAL here: neutral is the resting state, and the only tinted chip in either column is the
+   amber flag on a licence that needs a legal read. Sources was blue on every row, which spent the
+   brand colour on a fact that never varies and read as a link that goes nowhere. */
+const CHIP = 'inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-[12px] font-medium';
+const CHIP_NEUTRAL = { backgroundColor: '#F1F5F9', color: '#475467' };
+const CHIP_FLAG = { backgroundColor: '#FEF7E6', color: '#D97706' };
+
 function SourceChip({ source }: { source: ComponentSource }) {
   const s = SOURCE_LABEL[source];
   const Icon = s.icon;
   return (
-    <span className="inline-flex items-center gap-1 rounded bg-[#e8f4fd] px-2 py-0.5 text-[12px] font-medium text-[#3D8BD0]">
+    <span className={CHIP} style={CHIP_NEUTRAL}>
       <Icon size={12} />{s.label}
     </span>
   );
@@ -123,10 +131,8 @@ export function SoftwareComponentsTable({ rows, onRowClick }: SoftwareComponents
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span
-                  className="inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-[12px] font-medium"
-                  style={c.licenseFlag
-                    ? { backgroundColor: '#FEF7E6', color: '#D97706' }
-                    : { backgroundColor: '#F1F5F9', color: '#475467' }}
+                  className={CHIP}
+                  style={c.licenseFlag ? CHIP_FLAG : CHIP_NEUTRAL}
                   title={c.licenseFlag ? 'Copyleft or dual-licensed — worth a legal review' : undefined}
                 >
                   {c.licenseFlag && <Flag size={12} />}

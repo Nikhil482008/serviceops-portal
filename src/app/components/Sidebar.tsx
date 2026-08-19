@@ -162,29 +162,35 @@ function PatchNavItem({ activePage, onNavigate }: { activePage?: string; onNavig
   );
 }
 
-// BOM sub-modules surfaced in the hover flyout. Configuration Items is one row per CI, Software
-// Components is one row per component version across the fleet — the same data seen the other
-// way up. Compliance Reports is the same inventory read against 13 regulatory frameworks, and
-// Compliance Reports 2 is that same assessment in a split layout — a vertical framework rail
-// instead of a horizontal carousel — carried as a second entry so the two are comparable
-// side by side rather than one replacing the other unseen.
-const BOM_ITEMS: { icon: React.ReactNode; label: string; page?: string; child?: boolean }[] = [
+// BOM sub-modules surfaced in the hover flyout. BOM Inventory is one row per component version
+// across the fleet — what this module is FOR — and Configuration Items is the same data seen the
+// other way up, one row per machine it was found on. So the order is the front page, then the
+// inventory, then the machines.
+//
+// HIDDEN, not deleted: `Dashboard 2` and `Compliance Reports 2` are alternative designs of pages
+// that still exist and are still routable, and `Compliance Reports` with them. Their routes,
+// components and check suites are untouched — dropping the rows outright would strand working
+// code with no way back to it. Flip a `hidden` flag here to bring one back.
+const BOM_ITEMS: { icon: React.ReactNode; label: string; page?: string; child?: boolean; hidden?: boolean }[] = [
   // First in the flyout because it is the way in: every figure on it links into one of the rows
   // below, so it reads as the module's front page rather than a fifth report.
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard', page: 'bom-dashboard' },
-  // The same estate read visually rather than as three lists. Carried alongside the original so
-  // the two can be compared, the way Compliance Reports and Compliance Reports 2 are.
-  { icon: <LayoutDashboard size={16} />, label: 'Dashboard 2', page: 'bom-dashboard-2' },
-  { icon: <IconBom size={16} />, label: 'Configuration Items', page: 'bom' },
   /* BOM Inventory is a heading with its two halves under it, rather than a tab strip inside the
      page: the flyout is where this module's destinations already live, and a rail entry can be
      linked to and land on the right half, which a tab cannot. */
   { icon: <Boxes size={16} />, label: 'BOM Inventory' },
   { icon: <Boxes size={16} />, label: 'Software components', page: 'software-components', child: true },
   { icon: <Sparkles size={16} />, label: 'AI Components', page: 'ai-components', child: true },
-  { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports', page: 'compliance-reports' },
-  { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports 2', page: 'compliance-reports-2' },
-];
+  { icon: <IconBom size={16} />, label: 'Configuration Items', page: 'bom' },
+
+  // ── hidden ────────────────────────────────────────────────────────────
+  // The same estate read visually rather than as three lists. Still routable at 'bom-dashboard-2'.
+  { icon: <LayoutDashboard size={16} />, label: 'Dashboard 2', page: 'bom-dashboard-2', hidden: true },
+  // The inventory read against 13 regulatory frameworks, and the same assessment in a split
+  // layout — a vertical framework rail instead of a horizontal carousel.
+  { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports', page: 'compliance-reports', hidden: true },
+  { icon: <ClipboardCheck size={16} />, label: 'Compliance Reports 2', page: 'compliance-reports-2', hidden: true },
+].filter((x) => !x.hidden);
 
 /** BOM nav item with a hover flyout listing its sub-modules (mirrors VulnerabilityNavItem).
  *  Deliberately identical to its siblings — no title, no badge, no divider: a rail where one

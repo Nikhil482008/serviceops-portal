@@ -12,7 +12,6 @@ export interface ProductFormValue {
   version: string;
   path: string;
   excludePaths: string[];
-  isDefault: boolean;
 }
 
 interface BomProductFormPanelProps {
@@ -30,7 +29,6 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
   const [excludes, setExcludes] = useState('');
   // The standard exclusions live as removable chips, separate from what the admin types.
   const [defaultPaths, setDefaultPaths] = useState<string[]>([]);
-  const [isDefault, setIsDefault] = useState(false);
   const [touched, setTouched] = useState(false);
   const excludeRef = useRef<HTMLTextAreaElement>(null);
   const useDefaults = defaultPaths.length > 0;
@@ -54,7 +52,6 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
     const saved = editing?.excludePaths ?? [];
     setDefaultPaths(DEFAULT_EXCLUDE_PATHS.filter((p) => saved.includes(p)));
     setExcludes(saved.filter((p) => !DEFAULT_EXCLUDE_PATHS.includes(p)).join(', '));
-    setIsDefault(!!editing?.isDefault);
     setTouched(false);
   }, [isOpen, editing]);
 
@@ -78,7 +75,6 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
         ...excludes.split(',').map((s) => s.trim()).filter(Boolean),
         ...defaultPaths,
       ])),
-      isDefault,
     });
   };
 
@@ -192,24 +188,6 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
             )}
           </div>
 
-          {/* Default scope — the one the BOM tab lands on */}
-          <div className="rounded-lg border border-[#E5E7EB] bg-[#FAFBFC] p-3.5">
-            <label className="flex cursor-pointer items-start gap-2.5">
-              <input
-                type="checkbox"
-                checked={isDefault}
-                onChange={(e) => setIsDefault(e.target.checked)}
-                className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
-              />
-              <span className="min-w-0">
-                <span className="block text-[13px] font-medium text-[#364658]">Make this the default product</span>
-                <span className="mt-0.5 block text-[12px] text-[#7B8FA5]">
-                  Its SBOM versions are the ones shown when the BOM tab opens. Only one product can be
-                  the default — setting this moves it off the current one.
-                </span>
-              </span>
-            </label>
-          </div>
         </div>
 
         {/* Footer */}

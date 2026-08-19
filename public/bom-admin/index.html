@@ -1313,6 +1313,51 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
 @media (max-width:760px){.kpis{grid-template-columns:1fr}}
 @media (max-width:1180px){.kpis.four{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:760px){.kpis.four{grid-template-columns:1fr}}
+
+/* ── CI selection (Scheduler + Retention) ─────────────────────
+   One affordance until a method is chosen, then a summary of what IS chosen with the
+   repeat path on the button. The menu is only in the way once. */
+.cisel{position:relative}
+.cimenu{position:absolute;left:0;top:calc(100% + 6px);z-index:60;width:340px;background:#fff;
+  border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 30px rgba(16,32,56,.14);padding:4px}
+.cimi{display:block;width:100%;text-align:left;padding:9px 11px;border-radius:6px;background:none;border:0;cursor:pointer}
+.cimi:hover,.cimi:focus-visible{background:var(--row-hover);outline:none}
+.cimi.sel{background:var(--sel-blue)}
+.cimi b{display:block;font-size:13px;font-weight:600;color:var(--ink)}
+.cimi span{display:block;margin-top:2px;font-size:12px;line-height:1.45;color:var(--dim)}
+.cimi.cur b:after{content:"Current";margin-left:8px;font-size:10px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--brand);vertical-align:1px}
+
+/* The summary. The figure is the point, so it leads; the caption qualifies it. */
+.cisum{border:1px solid var(--line-tbl);border-radius:8px;background:#fff;padding:12px 14px}
+.cisum-t{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cisum-m{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--neu)}
+.cisum-v{font-size:13px;color:var(--ink);min-width:0}
+.cisum-n{font-size:13px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.cisum-c{margin-top:5px;font-size:12px;line-height:1.5;color:var(--dim)}
+.cisum-c.warn{color:var(--warn)}
+.cisum-e{margin-left:auto;flex:none}
+.cisum-p{margin-top:6px;font-size:12px;color:var(--dim);word-break:break-word}
+
+/* Specialised button + the caret that reopens the choice. */
+.cisplit{display:inline-flex;align-items:stretch}
+.cisplit .btn{border-top-right-radius:0;border-bottom-right-radius:0}
+.cicar{display:inline-flex;align-items:center;justify-content:center;width:28px;
+  border:1px solid var(--line);border-left:0;border-radius:0 6px 6px 0;background:#fff;
+  color:var(--neu);cursor:pointer}
+.cicar:hover{background:var(--row-hover);color:var(--ink)}
+.cicar[aria-expanded="true"]{background:var(--row-hover);color:var(--ink)}
+
+/* Switching methods discards a selection, so it is confirmed in place. */
+.ciconf{margin-top:8px;border:1px solid var(--warn-line);background:var(--warn-soft);
+  border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.5;color:var(--ink)}
+.ciconf-b{margin-top:8px;display:flex;gap:8px}
+
+/* The back arrow leads the head, so the first thing in a stacked drawer is the way out of it. */
+.dw-head .bk{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  margin-right:8px;flex:none;border:1px solid var(--line);border-radius:6px;background:#fff;
+  color:var(--neu);cursor:pointer}
+.dw-head .bk:hover{background:var(--row-hover);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -1946,6 +1991,9 @@ const COLS = {
    (§1.3), currentColor so it inherits the status text colour. */
 const IC_GRIP   = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg>`;
 const IC_FUNNEL = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 3.5h12L9.5 8.6V13L6.5 11.4V8.6L2 3.5z"/></svg>`;
+/* Back one level, for a drawer stacked over another. Distinct from the ✕: one returns, the
+   other closes, and a stack where both look the same is a stack you cannot navigate. */
+const IC_BACK   = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.5 3.5L5 8l4.5 4.5"/></svg>`;
 const IC_X      = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>`;
 const IC_SHIELD = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 1.6l5 2.2v3.9c0 3-2.1 5.4-5 6.3-2.9-.9-5-3.3-5-6.3V3.8l5-2.2z"/><path d="M8 5.6v2.9M8 10.8h.01"/></svg>`;
 const IC_GLOBE  = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.9"/><path d="M2.1 8h11.8M8 2.1c1.5 1.6 2.3 3.7 2.3 5.9S9.5 12.3 8 13.9C6.5 12.3 5.7 10.2 5.7 8S6.5 3.7 8 2.1z"/></svg>`;
@@ -2982,56 +3030,10 @@ const IC_COND = `<svg width="16" height="16" viewBox="0 0 18 18" fill="none" str
 const IC_HAND = `<svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2.6 14.4c0-2.6 2.2-4.2 4.8-4.2s4.8 1.6 4.8 4.2"/><circle cx="7.4" cy="6" r="2.7"/><path d="M13.4 6.4h3.2M15 4.8v3.2"/></svg>`;
 const IC_AUTO = `<svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 2.4v2M9 13.6v2M2.4 9h2M13.6 9h2M4.3 4.3l1.4 1.4M12.3 12.3l1.4 1.4M13.7 4.3l-1.4 1.4M5.7 12.3l-1.4 1.4"/><circle cx="9" cy="9" r="2.6"/></svg>`;
 
-/* The two ways to target sit side by side because they are not alternatives: a rule can
-   carry both, and `targetIds` unions them. Each card OWNS one of them and is itself the
-   click target — the button inside is tertiary, confirming what clicking does rather
-   than competing with the card for attention.
-
-   The Automatic card does not ask HOW here. It reports what is currently chosen and
-   opens the next drawer, where reusable-policy vs own-conditions is decided. One
-   question per surface: nested radio groups made this read as a menu of four things. */
-function tgtChoiceHTML(d, o){
-  const N    = ENROLLED_CIS.length;
-  const pol  = d.policyId ? bpOf(d.policyId) : null;
-  const nGrp = (d.groups || []).length;
-  const hits = d.auto ? autoMatches(d.groups).length : 0;
-  const cov  = pol ? bpEnrolled(pol).length : hits;
-  const nMan = (d[o.manualKey] || []).length;
-  const set  = !!(pol || nGrp);
-
-  const card = (go, act, dyn, icon, title, tag, desc, stat, state, id, cta) => `
-    <div class="tile${dyn?" dyn":""}${act?" act":""}" data-tgtgo="${go}">
-      <div class="tile-top">
-        <span class="tile-i">${icon}</span>
-        <span class="tile-hd">
-          <span class="tile-t">${title}${tag}</span>
-          <span class="tile-d">${desc}</span>
-        </span>
-      </div>
-      <div class="tile-x">
-        <div class="tile-stat${stat?"":" zero"}"><b>${stat}</b> of ${N} enrolled CI${N===1?"":"s"}</div>
-        <div class="tile-state">${state}</div>
-      </div>
-      <div class="tile-b"><button class="btn sm ter" id="${id}">${cta}</button></div>
-    </div>`;
-
-  return `<div class="tiles">
-    ${card("auto", set, true, IC_AUTO, "Automatic",
-        ` <span class="tile-tag rec">Recommended</span>`, o.autoDesc, cov,
-        pol  ? `Follows BOM Policy <b style="color:var(--ink)">${esc(pol.name)}</b> — ${
-                  esc(bpSummary(pol) || "no conditions")}`
-        : nGrp ? esc((d.groups.map(g=>groupSummary(g)).filter(Boolean)[0]) ||
-                     `${nGrp} condition group${nGrp===1?"":"s"}`)
-        : "Not set up yet",
-        o.condId, set ? "Change" : "Choose how")}
-    ${card("manual", !!nMan, false, IC_HAND, "Add CIs by hand",
-        ` <span class="tile-tag">Fixed</span>`, o.manDesc, nMan,
-        !nMan ? "No CIs selected"
-        : nMan === N ? "Every enrolled CI is selected"
-        : `${nMan} selected CI${nMan===1?"":"s"}`,
-        o.pickId, nMan ? "Edit selection" : "Choose CIs")}
-  </div>`;
-}
+/* `tgtChoiceHTML` lived here: two permanent tiles, Automatic beside Add-by-hand, because a
+   rule could carry BOTH and `targetIds` unioned them. Replaced by `ciSelectHTML` — one
+   affordance that becomes a summary, and ONE method per rule. Removed rather than left
+   unused: a second way to express targeting is exactly how the two editors would drift. */
 
 /* The chooser's buttons. Its dropdown routes through ddSet / polDdSet from
    whichever drawer hosts it. Creating a policy stacks the editor over the rule
@@ -3164,13 +3166,198 @@ const tpOpen = mod => { TP = {mod}; TP_MOUNTED = false; TP_Q = ""; TP_SORT = "id
    CIs across the whole estate, so it is intersected with enrolment here — nothing
    unlicensed can be scanned or retained, and a rule must not pretend otherwise. */
 function targetIds(o, manualKey){
-  const s = new Set(o[manualKey || "manual"] || []);
+  const key = manualKey || "manual";
+  const s = new Set();
+  /* ONE method per rule. The union this used to compute is what made "automatic" and
+     "fixed" describable at the same time, which the product's intent model says they are
+     not — a rule either grows with the CMDB or it does not. */
+  const m = ciMethodOf(o, key);
+  if(m === "manual"){ (o[key] || []).forEach(id=>s.add(id)); return s; }
+  if(m !== "auto") return s;
   if(o.auto) autoMatches(o.groups).forEach(c=>s.add(c.id));
   if(o.policyId){
     const sc = bpOf(o.policyId);
     if(sc) bpCis(sc).forEach(c=>{ if(c.enrolled) s.add(c.id); });
   }
   return s;
+}
+
+/* ══ CI selection ══════════════════════════════════════════════
+   ONE component, mounted by the Schedule editor and the Retention rule editor. The two
+   surrounding drawers differ; this does not.
+
+   `method` is stored on the draft once chosen. When it is absent — every record saved before
+   this existed — it is DERIVED from what the record actually carries, so opening an old rule
+   lands on the method it uses rather than on an empty state that would discard it. */
+function ciMethodOf(o, manualKey){
+  if(o.method) return o.method;
+  const key = manualKey || "manual";
+  if(o.policyId || (o.auto && (o.groups || []).length)) return "auto";
+  if((o[key] || []).length) return "manual";
+  return null;
+}
+/* Which editor has its method menu open, and which switch is awaiting a confirm. Module-level
+   because both editors re-render wholesale — local state would not survive a keystroke. */
+let CI_MENU = null, CI_SWITCH = null, CI_FOCUS = null;
+
+const CI_METHODS = [
+  {k:"auto",   t:"Automatically — by CI type",
+   d:"Matches CMDB CI types; new CIs that match are included as they\u2019re discovered."},
+  {k:"manual", t:"Manually — pick specific CIs",
+   d:"A fixed, hand-picked list that never grows."}
+];
+const CI_CARET = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6.5L8 10.5l4-4"/></svg>`;
+
+/* What automatic targeting currently says, in the rule's own terms. */
+function ciAutoWhat(d){
+  const pol = d.policyId ? bpOf(d.policyId) : null;
+  if(pol) return `BOM Policy <b>${esc(pol.name)}</b>`;
+  const g = (d.groups || []).map(x=>groupSummary(x)).filter(Boolean);
+  return g.length ? esc(g[0]) : "";
+}
+
+function ciSelectHTML(d, o){
+  const key = o.manualKey;
+  const m   = ciMethodOf(d, key);
+  const menu = CI_MENU === o.host;
+
+  const menuHTML = !menu ? "" : `
+    <div class="cimenu" role="menu" id="${o.host}CiMenu" aria-label="How to add CIs">
+      ${CI_METHODS.map(x=>`<button class="cimi${m===x.k?" cur":""}" role="menuitem" type="button"
+        data-cimeth="${x.k}" data-cihost="${o.host}"><b>${x.t}</b><span>${x.d}</span></button>`).join("")}
+    </div>`;
+
+  /* State 0 — nothing chosen yet. One affordance, and the question asked once. */
+  if(!m) return `<div class="cisel">
+    <button class="btn pri" id="${o.addId}" aria-haspopup="menu" aria-expanded="${menu}">+ Add CIs</button>
+    ${menuHTML}
+  </div>`;
+
+  const auto = m === "auto";
+  const n    = targetIds(d, key).size;
+  const what = auto ? ciAutoWhat(d) : "";
+  const ids  = auto ? [] : (d[key] || []);
+  const names = ids.slice(0, 3).map(id=>{
+    const c = ENROLLED_CIS.find(x=>x.id === id);
+    return esc(c ? c.host : id);
+  });
+
+  const summary = auto
+    ? `<div class="cisum-t">
+         <span class="cisum-m">Automatic</span>
+         ${what ? `<span class="cisum-v">${what}</span>` : `<span class="cisum-v" style="color:var(--dim)">no conditions yet</span>`}
+         <span class="cisum-v" style="color:var(--dim)">&rarr;</span>
+         <span class="cisum-n">${n} CI${n===1?"":"s"}</span>
+         <span class="cisum-v" style="color:var(--dim)">will be included</span>
+         <button class="lnk cisum-e" id="${o.editId}">Edit</button>
+       </div>
+       <div class="cisum-c${n?"":" warn"}">${n
+          ? "grows as matching CIs are discovered."
+          : "matches 0 CIs today \u00b7 it will include matching CIs as they\u2019re discovered"}</div>`
+    : `<div class="cisum-t">
+         <span class="cisum-m">Manual</span>
+         <span class="cisum-n">${n} CI${n===1?"":"s"} selected</span>
+         <button class="lnk cisum-e" id="${o.editId}">Edit</button>
+       </div>
+       ${names.length ? `<div class="cisum-p">${names.join(" \u00b7 ")}${
+          ids.length > names.length ? ` <b style="color:var(--ink)">+${ids.length - names.length} more</b>` : ""}</div>` : ""}
+       <div class="cisum-c">a fixed list \u2014 it never grows on its own.</div>`;
+
+  /* The switch confirm. Never silently discards: it names the method, the count, and what
+     replaces it. */
+  const sw = CI_SWITCH && CI_SWITCH.host === o.host ? CI_SWITCH.to : null;
+  const conf = !sw ? "" : `
+    <div class="ciconf" role="alertdialog">
+      Switching to ${sw === "manual" ? "manual" : "automatic"} replaces the
+      ${auto ? "automatic" : "manual"} selection (${n} CI${n===1?"":"s"}). Continue?
+      <div class="ciconf-b">
+        <button class="btn sm pri" id="${o.host}CiGo">Continue</button>
+        <button class="btn sm" id="${o.host}CiNo">Keep ${auto ? "automatic" : "manual"}</button>
+      </div>
+    </div>`;
+
+  return `<div class="cisel">
+    <div class="cisum">${summary}</div>
+    <div style="margin-top:10px" class="cisplit">
+      <!-- The OTHER method. What is already chosen is edited from the summary above; this is
+           the way to the one that is not. -->
+      <button class="btn" id="${o.addId}">Add CIs ${auto ? "manually" : "automatically"}</button>
+      <button class="cicar" id="${o.host}CiCar" aria-haspopup="menu" aria-expanded="${menu}"
+        aria-label="Change how CIs are added">${CI_CARET}</button>
+    </div>
+    ${menuHTML}
+    ${conf}
+  </div>`;
+}
+
+/* The only difference between the two mounts: which ids the section owns and which draft
+   field holds the hand-picked list. Retention calls it `manual`, the Scheduler `cis`. */
+const RT_CI = {host:"rt", manualKey:"manual", addId:"rtCiAdd", editId:"rtCiEdit"};
+const BS_CI = {host:"bs", manualKey:"cis",    addId:"bsCiAdd", editId:"bsCiEdit"};
+
+/* Asking for a method — from the menu, or from the button that names the alternative. One
+   path, so the confirm can never be skipped by arriving a different way. */
+function ciPickMethod(d, o, to, rerender){
+  const cur = ciMethodOf(d, o.manualKey);
+  /* Same method, or nothing to lose — straight through. */
+  if(to === cur || !cur || targetIds(d, o.manualKey).size === 0){
+    d.method = to; ciOpen(d, o, to, rerender); return;
+  }
+  CI_MENU = null; CI_SWITCH = {host:o.host, to}; rerender();
+}
+
+/* Opening the right drawer for a method — the SAME two pickers that already exist. */
+function ciOpen(d, o, m, rerender){
+  CI_MENU = null; CI_SWITCH = null;
+  CI_FOCUS = o.addId;
+  if(m === "auto") openCond(d, rerender);
+  else openPick(d, rerender, o.manualKey);
+}
+
+function wireCiSelect(d, o, rerender){
+  const $ = i => document.getElementById(i);
+  const key = o.manualKey;
+  const m   = ciMethodOf(d, key);
+
+  const openMenu = () => { CI_MENU = CI_MENU === o.host ? null : o.host; CI_SWITCH = null; rerender();
+    if(CI_MENU) setTimeout(()=>{ const f = document.querySelector(`#${o.host}CiMenu .cimi`); if(f) f.focus(); },0); };
+
+  if($(o.addId)) $(o.addId).onclick = () => {
+    /* Before a method exists, ask. After one does, this button IS the other method — so it
+       takes the same path as choosing that method from the menu, confirm and all. */
+    if(!m){ openMenu(); return; }
+    ciPickMethod(d, o, m === "auto" ? "manual" : "auto", rerender);
+  };
+  if($(o.host + "CiCar")) $(o.host + "CiCar").onclick = openMenu;
+  if($(o.editId)) $(o.editId).onclick = () => ciOpen(d, o, m, rerender);
+
+  document.querySelectorAll(`[data-cimeth][data-cihost="${o.host}"]`).forEach(b=>{
+    b.onclick = () => ciPickMethod(d, o, b.dataset.cimeth, rerender);
+    /* A menu, not a list of buttons: arrows move, Escape closes and hands focus back. */
+    b.onkeydown = e => {
+      const items = [...document.querySelectorAll(`[data-cimeth][data-cihost="${o.host}"]`)];
+      const i = items.indexOf(b);
+      if(e.key === "ArrowDown"){ e.preventDefault(); items[(i+1)%items.length].focus(); }
+      if(e.key === "ArrowUp"){ e.preventDefault(); items[(i-1+items.length)%items.length].focus(); }
+      if(e.key === "Home"){ e.preventDefault(); items[0].focus(); }
+      if(e.key === "End"){ e.preventDefault(); items[items.length-1].focus(); }
+      /* stopPropagation, or the page's global unwinder takes the drawer as well and one
+         press closes two layers. */
+      if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); CI_MENU = null; rerender();
+        setTimeout(()=>{ const t = document.getElementById(o.addId); if(t) t.focus(); },0); }
+    };
+  });
+
+  if($(o.host + "CiGo")) $(o.host + "CiGo").onclick = () => {
+    const to = CI_SWITCH.to;
+    /* Replace, not merge — the other method's selection is what "replaces" means. */
+    if(to === "manual"){ d.auto = false; d.groups = []; d.policyId = null; }
+    else { d[key] = []; }
+    d.method = to;
+    ciOpen(d, o, to, rerender);
+  };
+  if($(o.host + "CiNo")) $(o.host + "CiNo").onclick = () => { CI_SWITCH = null; rerender();
+    setTimeout(()=>{ const t = document.getElementById(o.addId); if(t) t.focus(); },0); };
 }
 const rtTargets = r => targetIds(r, "manual");
 const bsTargets = p => targetIds(p, "cis");
@@ -3634,6 +3821,8 @@ function wireStack(){
   if(PICK){
     const applyClose = ()=>{ PICK=null; renderStack(); };
     $("pkClose").onclick  = closePick;
+    /* Same destination, different sentence: back returns to the editor, the cross closes. */
+    if($("pkBack")) $("pkBack").onclick = closePick;
     $("pkCancel").onclick = closePick;
     $("pkScrim").onclick  = closePick;
     $("pkQ").oninput = e=>{ PICK.q = e.target.value; renderStack();
@@ -3663,6 +3852,7 @@ function wireStack(){
   if(COND){
     const G = COND.groups;
     $("cbClose").onclick  = closeCond;
+    if($("cbBack")) $("cbBack").onclick = closeCond;
     $("cbCancel").onclick = closeCond;
     $("cbScrim").onclick  = closeCond;
     wireCbGroups(G, renderStack, ()=>{
@@ -3730,6 +3920,7 @@ function renderStack(){
     <div class="dw-scrim lite${pkIn}" id="pkScrim"></div>
     <aside class="dw stack${pkIn}" style="width:${DW2_W}px;max-width:95vw" role="dialog" aria-modal="true" aria-label="Add CIs">
       <div class="dw-head">
+        ${PICK.back ? `<button class="bk" id="pkBack" aria-label="Back to the editor">${IC_BACK}</button>` : ""}
         <div><h3>${PICK.title || "Add CIs"}</h3><p>${PICK.sub || `${pool.length} enrolled CIs are available — only licensed CIs can be targeted`}</p></div>
         <button class="x" id="pkClose" aria-label="Close">${IC_X}</button>
       </div>
@@ -3830,6 +4021,7 @@ function renderStack(){
     <div class="dw-scrim lite${cbIn}" id="cbScrim"></div>
     <aside class="dw stack${cbIn}" style="width:${DW2_W}px;max-width:95vw" role="dialog" aria-modal="true" aria-label="Auto-include conditions">
       <div class="dw-head">
+        ${COND.back ? `<button class="bk" id="cbBack" aria-label="Back to the editor">${IC_BACK}</button>` : ""}
         <div><h3>How should CIs be chosen?</h3><p>Point at a reusable BOM Policy, or write conditions that belong to this rule alone.</p></div>
         <button class="x" id="cbClose" aria-label="Close">${IC_X}</button>
       </div>
@@ -4064,13 +4256,9 @@ function renderModal(){
 
       <hr class="dw-div">
 
-      <div class="sechead">Applies to <span>— use either, or both</span></div>
+      <div class="sechead">Applies to <span>— one method per rule</span></div>
 
-      ${tgtChoiceHTML(d, {
-        manualKey:"manual", condId:"mCond", pickId:"mAdd",
-        autoDesc:"Targets whatever matches — through a BOM Policy or conditions of your own — including new CIs that match later.",
-        manDesc:"Pick specific enrolled CIs. The list stays fixed until you update it manually."
-      })}
+      ${ciSelectHTML(d, RT_CI)}
 
       ${previewBlockHTML("rt")}
     </div>
@@ -4096,12 +4284,7 @@ function renderModal(){
   $("mName").oninput   = e => { d.name = e.target.value; };
   /* The whole card navigates; its tertiary button carries the id but no handler of its
      own, so the click bubbles here and the two can never disagree about what they do. */
-  document.querySelectorAll("#modalHost [data-tgtgo]").forEach(el=>el.onclick=()=>{
-    if(el.dataset.tgtgo === "auto") openCond(d, renderModal);
-    else openPick(d, renderModal, "manual");
-  });
-  /* Absent while a policy is chosen — the policy holds the conditions. */
-  if($("mCond")) $("mCond").onclick = ()=>openCond(d, renderModal);
+  wireCiSelect(d, RT_CI, renderModal);
   wirePolChooser(d, renderModal);
   /* Evidence for the preview's claim — stacked over the draft, never instead of
      it, so the rule stays visible while it is being checked. */
@@ -4139,6 +4322,10 @@ function renderModal(){
 /* Escape unwinds one layer at a time — stacked drawer, then the rule. */
 document.addEventListener("keydown", e=>{
   if(e.key!=="Escape") return;
+  /* The method menu is the topmost layer whenever it is open — above the stacked drawers and
+     above the editor under them. */
+  if(CI_SWITCH){ CI_SWITCH = null; if(RT_DRAFT) renderModal(); if(BS_DRAFT) renderBsDrawers(); return; }
+  if(CI_MENU){ CI_MENU = null; if(RT_DRAFT) renderModal(); if(BS_DRAFT) renderBsDrawers(); return; }
   if(COND) closeCond();
   else if(PICK) closePick();
   else if(TP){ TP=null; TP_MOUNTED=false; renderStack(); }
@@ -4817,12 +5004,8 @@ function renderBsDrawers(){
 
         <hr class="dw-div">
 
-        <div class="sechead">Applies to <span>— use either, or both</span></div>
-        ${tgtChoiceHTML(d, {
-          manualKey:"cis", condId:"bsCond", pickId:"bsPick",
-          autoDesc:"Scans whatever matches — through a BOM Policy or conditions of your own — including new CIs that match later.",
-          manDesc:"Choose specific enrolled CIs. The list stays fixed until you update it manually."
-        })}
+        <div class="sechead">Applies to <span>— one method per schedule</span></div>
+        ${ciSelectHTML(d, BS_CI)}
 
         ${previewBlockHTML("bs")}
       </div>
@@ -4857,13 +5040,7 @@ function renderBsDrawers(){
   $("bsDCancel").onclick = bsClose;
   $("bsScrim").onclick   = ()=>{ if(!PICK && !COND) bsClose(); };
   $("bsName").oninput    = e => { d.name = e.target.value; };
-  /* Card navigates; the tertiary button inside carries the id and bubbles to it. */
-  document.querySelectorAll("#bsHost [data-tgtgo]").forEach(el=>el.onclick=()=>{
-    if(el.dataset.tgtgo === "auto") openCond(d, renderBsDrawers);
-    else openPick(d, renderBsDrawers, "cis");
-  });
-  /* Absent while a policy is chosen — the policy holds the conditions. */
-  if($("bsCond")) $("bsCond").onclick = ()=>openCond(d, renderBsDrawers);
+  wireCiSelect(d, BS_CI, renderBsDrawers);
   /* The same evidence link Retention has, from the same component. */
   if($("tpView-bs")) $("tpView-bs").onclick = ()=>tpOpen("bs");
   wireSchedFields(d, "bs", renderBsDrawers);

@@ -39,12 +39,50 @@ const SEV_DOT: Record<Exclude<SevFilter, ''>, string> = {
 
 type BomTab = 'components' | 'models';
 
-function ComponentsToolbar({
-  tab,
-  searchQuery, setSearchQuery, kev, setKev, kevCount, sev, setSev,
-  focus, setFocus, sevCount, allShown,
+function ComponentsToolbar({ tab }: { tab: BomTab }) {
+  const IconBtn = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <button className="flex h-[30px] w-[30px] items-center justify-center rounded text-[#6b7280] hover:bg-[#f3f4f6]" title={title}>
+      {children}
+    </button>
+  );
+
+
+  return (
+    <div className="bg-white">
+      {/* First row: title + actions. No primary CTA — this listing is read-only, and the
+          standard is to drop the CTA rather than fake one. */}
+      <div className="flex items-center justify-between px-6 pb-2 pt-3">
+        <h1 className="text-[16px] font-semibold text-[#364658]">
+          BOM Inventory <span className="text-[#9CA3AF]">·</span>{' '}
+          <span className="text-[#7B8FA5]">{tab === 'models' ? 'AI Components' : 'Software components'}</span>
+        </h1>
+
+        <div className="flex items-center gap-1">
+          <IconBtn title="Export"><FileText size={16} /></IconBtn>
+          <IconBtn title="Download"><Download size={16} /></IconBtn>
+          <IconBtn title="Refresh"><RefreshCw size={16} /></IconBtn>
+          <IconBtn title="Columns"><Columns3 size={16} /></IconBtn>
+          <IconBtn title="More"><MoreVertical size={16} /></IconBtn>
+        </div>
+      </div>
+
+      {/* No tab strip: which half you are reading is a ROUTE now, chosen in the rail's flyout.
+          A strip here and a flyout there were offering the same choice at two levels, and only
+          one of them could be linked to.
+
+          The readings and the control row are rendered by the PAGE, inside the scroll container,
+          so the cards scroll away while the controls pin. See ComponentsControls. */}
+    </div>
+  );
+}
+
+
+/** The row that narrows the list. Its own component because the PAGE places it — inside the
+ *  scroll container, under the readings, pinned to the top — and a toolbar that renders both
+ *  could not put them in two different scroll contexts. */
+function ComponentsControls({
+  searchQuery, setSearchQuery, kev, setKev, kevCount, sev, setSev, focus, setFocus, sevCount, allShown,
 }: {
-  tab: BomTab;
   searchQuery: string;
   setSearchQuery: (q: string) => void;
   kev: KevFilter;
@@ -79,43 +117,8 @@ function ComponentsToolbar({
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
   }, [sevOpen]);
-  const IconBtn = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <button className="flex h-[30px] w-[30px] items-center justify-center rounded text-[#6b7280] hover:bg-[#f3f4f6]" title={title}>
-      {children}
-    </button>
-  );
-
-
   return (
-    <div className="bg-white">
-      {/* First row: title + actions. No primary CTA — this listing is read-only, and the
-          standard is to drop the CTA rather than fake one. */}
-      <div className="flex items-center justify-between px-6 pb-2 pt-3">
-        <h1 className="text-[16px] font-semibold text-[#364658]">
-          BOM Inventory <span className="text-[#9CA3AF]">·</span>{' '}
-          <span className="text-[#7B8FA5]">{tab === 'models' ? 'AI Components' : 'Software components'}</span>
-        </h1>
-
-        <div className="flex items-center gap-1">
-          <IconBtn title="Export"><FileText size={16} /></IconBtn>
-          <IconBtn title="Download"><Download size={16} /></IconBtn>
-          <IconBtn title="Refresh"><RefreshCw size={16} /></IconBtn>
-          <IconBtn title="Columns"><Columns3 size={16} /></IconBtn>
-          <IconBtn title="More"><MoreVertical size={16} /></IconBtn>
-        </div>
-      </div>
-
-      {/* No tab strip: which half you are reading is a ROUTE now, chosen in the rail's flyout.
-          A strip here and a flyout there were offering the same choice at two levels, and only
-          one of them could be linked to. */}
-      {tab === 'components' && (
-        <>
-      {/* The three readings. Their actions filter the table below rather than navigating, which
-          is why they live inside the toolbar. */}
-      <div className="px-6 pb-4 pt-4">
-        <SoftwareComponentsKpis rows={SOFTWARE_COMPONENTS} focus={focus} setFocus={setFocus} />
-      </div>
-
+    <>
       {/* One control row. No tab strip above it: the list shows everything by default, and the
           cuts through it — severity, known-exploited, and whatever a KPI card is filtering — all
           live here as controls rather than as places you navigate to. */}
@@ -197,24 +200,25 @@ function ComponentsToolbar({
             </>
           )}
         </div>
-        {/* A card's filter announces itself here and is removable here — the only two
-            places it can be cleared are its own card and this chip. */}
-        {focus && (
-          <span className="inline-flex h-[34px] flex-shrink-0 items-center gap-1.5 rounded-full bg-[#E8F4FD] pl-3 pr-1.5 text-[13px] font-medium text-[#3D8BD0]">
-            {FOCUS_LABEL[focus]}
-            <button onClick={() => setFocus(null)} aria-label={`Clear the ${FOCUS_LABEL[focus]} filter`}
-                    className="rounded-full p-0.5 transition-colors hover:bg-[#D0E8F9]">
-              <X size={14} />
-            </button>
-          </span>
-        )}
-        <div className="relative flex-1">
+        {/* A card's filter rides INSIDE the search box as a chip. It and the typed query are
+            both ways of narrowing the same list, so they read as one control — and a chip is
+            already the shape a removable narrowing takes. */}
+        <div className="relative flex flex-1 items-center gap-2 rounded border border-[#d1d5db] bg-white pl-2 pr-10 focus-within:border-[#3D8BD0] focus-within:ring-1 focus-within:ring-[#3D8BD0]">
+          {focus && (
+            <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-sm bg-[#EBF5FF] px-2 py-0.5 text-[13px] text-[#3D8BD0]">
+              {FOCUS_LABEL[focus]}
+              <button onClick={() => setFocus(null)} aria-label={`Clear the ${FOCUS_LABEL[focus]} filter`}
+                      className="text-[#3D8BD0]/70 transition-colors hover:text-[#DC2626]">
+                <X size={13} />
+              </button>
+            </span>
+          )}
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search ID, name, version or PURL..."
-            className="h-[34px] w-full rounded border border-[#d1d5db] bg-white pl-3 pr-10 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+            placeholder={focus ? 'Search within this…' : 'Search ID, name, version or PURL...'}
+            className="h-[34px] min-w-0 flex-1 bg-transparent text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:outline-none"
           />
           {searchQuery ? (
             <button
@@ -228,9 +232,7 @@ function ComponentsToolbar({
           )}
         </div>
       </div>
-        </>
-      )}
-    </div>
+    </>
   );
 }
 
@@ -284,20 +286,7 @@ export function SoftwareComponentsListPage({ onNavigate, tab = 'components' }: {
       <Sidebar activePage={tab === 'models' ? 'ai-components' : 'software-components'} onNavigate={onNavigate} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header selectedCount={0} onOpenAdmin={() => onNavigate('admin')} />
-        <ComponentsToolbar
-          tab={tab}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          sev={sev}
-          setSev={setSev}
-          sevCount={sevCount}
-          allShown={focused.length}
-          focus={focus}
-          setFocus={setFocus}
-          kev={kev}
-          setKev={setKev}
-          kevCount={SOFTWARE_COMPONENTS.filter(isKev).length}
-        />
+        <ComponentsToolbar tab={tab} />
         <main className="flex flex-1 flex-col overflow-hidden">
           {tab === 'models' ? (
             /* The AI tab owns its own readings, controls and table — the two BOMs share a header
@@ -306,6 +295,26 @@ export function SoftwareComponentsListPage({ onNavigate, tab = 'components' }: {
           ) : (
             <>
               <div className="min-h-0 flex-1 overflow-auto bg-white">
+                {/* Read once, on arrival — so they scroll away with the list. */}
+                <div className="px-6 pb-4 pt-4">
+                  <SoftwareComponentsKpis rows={SOFTWARE_COMPONENTS} focus={focus} setFocus={setFocus} />
+                </div>
+                {/* The one thing that stays: you filter at any depth in a list. */}
+                <div className="sticky top-0 z-20 border-b border-[#E5E7EB] bg-white">
+                  <ComponentsControls
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    sev={sev}
+                    setSev={setSev}
+                    sevCount={sevCount}
+                    allShown={focused.length}
+                    focus={focus}
+                    setFocus={setFocus}
+                    kev={kev}
+                    setKev={setKev}
+                    kevCount={SOFTWARE_COMPONENTS.filter(isKev).length}
+                  />
+                </div>
                 <SoftwareComponentsTable
                   rows={paginated}
                   onRowClick={(c) => openInStack('software-components', c.id, `${c.name} ${c.version}`, c)}

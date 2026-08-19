@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Download, Columns3, ChevronLeft, ChevronRight, Check, Filter, ShieldAlert } from 'lucide-react';
+import { X, Search, Download, Columns3, Filter, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
+import { BomFilterSearch, matches } from './BomFilterSearch';
+import type { Condition } from './BomFilterSearch';
 import { bomComponents, bomCryptoAssets, bomAiAssets, bomDiff, bomCiId, bomDependencies } from './bomData';
 import { describeAiAsset, KIND_TITLE } from './aiModelsData';
 import { BomDependencyTree } from './BomDependencyTree';
@@ -40,23 +42,7 @@ function TintPill({ value, map }: { value: string; map: Record<string, { bg: str
   );
 }
 
-type Operator = 'is' | 'is not' | 'contains' | 'does not contain';
-const OPERATORS: Operator[] = ['is', 'is not', 'contains', 'does not contain'];
-/** is / is not pick from the column's real values; contains takes free text. */
-const isListOperator = (op: Operator) => op === 'is' || op === 'is not';
 
-interface Condition { field: string; op: Operator; value: string }
-
-const matches = (cellValue: string, c: Condition): boolean => {
-  const a = cellValue.toLowerCase();
-  const b = c.value.toLowerCase();
-  switch (c.op) {
-    case 'is': return a === b;
-    case 'is not': return a !== b;
-    case 'contains': return a.includes(b);
-    case 'does not contain': return !a.includes(b);
-  }
-};
 
 /** How this version's listing can be narrowed: by what it changed, or by what carries a CVE. */
 export type ChangeTab = 'All' | 'CVEs' | 'Added' | 'Updated' | 'Removed' | 'Unchanged';
@@ -85,32 +71,29 @@ interface BomComponentsPanelProps {
    *  level underneath stays visible. */
   width?: number;
   /** Names what dismissing this returns to. Set when it is stacked on another drawer. */
-  backLabel?: string;
 }
 
 export function BomComponentsPanel({
   isOpen, onClose, endpointId, hostName, productKey, productLabel, type, version, format,
-  cveFirst = false, initialTab = 'All', focusComponent, width, backLabel,
+  cveFirst = false, initialTab = 'All', focusComponent, width,
 }: BomComponentsPanelProps) {
   const [tab, setTab] = useState<ChangeTab>(initialTab);
   /* Two views of the same BOM. The list says WHAT is installed; the tree says why it is here.
      Only SBOM has a graph — a crypto asset or a model has no manifest to resolve. */
   const [view, setView] = useState<'components' | 'dependencies'>(focusComponent && type === 'SBOM' ? 'dependencies' : 'components');
   const [conditions, setConditions] = useState<Condition[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  /* Search is hidden until asked for: on a screen whose first move is almost always a tab,
+     a permanently open filter bar spends a row on the second-most-likely action. */
+  const [searchOpen, setSearchOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
-  // Filter builder: null = closed, else which step of field → operator → value we are on.
-  const [builder, setBuilder] = useState<{ field?: string; op?: Operator } | null>(null);
-  const [valueQuery, setValueQuery] = useState('');
-  const valueInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setCurrentPage(1); }, [conditions]);
   // A different BOM type / scope / version means different columns — start clean.
   useEffect(() => {
     if (!isOpen) return;
-    setConditions([]); setSelected(new Set()); setCurrentPage(1); setBuilder(null); setValueQuery('');
+    setConditions([]); setSearchOpen(false); setCurrentPage(1);
   }, [isOpen, type, productKey, version]);
   // Each opening honours the count that was clicked, so re-opening on a different metric lands
   // on that metric's tab rather than wherever the panel was last left.
@@ -287,19 +270,10 @@ export function BomComponentsPanel({
   const totalPages = Math.ceil(filtered.length / itemsPerPage) || 1;
   const pageRows = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const toggleRow = (id: string, on: boolean) =>
-    setSelected((prev) => { const n = new Set(prev); on ? n.add(id) : n.delete(id); return n; });
-  const pageAllSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r.id));
-
-  const addCondition = (value: string) => {
-    if (!builder?.field || !builder.op || !value.trim()) return;
-    setConditions((prev) => [...prev, { field: builder.field!, op: builder.op!, value: value.trim() }]);
-    setBuilder(null); setValueQuery('');
-  };
-
   // Export acts on the selection when there is one, otherwise on everything filtered.
-  const exportCount = selected.size > 0 ? selected.size : filtered.length;
-  const exportLabel = selected.size > 0 ? `Export ${selected.size}` : 'Export All';
+  /* Everything on the current cut, always — there is nothing to select, so there is no second
+     answer to "what would this export?". */
+  const exportCount = filtered.length;
 
   return (
     <div className="fixed inset-0 z-[10010] flex items-center justify-end bg-black/40">
@@ -309,18 +283,9 @@ export function BomComponentsPanel({
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-[#DFE5ED] px-5 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
-            {backLabel && (
-              <button
-                onClick={onClose}
-                title={`Back to ${backLabel}`}
-                className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] text-[#7B8FA5] transition-colors hover:border-[#3D8BD0] hover:bg-[#F5F7FA] hover:text-[#3D8BD0]"
-              ><ChevronLeft size={16} /></button>
-            )}
             <div className="min-w-0">
-              <h3 className="text-[16px] font-semibold text-[#364658]">{title}</h3>
-              <p className="mt-0.5 text-[13px] text-[#7B8FA5]">
-                {bomCiId(endpointId)} · {hostName} · {productLabel} · {type} v{version} · {format}
-              </p>
+              <h3 className="truncate text-[16px] font-semibold text-[#364658]">{productLabel}</h3>
+              <p className="mt-0.5 truncate text-[13px] text-[#7B8FA5]">{title}</p>
             </div>
           </div>
           <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
@@ -386,8 +351,11 @@ export function BomComponentsPanel({
         <>
 
         {/* What this version changed. The tab is the first cut a reviewer makes — "show me only
-            what came in" — so it sits above the search rather than inside it. */}
-        <div className="flex items-center gap-2.5 border-b border-[#EEF2F6] px-5">
+            what came in" — so it sits above the search rather than inside it.
+
+            SECONDARY treatment (bordered pills), not the underline the Components/Dependencies
+            row above uses: two levels of tab drawn identically read as one level repeated. */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-[#EEF2F6] px-5 py-2.5">
           {shownTabs.map((t) => {
             const n = tabCount(t);
             const on = tab === t;
@@ -398,163 +366,69 @@ export function BomComponentsPanel({
               <button
                 key={t}
                 onClick={() => { setTab(t); setCurrentPage(1); }}
+                aria-pressed={on}
                 title={t === 'CVEs' ? `${n} component${n === 1 ? '' : 's'} carrying ${totalCves} CVE${totalCves === 1 ? '' : 's'}` : undefined}
-                className={`flex items-center gap-1.5 border-b-2 px-2 py-3 text-[13px] transition-colors ${
+                className={`inline-flex h-8 items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
                   on
-                    ? 'border-[#3D8BD0] font-medium text-[#3D8BD0]'
-                    : 'border-transparent text-[#64748B] hover:border-[#CBD5E1] hover:bg-[#F9FAFB]'
+                    ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+                    : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
                 }`}
               >
-                {t === 'CVEs' && <ShieldAlert size={13} className={risk ? 'text-[#DC2626]' : 'text-[#9CA3AF]'} />}
+                {t === 'CVEs' && <ShieldAlert size={13} className={risk ? 'text-[#DC2626]' : on ? 'text-[#3D8BD0]' : 'text-[#9CA3AF]'} />}
                 {t}
-                <span className={`rounded-sm px-1.5 py-px text-[11px] font-semibold ${
-                  risk ? 'bg-[#FEF3F2] text-[#DC2626]' : on ? 'bg-[#EBF5FF] text-[#3D8BD0]' : 'bg-[#F1F5F9] text-[#64748B]'
+                <span className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[11px] font-semibold tabular-nums ${
+                  risk ? 'bg-[#FEF3F2] text-[#DC2626]' : on ? 'bg-[#3D8BD0] text-white' : 'bg-[#EEF2F6] text-[#64748B]'
                 }`}>{n}</span>
               </button>
             );
           })}
-        </div>
 
-        {/* Search that builds filters — one control instead of a select per column */}
-        <div className="flex items-start gap-2 px-5 py-3">
-          <div className="relative flex-1">
-            <div
-              onClick={() => { if (!builder) setBuilder({}); }}
-              className={`flex min-h-8 w-full cursor-text flex-wrap items-center gap-1.5 rounded border bg-white px-2.5 py-1 transition-colors ${
-                builder ? 'border-[#3D8BD0] ring-1 ring-[#3D8BD0]' : 'border-[#d1d5db]'
-              }`}
-            >
-              {conditions.map((c, i) => (
-                <span key={i} className="inline-flex items-center gap-1 rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] text-[#3D8BD0]">
-                  <span className="font-medium">{c.field}</span>
-                  <span className="text-[#7B8FA5]">{c.op}</span>
-                  <span className="font-medium">{c.value}</span>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setConditions((p) => p.filter((_, j) => j !== i)); }}
-                    className="text-[#3D8BD0]/70 hover:text-[#DC2626]"
-                  ><X size={12} /></button>
-                </span>
-              ))}
-              {conditions.length === 0 && !builder && (
-                <span className="text-[13px] text-[#9ca3af]">Select field to search...</span>
-              )}
-              {builder && (
-                <span className="inline-flex items-center gap-1 text-[13px] text-[#364658]">
-                  {builder.field && <span className="font-medium">{builder.field}</span>}
-                  {builder.field && <ChevronRight size={13} className="text-[#9CA3AF]" />}
-                  {builder.op && <span className="text-[#7B8FA5]">{builder.op}</span>}
-                  {builder.op && <ChevronRight size={13} className="text-[#9CA3AF]" />}
-                </span>
-              )}
-              <Search className="ml-auto flex-shrink-0 text-[#9ca3af]" size={16} />
-            </div>
-
-            {/* Three-step popup: field → operator → value */}
-            {builder && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => { setBuilder(null); setValueQuery(''); }} />
-                <div className="absolute left-0 top-full z-50 mt-1 w-[320px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                  {!builder.field && (
-                    <>
-                      <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Filter by field</div>
-                      <div className="max-h-[300px] overflow-y-auto">
-                        {fieldNames.map((f) => (
-                          <button
-                            key={f}
-                            onClick={() => setBuilder({ field: f })}
-                            className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
-                          >
-                            {f}<ChevronRight size={14} className="text-[#9CA3AF]" />
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-
-                  {builder.field && !builder.op && (
-                    <>
-                      <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Operator</div>
-                      {OPERATORS.map((op) => (
-                        <button
-                          key={op}
-                          onClick={() => { setBuilder({ ...builder, op }); setValueQuery(''); setTimeout(() => valueInputRef.current?.focus(), 0); }}
-                          className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
-                        >
-                          {op}<ChevronRight size={14} className="text-[#9CA3AF]" />
-                        </button>
-                      ))}
-                    </>
-                  )}
-
-                  {builder.field && builder.op && (
-                    <>
-                      <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Value</div>
-                      <div className="px-3 pb-2">
-                        <input
-                          ref={valueInputRef}
-                          type="text"
-                          value={valueQuery}
-                          onChange={(e) => setValueQuery(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') addCondition(valueQuery); }}
-                          placeholder={isListOperator(builder.op) ? 'Search values...' : 'Type a value, then Enter'}
-                          className="h-8 w-full rounded border border-[#E5E7EB] bg-[#F9FAFB] px-3 text-[13px] text-[#364658] placeholder:text-[#9CA3AF] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#3D8BD0]"
-                        />
-                      </div>
-                      {isListOperator(builder.op) && (
-                        <div className="max-h-[240px] overflow-y-auto">
-                          {valuesFor(builder.field)
-                            .filter((v) => !valueQuery.trim() || v.toLowerCase().includes(valueQuery.trim().toLowerCase()))
-                            .map((v) => (
-                              <button
-                                key={v}
-                                onClick={() => addCondition(v)}
-                                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
-                              >
-                                <span className="truncate">{v}</span>
-                                <Check size={14} className="flex-shrink-0 text-transparent" />
-                              </button>
-                            ))}
-                          {valuesFor(builder.field).filter((v) => !valueQuery.trim() || v.toLowerCase().includes(valueQuery.trim().toLowerCase())).length === 0 && (
-                            <div className="px-3 py-3 text-center text-[13px] text-[#9CA3AF]">No matching values</div>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </>
+          {/* Far right of the SAME row: what to take away, and the way to narrow it. */}
+          <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+            {conditions.length > 0 && (
+              <button
+                onClick={() => setConditions([])}
+                className="inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-2.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+              >
+                <Filter size={14} className="text-[#7B8FA5]" /> Clear all
+              </button>
             )}
-          </div>
-
-          {conditions.length > 0 && (
             <button
-              onClick={() => setConditions([])}
-              className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-2.5 text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-            >
-              <Filter size={14} className="text-[#7B8FA5]" /> Clear all
+              onClick={() => setSearchOpen((v) => !v)}
+              aria-pressed={searchOpen}
+              title={searchOpen ? 'Hide search' : 'Search and filter'}
+              className={`flex size-8 items-center justify-center rounded border transition-colors ${
+                searchOpen || conditions.length > 0
+                  ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+                  : 'border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
+              }`}
+            ><Search size={16} /></button>
+            <button className="flex size-8 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]" title="Columns">
+              <Columns3 size={16} />
             </button>
-          )}
-          <button className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]" title="Columns">
-            <Columns3 size={16} />
-          </button>
-          {/* Export sits with the controls that decide WHAT gets exported — the tab, the search
-              and the selection — rather than up in the title bar away from all of them. */}
-          <button
-            onClick={() => toast.success(`${exportCount} ${noun} exported`)}
-            className="inline-flex h-8 flex-shrink-0 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
-          >
-            <Download size={15} /> {exportLabel}
-          </button>
+            {/* Export sits with the controls that decide WHAT gets exported — the tab and the
+                search — rather than up in the title bar away from both. */}
+            <button
+              onClick={() => toast.success(`${exportCount} ${noun} exported`)}
+              className="inline-flex h-8 items-center gap-1.5 rounded bg-[#3D8BD0] px-3 text-[13px] font-medium text-white transition-colors hover:bg-[#3479b5]"
+            >
+              <Download size={15} /> Export
+            </button>
+          </div>
         </div>
 
-        {/* Selection bar */}
-        {selected.size > 0 && (
-          <div className="mx-5 mb-3 flex items-center gap-3 rounded border border-[#E3E8EF] bg-white px-3.5 py-2 text-[13px]">
-            <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-md bg-[#EAF2FB] px-1.5 text-[12px] font-semibold tabular-nums text-[#3D8BD0]">{selected.size}</span>
-            <span className="text-[#64748B]">{selected.size === 1 ? 'record' : 'records'} selected</span>
-            <span className="h-4 w-px bg-[#E3E8EF]" />
-            <button onClick={() => setSelected(new Set())} className="text-[12px] font-medium text-[#3D8BD0] hover:underline">Unselect all</button>
-          </div>
+        {/* Search that builds filters — one control instead of a select per column. Its own
+            line, full width, so a long stack of filter chips has room to wrap without squeezing
+            the buttons it used to sit beside. */}
+        {searchOpen && (
+        <div className="flex items-start gap-2 border-b border-[#EEF2F6] px-5 py-3">
+          <BomFilterSearch
+            fields={fieldNames}
+            valuesFor={valuesFor}
+            conditions={conditions}
+            onChange={(next) => { setConditions(next); setCurrentPage(1); }}
+          />
+        </div>
         )}
 
         {/* Grid */}
@@ -563,21 +437,6 @@ export function BomComponentsPanel({
           <table className={`w-full ${type === 'SBOM' ? 'min-w-[1320px]' : 'min-w-[1180px]'}`}>
             <thead className="sticky top-0 z-10 border-b border-[#e5e7eb] bg-white">
               <tr>
-                <th className="w-[40px] px-4 py-2.5 text-left">
-                  <input
-                    type="checkbox"
-                    checked={pageAllSelected}
-                    onChange={(e) => {
-                      const on = e.target.checked;
-                      setSelected((prev) => {
-                        const n = new Set(prev);
-                        pageRows.forEach((r) => (on ? n.add(r.id) : n.delete(r.id)));
-                        return n;
-                      });
-                    }}
-                    className="h-3.5 w-3.5 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
-                  />
-                </th>
                 {headers.map((h) => (
                   <th key={h} className="whitespace-nowrap px-4 py-2.5 text-left text-[12px] font-semibold tracking-wider text-[#364658]">{h}</th>
                 ))}
@@ -585,17 +444,9 @@ export function BomComponentsPanel({
             </thead>
             <tbody className="divide-y divide-[#e5e7eb] bg-white">
               {pageRows.length === 0 ? (
-                <tr><td colSpan={headers.length + 1} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">No {noun} match your filters.</td></tr>
+                <tr><td colSpan={headers.length} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">No {noun} match your filters.</td></tr>
               ) : pageRows.map((r) => (
                 <tr key={r.id} className="transition-colors hover:bg-[#f9fafb]">
-                  <td className="px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(r.id)}
-                      onChange={(e) => toggleRow(r.id, e.target.checked)}
-                      className="h-3.5 w-3.5 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
-                    />
-                  </td>
                   {r.cells.map((c, ci) => (
                     <td key={ci} className="whitespace-nowrap px-4 py-3 text-[12px] text-[#364658]">
                       {typeof c === 'string' ? (

@@ -184,6 +184,37 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
 - **Pagination min-items rule (central)**: the shared `Pagination` returns `null` when `totalItems <= 10` (smallest page size ⇒ no possible second page) — applies everywhere it's used, incl. filtered-down grids; all patch tabs reset to page 1 on search/filter change so the hidden bar can't strand a stale page.
 - **Onboarding tour is TICKET-page-only**: the first-visit guide (`TicketDetailsOnboarding`, session key `hasSeenTicketDetailsOnboarding`) auto-opens ONLY in `TicketDrawer` + `TicketDrawerV2` — the auto-open `setTimeout` was replaced with a comment in the other 12 drawers. Only `TicketActionsMenu` ever rendered the manual "Restart Tour" item, so no menu edits were needed.
 
+- **BOM dashboard — the shared pieces (`bomDashboardUi.tsx` unless noted).** `Card` is the ONE
+  card shell and its header is a **fixed 50px** (`h-[50px]`, no `py`): header height used to be
+  padding plus whatever the action button happened to be, so a card with a `ViewAll` came out
+  ~50px and one with a bare text link ~42px, and their bodies started at different heights in the
+  same row. `Card` takes `sub` (a string, so it truncates with its own `title`) and `subInfo` (an
+  info dot beside it). `DIST_BLOCK` / `DIST_RING` / `DIST_LEGEND` / `DIST_ROW` / `DIST_PCT` are the
+  distribution-card measurements, shared by **Licence distribution** and **Managed paths** so the
+  two rings cannot drift; `layout` is a **prop, not a breakpoint**, because the two dashboards put
+  these cards in columns of different widths at the same viewport. `EolTimeline` is the AI
+  lifecycle axis (fixed −450→+180 domain, clamped outliers, one rule at zero). `BomKpiCard` is the
+  KPI grammar (see `BOM/CLAUDE.md` §4). **New files:** `BomComponentListDrawer.tsx` (the list
+  behind a chart's count), `BomFilterSearch.tsx` (shared field→operator→value builder),
+  `BomKpiCard.tsx`.
+- **Dashboard click-through, two rules:** a **row** is one thing and opens its detail page; a
+  **slice** is a count and opens the list behind it, whose rows open details. The list drawer sits
+  at `z-[9000]` — below the drawer stack — so a component detail stacks OVER it and closing that
+  returns to the list. ⚠️ Its rows come from **`bomDashboard().components`**, derived from the same
+  `uniqueComponents` map the charts are counted from, NOT from `SOFTWARE_COMPONENTS` — that is a
+  12-row fixture with six Apache-2.0 rows while the donut counts 167, and a slice labelled 167 that
+  opens six things is this module's own north-star failure.
+- **Two data rules in `bomData.ts` that are easy to undo.** (1) A generated version variant must
+  NOT inherit the catalogue entry's `cves` — the spread used to carry them, so one library reported
+  the same advisory at nine versions including the ones that would be the fix. (2) Anything walking
+  all 30 endpoints via `bomForEndpoint` must be cached or deferred, never run per render: the
+  ingest panel's product list did it in a `useMemo` and made a step-1 card click stop repainting.
+- **CI targeting in the admin prototype is ONE METHOD per rule** (`public/bom-admin/index.html`):
+  `ciSelectHTML` / `wireCiSelect` is one shared component mounted by the Schedule editor and the
+  Retention rule editor, `RT_CI` / `BS_CI` differing only in element ids and whether the
+  hand-picked list is `manual` or `cis`. `targetIds` no longer unions automatic and hand-picked;
+  `ciMethodOf` derives the method for records saved before that existed.
+
 ## Deployment
 Repo: https://github.com/Nikhil482008/serviceops-portal
 Live URL: https://nikhil482008.github.io/serviceops-portal/
