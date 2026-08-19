@@ -1,104 +1,102 @@
-# Handoff — 2026-08-19 21:37
+# Handoff — 2026-08-20 05:06
 
 ## Read first
 
-`CLAUDE.md` → the **BOM dashboard shared pieces** bullet, the **click-through two rules** bullet,
-and the **two data rules in `bomData.ts`** bullet. Those three carry everything a change to this
-module can accidentally undo. For the reasoning behind each decision (and the losses recorded
-along the way), `../../BOM/HANDOFF.md` is the narrative — it was updated as the session went.
+`CLAUDE.md` → the **CI targeting** bullet (the model changed twice this session and the second
+change reverted the first), the **`ruleAutoIds` / `ruleHits`** bullet (two resolvers on purpose
+— do not collapse them), and the **BOM dashboard shared pieces** bullet. For the reasoning
+behind every decision below, and the record of what was deleted, `../../BOM/HANDOFF.md` is the
+narrative — it was updated continuously as the session went and is much longer than this file.
 
 ## What we worked on this session
 
-The BOM dashboard, end to end, across roughly twenty-five requested changes — layout, wording,
-click-through, and two data bugs found underneath them. Then one larger feature: a shared
-CI-selection flow for the Scheduler and Retention editors in the `bom-admin` prototype.
+Almost entirely `public/bom-admin/index.html` — the **BOM Management** screens (Licensing,
+Scheduler, Retention, BOM Policies). Two model corrections, one large UI standardisation pass,
+and three real bugs found by driving the page rather than reading it.
 
 ## Completed
 
-**Dashboard layout** — settled at three bands: KPIs, then `Components with highest exposure ·
-Licence distribution · Managed paths` (3-up), then `Expiring trust material · Deprecated AI models`
-(2-up). Every `Card` header is a fixed 50px so all bodies start at the same y — they never were
-before. Page subtitle and several footer paragraphs removed.
+**CI selection — the model, corrected twice.** It went to *one method per rule*, then the user
+corrected that: automatic and manual **combine**. `targetIds` is their union again, and
+**`ciSnapshot` is the single read** behind the rows, the overlap and the coverage total, so the
+numbers on screen cannot disagree. The add block offers what is **missing** (`+ Add CIs` →
+`+ Also add by CI type` / `+ Also add specific CIs` → hidden when both are set), and rows state
+**counts and criteria, never hostnames** — a name list does not survive 100 CIs.
 
-**Deprecated AI models** rebuilt as a **diverging end-of-life axis** (`EolTimeline`): one shared
-scale, fixed −450 → +180 domain, outliers clamped with a cut-to-a-point end, a single rule at zero.
-It replaced a column that drew two different measurements — "how far overdue" and "how much life
-left" — with no scale in common.
+**Reuse redefined.** "Use a BOM Policy" became **"Reuse an existing rule"** — a rule configured
+in *another module*, grouped by source, excluding the module being edited. That makes resolution
+recursive and therefore cyclable, so both resolvers carry a `seen` set: **`ruleAutoIds`**
+(enrolment-intersected — Scheduler, Retention) and **`ruleHits`** (discovered estate —
+Licensing, because it hands out the seats). Rolled out to all three editors; the BOM-Policy
+chooser had no mount left and was deleted.
 
-**Licence distribution** gained an **SBOM/CBOM switch**. CBOM has no licence data, so the switch
-changes what the card counts (algorithms + post-quantum posture), not just its filter. The control
-sits **out of flow** in the chart's top-left corner: in flow it would push the ring down and the
-ring on the card beside it would not follow.
+**Chrome, swept.** Every drawer/modal header in BOM Management is title + close; evidence that
+existed nowhere else moved to `.dw-cap` captions or the footer (the full before/after table is in
+`BOM/HANDOFF.md`). Section headings lost their em-dash appendages to ⓘ buttons. The three page
+sub-lines are one short line each.
 
-**Managed paths** splits by product — NextGen · ServiceOps · FlotoMate · ObserveOps — with each
-path's product a **hash of its own identity**, not a random draw, so the ring is identical on every
-render and the suite can assert it.
+**Retention rule drawer** says "rule" everywhere, in two folds (Schedule/Retention policy +
+Coverage), with the whichever-comes-first mechanic in an ⓘ and per-field `default` tags.
 
-**Click-through** on two rules: a row opens its detail page, a slice opens the list behind its
-count (`BomComponentListDrawer`), whose rows open details.
+**KPI cards** on Scheduler and Retention moved onto the **product standard** (`BOM/CLAUDE.md` §4,
+`BomKpiCard.tsx`): two lines, header action revealed on hover *and* focus and pinned on touch,
+ⓘ definition, at most one chip, context that truncates first.
 
-**Elsewhere** — Sources chips in the components register took the License chip's neutral grey; the
-ingest panel's Product name became a combobox with free text marked "New product"; the BOM flyout
-was reordered with three entries hidden (not deleted).
+**One enabled/disabled switch** across all four screens (`toggleHTML`), replacing four
+verb-labelled text buttons; **a disabled schedule policy can no longer be Run now**.
 
-**`bom-admin` prototype** — a shared **CI-selection section** in the Schedule and Retention
-editors: State 0 is one `+ Add CIs` button opening a real menu; State 1 is a summary with Edit,
-plus a button naming the *other* method and a caret to the full choice. Existing pickers reused,
-both given back arrows.
+**Two clipping bugs fixed.** Tooltips became a document-level fixed layer (they were clipped by
+`.dw-body` and cut off at the drawer edge). The toolbar and table header now stick under the
+topbar.
 
 ## In progress
 
-Nothing mid-flight. Every change is built, verified and left green.
+Nothing mid-flight. Everything is built, verified and left green.
 
 ## Next steps
 
-1. **One manual devtools pass** on the dashboard at three widths. jsdom has no layout, so bar
-   geometry, ring alignment and the fixed header height are asserted as *construction*, not pixels.
-2. **Decide the losses.** Several things were removed at request and are recorded as `KNOWN
-   REMOVAL` checks rather than deleted — most importantly the AI panel's "N models · no EOL data"
-   line (nine of fourteen models publish no EOL date and the panel now reads as complete) and the
-   licence card's Denied/Restricted/Undeclared states. Each is one line to restore.
-3. **Dashboard 2's AI panel** still uses its own fitted-span treatment. The two dashboards now
-   disagree about how a model lifecycle is drawn.
-4. **`ngrok`** was attempted and dropped — see Gotchas if it comes back.
+1. **Close the KPI gap:** Licensing and BOM Policies are still on the prototype's older
+   bottom-action card grammar, so the module now shows two card shapes. Asserted as a KNOWN GAP
+   in `admkpicheck.mjs` so it cannot be mistaken for conformance.
+2. **One manual devtools pass.** jsdom has no layout, so every geometry claim this session —
+   the sticky offsets, the one-line coverage preview truncating, the KPI row's `flex:none`
+   behaviour, tooltip clamping — is asserted as *construction*, not pixels.
+3. **Settle the BOM Policy story.** Reuse now means "another module's rule", which contradicts
+   `BOM/CLAUDE.md`'s "one policy drives rules in three modules". Policies still exist and legacy
+   `policyId` still resolves, but the reusable-audience idea has two shapes and only one is
+   reachable from the drawers.
+4. **Decide the recorded removals** — every deletion is a `KNOWN REMOVAL` check rather than a
+   silent drop. Most notable: the picker's "only licensed CIs can be targeted" scope line, and
+   the "Applies to" column's kind pill.
 
 ## Decisions made
 
-- **The list behind a count comes from the charts' own population**, not `SOFTWARE_COMPONENTS`.
-  That register is 12 hand-authored rows; the donut counts 711. Clicking "167" and getting six is
-  the failure this module is built against.
-- **A generated component version does not inherit the catalogue entry's CVEs.** An advisory
-  applies to a version *range*, and the spread was attaching it to the very versions that would be
-  the fix. No range data exists in the fixture, so the catalogue version carries the finding.
-- **CI targeting became one method per rule.** `targetIds` used to union automatic and hand-picked;
-  `BOM/CLAUDE.md` already described the Scheduler as having two intents, so the code and the doc
-  disagreed and the doc won. Checked the seeds first — none carries both.
-- **"Randomly" was implemented as a stable hash.** A chart that redraws differently between two
-  renders is not a reading, and `Math.random()` would make every check unrepeatable.
-- **Deviations flagged, not hidden.** Day labels sit outside their bars (white-on-fill fails AA);
-  the ring caption dropped to 8px, below the design system's scale; the licence heading now names
-  something the CBOM view does not show. All three are recorded in the suites.
+- **`ciSnapshot` is the single read.** Rows, overlap and total come from it, so a naive
+  `auto + manual` is structurally impossible.
+- **Two resolvers, deliberately.** Licensing counts the discovered estate; the other two count
+  the enrolled set. Collapsing them would make one module lie.
+- **The count is the affordance.** Where chrome was deleted (the coverage card, the preview
+  card), the number itself became the link, so no drawer became unreachable.
+- **Removals are recorded, not silent.** Every deleted line has a `KNOWN REMOVAL` check naming
+  what went and where the fact now lives.
+- **Deviations are stated.** The Scheduler's switch card breaks the KPI standard twice (a state,
+  not a number; a pinned action) — both with reasons beside the code.
 
 ## Gotchas & notes
 
-- **`vite build` does not typecheck.** Behaviour is verified by bundling with the project's esbuild
-  and driving it in jsdom. The `bom-admin` prototype is a vanilla page, so jsdom runs the real
-  document — a page whose script dies at load still renders its markup and passes every static check.
-- **Check misattribution is the recurring trap here.** Several checks matched the right *string* on
-  the wrong *element*: four asserted "the components card carries its scale line" while actually
-  matching the licence card's footer several panels away; another proved "Dashboard 1 keeps its
-  ranked list" by testing for caption wording that has since changed three times. **A
-  `body.includes` on a page with fifteen panels is not a claim about a card.** Every panel is now
-  found by its own `h3` (`panelOf`) — the previous lookup, `txt(card).startsWith(title)`, assumed
-  nothing is ever drawn before the title, and one control broke ten lookups at once.
-- **Escape bubbling.** In the admin prototype the page has a global unwinder that knows nothing
-  about a menu, so one press closed two layers until the menu started stopping the event.
-- **ngrok:** winget ships 3.3.1, the account needs ≥3.20.0; `ngrok update` fetched 3.39.11 and
-  **Windows Defender then refused to run it** as potentially-unwanted software. Not worked around —
-  that is the machine owner's call. If retried, Vite 6 also needs `server.allowedHosts` for the
-  tunnel host or it answers "Blocked request" and nothing else.
-- **Suites** live in the session scratchpad: `dashcheck` (484), `dash2check` (145), `aicheck` (226),
-  `ingestcheck` (92), `cicheck` (76, the new CI-selection flow), `admbomcheck` (172), plus
-  `kpicheck`, `managecheck`, `drawercheck`, `ovcheck`, `bomprobe`, `chaincheck`. All green.
-- **`public/` is not what the built app serves** — `dist/` is. Run `npm run build` before judging a
-  change to `public/bom-admin/index.html`; this session's build was confirmed byte-identical.
+- **A broken template renders NOTHING and logs nothing.** Every renderer is wrapped in a
+  try/catch that logs and moves on, so an empty card row is the only symptom. I broke the
+  Retention row with **backticks inside an HTML comment inside a template literal** and only
+  caught it because a suite calls each renderer directly. `admkpicheck.mjs` now does that by
+  design.
+- **`overflow-x:auto` makes a box a scroll container on BOTH axes** (CSS computes the visible
+  axis to `auto`), which is why the sticky table header never worked. `overflow-y:clip` keeps
+  the sideways scrolling without creating a scroll container.
+- **Check misattribution, twice more.** A grep for "never say *automatically*" matched its own
+  rationale comment; another asserted the shared CSS existed rather than the result on the
+  screen being ported to, which is how Licensing shipped without the option gap.
+- **Suites live in the session scratchpad** (`cicheck` 188, `admbomcheck` 174, `condcheck` 116,
+  `admkpicheck` 111, `schedcheck` 76, `liccheck` 61, `headcheck` 54, `tglcheck` 40, `tipcheck`
+  30, `admincheck` 18, `rtsame` 17) — all green.
+- **`public/` is not what the built app serves** — `dist/` is. Run `npm run build` before
+  judging a change to `public/bom-admin/index.html`.

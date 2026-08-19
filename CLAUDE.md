@@ -209,11 +209,38 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   the same advisory at nine versions including the ones that would be the fix. (2) Anything walking
   all 30 endpoints via `bomForEndpoint` must be cached or deferred, never run per render: the
   ingest panel's product list did it in a `useMemo` and made a step-1 card click stop repainting.
-- **CI targeting in the admin prototype is ONE METHOD per rule** (`public/bom-admin/index.html`):
+- **CI targeting in the admin prototype COMBINES both methods** (`public/bom-admin/index.html`).
+  A rule may target automatically (by CI type / BOM Policy) AND by hand at once; `targetIds` is
+  their **union**, and a CI picked both ways counts once. ⚠ An earlier pass modelled this as ONE
+  method per rule — that was wrong and was reverted; if you find `ciMethodOf`, `d.method`, a
+  switch confirm or a button that names "the other method", they are from that dead model.
   `ciSelectHTML` / `wireCiSelect` is one shared component mounted by the Schedule editor and the
   Retention rule editor, `RT_CI` / `BS_CI` differing only in element ids and whether the
-  hand-picked list is `manual` or `cis`. `targetIds` no longer unions automatic and hand-picked;
-  `ciMethodOf` derives the method for records saved before that existed.
+  hand-picked list is `manual` or `cis`. **`ciSnapshot` is the single read** — the rows, the
+  overlap and the union all come from it, so the three numbers on screen cannot disagree and the
+  total is never a naive `auto + manual`. The add affordance is `ciAddBlock`
+  (the `Add rule block` pattern: full width, dashed, centred, no sub-text) and it offers **what is
+  missing**: nothing configured → *+ Add CIs* with a caret and the two-option menu; manual only →
+  *+ Also add by CI type*; automatic only → *+ Also add specific CIs*; **both → no block at all**,
+  since each row already carries Edit and Remove. In the single-method states there is no caret
+  and no menu — a menu of one item is a button wearing a costume — so the click goes straight to
+  the drawer. `ciAddLabel` holds all three strings; "Also" is doing the job the deleted confirm
+  banner did, and the labels name the mechanism (*by CI type*) rather than an adverb (*Add CIs
+  automatically* would read as the system adding them for you). Nothing is replaced by adding, so
+  **Remove is the only act that confirms**, inline on its own row.
+- **Automatic targeting resolves through ONE function, `ruleAutoIds`** (`public/bom-admin/index.html`).
+  A rule's automatic side is either conditions of its own OR a **reuse reference to a rule in
+  another module** (`{mod, id}` over `REUSE_MODS` = Licensing / Scheduler / Retention, the module
+  being edited excluded). That makes resolution **recursive and therefore cyclable** — A reusing B
+  reusing A — so `ruleAutoIds` carries a `seen` set. Do not add a second path from a rule to its
+  CIs; `ciAutoIds` is a one-line alias precisely so there is nothing to keep in sync. Legacy
+  `policyId` still resolves (records predate reuse), but **no drawer offers or creates BOM
+  Policies any more** — all three editors (Licensing's auto-enrol rule, the Scheduler's and
+  Retention's conditions drawer) show the same reuse control, and the policy chooser was deleted
+  once its last mount went. ⚠ **Two resolvers, on purpose:** `ruleAutoIds` intersects with
+  enrolment and is what the Scheduler and Retention count; `ruleHits` reads the DISCOVERED
+  estate and is what Licensing counts, because Licensing is the module handing out the seats.
+  Both follow reuse recursively and both carry a `seen` set. Do not collapse them.
 
 ## Deployment
 Repo: https://github.com/Nikhil482008/serviceops-portal
