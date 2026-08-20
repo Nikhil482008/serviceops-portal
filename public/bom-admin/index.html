@@ -80,6 +80,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .embed .topbar{display:none}
 .embed .shell{min-height:100vh}
 .embed .main{padding-top:0}
+/* … and with no topbar drawn there is nothing to park under, so every sticky offset measured
+   from it collapses. Leaving this at 52px is what pushed the sticky toolbar and table header
+   down into the middle of their own rows when embedded. Set on the SAME element as the vars it
+   overrides (`.embed` is on <html>, like `:root`), and after them, so it wins on order. */
+.embed{--topbar-h:0px}
 /* ── page head ────────────────────────────────────────────── */
 .crumb{display:flex;align-items:center;gap:6px;color:var(--dim);font-size:12px;margin-bottom:8px}
 .crumb a{color:var(--dim);text-decoration:none}
@@ -811,11 +816,12 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
    IS the whole Policies and Retention card (their toolbar sits outside in `.sechd`).
    `:first-child` decides that on its own, so a bulk bar or an empty state appearing
    above the table corrects it without another rule. */
-/* clip, not auto: a wide table still scrolls sideways, but the box is no longer a scroll
-   container, so the sticky header inside it resolves against the VIEWPORT. With
-   `overflow-x:auto` alone, CSS computes the other axis to `auto` too and the header sticks to
-   a box that never scrolls — which looks exactly like sticky being broken. */
-.sc-scroll{overflow-x:auto;overflow-y:clip}
+/* NOT a scroll container. A box is one if EITHER axis is not visible/clip, so `overflow-x:auto`
+   alone was enough to capture the sticky header — and an offset measured from the page then
+   pushes it DOWN inside a box that never scrolls, straight into the rows. The table keeps its
+   own `min-width`; when the viewport is narrower than that, the PAGE takes the horizontal
+   scroll, which is what the canonical table in DESIGN.md 4.1 does. */
+.sc-scroll{overflow:visible}
 .sc-wrap .sc-scroll{border-radius:0 0 8px 8px}
 .sc-wrap > .sc-scroll:first-child{border-radius:8px}
 /* These carry their own floor. The inventory grid's 1240px used to arrive from a
@@ -1182,7 +1188,10 @@ button.covline:focus-visible{outline:2px solid var(--brand);outline-offset:2px;b
 
 /* ── table ────────────────────────────────────────────────── */
 /* §2.4 — borderless, hairline-divided. No zebra, no vertical rules. */
-.twrap{overflow-x:auto;overflow-y:clip;border-radius:0 0 8px 8px}
+/* The inventory grid is the one table that genuinely needs its own sideways scroller (14
+   columns, `#grid{min-width:1240px}`). It stays a scroll container, so its header sticks to
+   ITS top — an offset measured from the page would only push it down inside itself. */
+.twrap{overflow-x:auto;border-radius:0 0 8px 8px;--th-top:0px}
 table{width:100%;border-collapse:collapse}
 #grid{min-width:1240px}   /* the inventory grid only — 14 columns genuinely need it */
 thead th{position:sticky;top:var(--th-top,var(--topbar-h));z-index:5;background:#fff;border-bottom:1px solid var(--line-tbl);
@@ -1322,6 +1331,9 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
 /* ── BOM Policies ──────────────────────────────────
    Two new screens, no new design system: everything here is either an
    existing class or a small extension of one. */
+/* The sub-line under an enrolment tag. It had NO rule, so its anchor fell through to the
+   browser default — blue and underlined, the one link on the page that looked like 1996. */
+.govby{margin-top:2px;font-size:12px;color:var(--dim);line-height:1.4}
 .ilink{color:var(--brand);text-decoration:none;border-bottom:1px solid transparent}
 .ilink:hover{border-bottom-color:var(--brand)}
 
@@ -1533,10 +1545,6 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
 .ciadd:hover .ciadd-i{color:var(--brand)}
 .ciadd-q{display:inline-flex;align-items:center;color:var(--dim)}
 .ciadd-q:hover{color:var(--ink)}
-/* The chevron is the block's promise of a menu, so it turns over while the menu is open — and
-   it is only drawn on the block that actually opens one (see `ciAddBlock`). */
-.ciadd-v{display:inline-flex;align-items:center;color:var(--neu);transition:transform .18s}
-.ciadd[aria-expanded="true"] .ciadd-v{transform:rotate(180deg)}
 
 /* The back arrow leads the head, so the first thing in a stacked drawer is the way out of it. */
 .dw-head .bk{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
@@ -1663,7 +1671,9 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
            target. Licensing, Scheduler and Retention own their behaviour and
            remain fully usable on their own. -->
       <div class="adbody" id="adBody">
-        <button class="adcard" data-route="#/admin/bom-policies" data-desc="BOM Policies — reusable targeting rules for Licensing, Scheduler and Retention">
+        <!-- HIDDEN, not removed: the screen, its route (#/admin/bom-policies) and every record
+             that references a policy still work. Delete the `hidden` attribute to offer it again. -->
+        <button class="adcard" hidden data-route="#/admin/bom-policies" data-desc="BOM Policies — reusable targeting rules for Licensing, Scheduler and Retention">
           <span class="adcicon"><svg width="19" height="19" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="9" r="6.4"/><circle cx="9" cy="9" r="2.5"/><path d="M9 1.3v2.2M9 14.5v2.2M1.3 9h2.2M14.5 9h2.2"/></svg></span>
           <span class="adctext">
             <span class="t">BOM Policies</span>
@@ -1755,7 +1765,7 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
       <div class="head-actions">
         <button class="btn pri" id="rtNew">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M8 3.5v9M3.5 8h9"/></svg>
-          New Exception
+          New rule
         </button>
       </div>
     </div>
@@ -1767,11 +1777,14 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
 
     
 
-    <div class="sechd">
-      <h2>Retention Exceptions</h2><span class="n" id="rtCount">0</span>
-    </div>
-
-    <section class="sc-wrap" id="rtWrap"></section>
+    <!-- The toolbar rides INSIDE the card, above the rows it counts — the same shape as the
+         Scheduler and Licensing lists, rather than a page heading floating above the card. -->
+    <section class="sc-wrap tabbed">
+      <div class="tabs">
+        <span class="tabs-lead">Retention rules <span class="n" id="rtCount">0</span></span>
+      </div>
+      <div id="rtWrap"></div>
+    </section>
    </div><!-- /viewRetention -->
 
    <!-- ── BOM SCHEDULER ─────────────────────────────────────────
@@ -3581,7 +3594,8 @@ const CI_METHODS = [
   {k:"manual", t:"Manually — pick specific CIs",
    d:"A fixed list that never grows"}
 ];
-const CI_CARET = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6.5L8 10.5l4-4"/></svg>`;
+/* `CI_CARET` lived here — the Add CIs block's chevron. The block opens a menu in only one
+   of its three states, so a glyph promising one was right a third of the time. */
 const CI_GO = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5L10.5 8 6 12.5"/></svg>`;
 const CI_INFO = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.4"/><path d="M8 7.2v4M8 4.9v.9" stroke-linecap="round"/></svg>`;
 /* The one thing a reader cannot infer from the button: that these are not alternatives. The
@@ -3609,7 +3623,6 @@ function ciAddBlock(o, s, menu, menuHTML){
       <span class="ciadd-i" aria-hidden="true">+</span>
       <span>${ciAddLabel(s)}</span>
       <span class="tip ciadd-q" data-tip="${esc(CI_HINT)}" aria-hidden="true">${CI_INFO}</span>
-      ${choose ? `<span class="ciadd-v" aria-hidden="true">${CI_CARET}</span>` : ""}
     </button>
     <span class="vh" id="${o.host}CiHint">${esc(CI_HINT)}</span>
     ${choose ? menuHTML : ""}
@@ -4006,13 +4019,13 @@ function renderRetention(){
 
   wrap.innerHTML = RT_RULES.length ? `<div class="sc-scroll"><table class="sc-table">
     <thead><tr>
-      <th style="width:26%">Policy</th><th>Applies To</th><th>Retention Policy</th>
-      <th>Status</th><th style="width:150px">Actions</th>
+      <th style="width:26%">Rule</th><th>Applies To</th><th>Retention Policy</th>
+      <th style="width:90px">Status</th><th style="width:150px">Actions</th>
     </tr></thead>
     <tbody>${shown.map(r=>{
       const n = rtTargets(r).size;
       return `<tr class="${r.on?"":"off"}">
-        <td><div class="sc-name">${esc(r.name)}</div><div class="sc-id">${r.id} · overrides default</div></td>
+        <td><div class="sc-name">${esc(r.name)}</div><div class="sc-id">${r.id}</div></td>
         <td><div class="sc-when">${fmt(n)} CI${n===1?"":"s"}</div></td>
         <td><div class="sc-trig">Keep last ${esc(r.keep)}</div>
           <div class="sc-sub">${r.period==="Never delete" ? "Never deleted" : `Delete after ${esc(r.period.toLowerCase())}`}</div></td>
@@ -4027,15 +4040,15 @@ function renderRetention(){
                ${esc(RT_DEFAULT.keep)}, delete after ${esc(RT_DEFAULT.period.toLowerCase())}.</p>
             <div class="row">
               <button class="btn sm" data-delno="1">Cancel</button>
-              <button class="btn sm danger" data-delyes="${r.id}">Delete exception</button></div>
+              <button class="btn sm danger" data-delyes="${r.id}">Delete rule</button></div>
           </div>` : ""}
         </div></td></tr>`;
     }).join("")}</tbody></table></div>`
   : `<div class="estate">
       <span class="ic"><svg width="26" height="26" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 5h5M11.5 5H15M3 13h3.5M10 13h5"/><circle cx="9.6" cy="5" r="1.9"/><circle cx="8.2" cy="13" r="1.9"/></svg></span>
-      <div class="t">No exceptions.</div>
-      <div class="d">Every enrolled CI follows the default policy above. Add an exception when a group of CIs needs to keep more history — or less.</div>
-      <div class="cta"><button class="btn pri lg" id="rtEmptyNew">New Exception</button></div></div>`;
+      <div class="t">No retention rules.</div>
+      <div class="d">Every enrolled CI follows the default policy above. Add a rule when a group of CIs needs to keep more history — or less.</div>
+      <div class="cta"><button class="btn pri lg" id="rtEmptyNew">New rule</button></div></div>`;
 
   /* wiring */
   document.querySelectorAll("[data-dd]").forEach(b=>b.onclick=e=>{
@@ -4074,7 +4087,7 @@ function renderRetention(){
     e.stopPropagation();
     const r = RT_RULES.find(x=>x.id===b.dataset.rttoggle); r.on = !r.on;
     renderRetention();
-    toast(r.on ? `"${r.name}" enabled — its CIs use this exception again`
+    toast(r.on ? `"${r.name}" enabled — its CIs use this rule again`
                : `"${r.name}" disabled — its CIs fall back to the default policy`);
   });
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=e=>{
@@ -5203,8 +5216,8 @@ function renderScheduler(){
   } else {
     wrap.innerHTML = `<div class="sc-scroll"><table class="sc-table">
       <thead><tr>
-        <th style="width:26%">Policy</th><th>Coverage</th><th>Trigger</th>
-        <th>Next Run</th><th>Status</th><th style="width:190px"></th>
+        <th style="width:26%">Policy</th><th>Applies To</th><th>Trigger</th>
+        <th>Next Run</th><th style="width:90px">Status</th><th style="width:190px">Actions</th>
       </tr></thead>
       <tbody>${list.map(p=>{
         const n = bsNext(p);
@@ -6141,7 +6154,7 @@ function licCiTable(rows, opts){
           const bp = e === "rule" ? enrolPolicy(c) : null;
           return (e === "rule" ? `<span class="pill teal">${LIC_SEGS.rule.lab}</span>`
                  : `<span class="src">${LIC_SEGS[e].lab}</span>`)
-            + (bp ? `<div class="govby">by <a href="#" data-licpol="${bp.id}">${esc(bp.name)}</a></div>` : "");
+            + (bp ? `<div class="govby">by <a href="#" class="ilink" data-licpol="${bp.id}">${esc(bp.name)}</a></div>` : "");
         })()}</td>
         <td><div class="sc-sub" style="margin:0">${esc(c.seen)}</div></td>
         <td><div class="sc-acts">

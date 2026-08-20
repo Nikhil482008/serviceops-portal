@@ -242,6 +242,21 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   estate and is what Licensing counts, because Licensing is the module handing out the seats.
   Both follow reuse recursively and both carry a `seen` set. Do not collapse them.
 
+- **Sticky headers in `public/bom-admin/index.html`: nothing between the header and the page may
+  scroll.** A box is a **scroll container if EITHER axis is not `visible`/`clip`** — so
+  `overflow-x:auto` alone captures a sticky `th`, and a page-measured offset then pushes the
+  header DOWN inside a box that never scrolls, into its own rows. Hence `.sc-scroll` is
+  `overflow:visible` (the table's own `min-width` makes the PAGE scroll sideways), while the
+  inventory grid keeps its scroller and sets `--th-top:0`, as drawers do. Offsets are
+  `--topbar-h` / `--tabs-h`, and **`.embed{--topbar-h:0px}`** because `?embed=1` hides the
+  prototype's own topbar — the offset is a property of the chrome that is actually drawn, and
+  this page draws different chrome depending on how it is mounted. Verify BOTH mounts.
+- **Two lists name the BOM modules, and they must agree.** The prototype's admin hub cards AND
+  `src/app/components/adminData.ts` (which feeds the admin overview, the admin sidebar dropdown
+  and the admin search). BOM Policies is `hidden` in both; `ADMIN_SECTIONS` filters once at the
+  export and `ADMIN_SECTIONS_ALL` is deliberately not exported so nothing can read around it.
+  Hiding it in one place only is exactly how the two disagree.
+
 ## Deployment
 Repo: https://github.com/Nikhil482008/serviceops-portal
 Live URL: https://nikhil482008.github.io/serviceops-portal/

@@ -18,6 +18,10 @@ export interface AdminCard {
   href: string;
   /** Level-3 submodules. Rendered WITHOUT icons, grouped by a left rail — see SIDEBAR_TREE. */
   children?: { title: string; href: string }[];
+  /** Kept in the file but not offered anywhere. Same convention as Sidebar's BOM rail: the
+   *  entry stays so there is a way back, and `ADMIN_SECTIONS` filters it out ONCE so the
+   *  overview cards, the sidebar dropdown and the admin search cannot disagree about it. */
+  hidden?: boolean;
 }
 
 /* ── Sidebar depth ─────────────────────────────────────────────────────────
@@ -54,7 +58,9 @@ export const ADMIN_NAV: { group: string; items: string[] }[] = [
   { group: 'Project Delivery', items: ['Project Management'] },
 ];
 
-export const ADMIN_SECTIONS: AdminSection[] = [
+/* Authored below with every card present; hidden ones are filtered out at the bottom of this
+   file, so no consumer has to remember to do it. */
+const ADMIN_SECTIONS_ALL: AdminSection[] = [
   {
     key: 'automation',
     title: 'Automation',
@@ -277,7 +283,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     desc: 'Schedule automatic BOM generation and manage BOM policies for connected devices.',
     icon: 'Boxes',
     cards: [
-    { title: 'BOM Policies', desc: 'Reusable CI targeting shared by Licensing, Scheduler and Retention.', icon: 'Boxes', href: '/admin/bom-policies' },
+    // Hidden, not deleted — the screen and its route still work. Drop `hidden` to offer it.
+    { title: 'BOM Policies', desc: 'Reusable CI targeting shared by Licensing, Scheduler and Retention.', icon: 'Boxes', href: '/admin/bom-policies', hidden: true },
     { title: 'BOM Licensing', desc: 'Enrol CIs for BOM generation — start here; decide participation by usage.', icon: 'Lock', href: '/admin/bom-licensing' },
     { title: 'BOM Scheduler', desc: 'Auto-generate SBOMs for enrolled CIs on a schedule.', icon: 'CalendarClock', href: '/admin/bom-scheduler' },
     { title: 'BOM Retention', desc: 'How many living-SBOM versions to keep per CI, and for how long.', icon: 'SlidersHorizontal', href: '/admin/bom-retention' },
@@ -414,6 +421,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     ],
   },
 ];
+/* ONE place decides what is offered. A consumer that read the raw list would show a module the
+   rest of the app has stopped offering. */
+export const ADMIN_SECTIONS: AdminSection[] = ADMIN_SECTIONS_ALL.map((s) => ({
+  ...s,
+  cards: s.cards.filter((c) => !c.hidden),
+}));
+
 
 /** Section lookup by title — the sidebar uses it to jump to a section on the Overview. */
 export const sectionByTitle = (title: string) => ADMIN_SECTIONS.find((s) => s.title === title);
