@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AskAiProvider } from './ai/AskAiProvider';
 import { TicketListPage } from './components/TicketListPage';
 import { ProblemListPage } from './components/ProblemListPage';
 import { ChangeListPage } from './components/ChangeListPage';
@@ -38,6 +39,12 @@ export default function App() {
   const openSoftwareAsset = (id: string) => { setPendingSoftwareAssetId(id); setActivePage('software-assets'); };
 
   return (
+    /* Ask AI wraps the drawer host, not the other way round.
+       Two consequences, both wanted: the rail button (rendered by Sidebar, inside every page)
+       can reach it without prop-drilling through ~23 files, and a conversation outlives the
+       detail drawer — which matters because DrawerStackProvider minimises on navigation, and
+       the chat that shipped before this was destroyed when that happened. */
+    <AskAiProvider>
     <DrawerStackProvider activePage={activePage}>
       {activePage === 'request' && <TicketListPage onNavigate={navigate} />}
       {activePage === 'problem' && <ProblemListPage onNavigate={navigate} />}
@@ -71,5 +78,6 @@ export default function App() {
       <GlobalSearch activePage={activePage} onNavigate={navigate} />
       <Toaster position="top-right" />
     </DrawerStackProvider>
+    </AskAiProvider>
   );
 }

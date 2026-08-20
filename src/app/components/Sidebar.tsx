@@ -19,6 +19,7 @@ import {
 } from './SidebarIcons';
 import { Sparkles, Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings, LayoutDashboard } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
+import { AskAiRailButton } from '../ai/AskAiRailButton';
 
 // Asset sub-modules surfaced in the hover flyout (grouped with dividers).
 const ASSET_GROUPS: { icon: React.ReactNode; label: string }[][] = [
@@ -307,8 +308,20 @@ interface SidebarProps {
 
 export function Sidebar({ activePage, onNavigate }: SidebarProps) {
   return (
-    <aside className="flex h-full w-[54px] flex-col border-r border-[#e5e7eb] bg-[#f9fafb]">
-      <div className="flex flex-col">
+    <aside className="relative flex h-full w-[54px] flex-col border-r border-[#e5e7eb] bg-[#f9fafb]">
+      {/* Ask AI is pinned by ABSOLUTE positioning, and the module list is left unconstrained.
+          The obvious shape — `flex-1 overflow-y-auto` on the list, footer as a flex sibling —
+          cannot be used here. A box with ANY non-visible axis is a scroll container on BOTH, so
+          `overflow-y-auto` would clip the four hover flyouts, which are `absolute left-full`
+          (Assets, Vulnerability, Patch, BOM). Pinning the footer out of flow keeps it visible
+          however tall the list grows, without putting an overflow anywhere.
+          The list reserves the footer's height as padding so its last item is never underneath.
+          KNOWN, PRE-EXISTING, UNFIXED: seventeen items at 40px come to 680px, so below roughly
+          that viewport height the tail of the list is clipped with no way to reach it. That is
+          not new and is not made worse by this change — the footer no longer competes for the
+          space — but fixing it properly means portaling those four flyouts, which is a bigger
+          change than this commit should carry. */}
+      <div className="flex flex-col pb-[41px]">
         <NavItem icon={<IconDashboard size={20} />} title="Dashboard" />
         <NavItem
           icon={<IconRequest size={20} />}
@@ -354,6 +367,11 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
         <NavItem icon={<IconTask size={20} />} title="Task" />
         <NavItem icon={<IconMyTeam size={20} />} title="My Team" />
       </div>
+
+      {/* Ask AI. Owns its own pinned footer INCLUDING the divider above it, so that when the
+          feature flag is off nothing is left behind — a wrapper here would render a stray
+          hairline across a rail with nothing under it. */}
+      <AskAiRailButton />
     </aside>
   );
 }
