@@ -3,6 +3,8 @@ import {
   bomForEndpoint, bomComponents, bomCryptoAssets, bomAiModels, bomCiId, cveSeverity,
 } from './bomData';
 import type { BomComponent, CryptoAsset, AiModel, BomSeverity } from './bomData';
+import { aiAssets } from './aiModelsData';
+import type { AiRisk } from './aiModelsData';
 import { SOFTWARE_COMPONENTS } from './softwareComponentsData';
 import type { SoftwareComponent, Ecosystem, ComponentSeverity, ComponentSource } from './softwareComponentsData';
 
@@ -73,6 +75,13 @@ export interface AffectedComponent {
 /** The CBOM's answer to a licence: which algorithm, and whether it survives a quantum computer. */
 export type CryptoPosture = 'quantum' | 'deprecated' | 'compliant';
 export interface CryptoSlice { algorithm: string; count: number; pct: number; posture: CryptoPosture }
+
+/** The AI BOM half of the distribution card. An AI component DOES have a licence — a model
+ *  file, a framework and a dataset each ship under their own terms — so this view reports the
+ *  same reading as the SBOM half rather than a substitute for it, counted over AI components.
+ *  `risk` is the AI register's own judgement, carried rather than re-derived here: two places
+ *  deciding what a licence costs you is how they come to disagree. */
+export interface AiLicenceSlice { licence: string; count: number; pct: number; risk: AiRisk }
 
 export interface LicenceSlice {
   licence: string;
@@ -214,10 +223,16 @@ export interface BomDashboard {
   licences: LicenceSlice[];
   licenceTotal: number;
   licenceCounts: Record<LicencePolicy, number>;
-  /** The same card's CBOM half: the algorithm mix and the posture states that lead it. */
+  /** The algorithm mix and the posture states that lead it. Derived, and correct, but no longer
+   *  rendered: the distribution card's second view is the AI BOM one below. Kept because it is
+   *  the CBOM reading of the estate and costs one pass of a walk we are making anyway. */
   crypto: CryptoSlice[];
   cryptoTotal: number;
   cryptoCounts: Record<CryptoPosture, number>;
+  /** The same card's AI BOM half: the licence mix across the fleet's AI components. */
+  aiLicences: AiLicenceSlice[];
+  aiLicenceTotal: number;
+  aiLicenceCounts: Record<AiRisk, number>;
 
   /** Every tracked certificate with a published expiry, soonest first — the timeline plots all of
    *  them rather than a top-N, because a rotation window with nothing in it is itself the answer. */
@@ -524,6 +539,42 @@ export const bomDashboard = (): BomDashboard => {
   }));
   if (cTail > 0) crypto.push({ algorithm: 'Other', count: cTail, pct: (cTail / Math.max(1, cryptoTotal)) * 100, posture: 'compliant' });
 
+  /* The AI BOM half of the same card: one slice per licence across the AI components, in the
+     same top-5-then-Other shape, so a reader who has learned the SBOM view has learned this one.
+     `aiAssets()` is the accessor the AI Components register reads — the donut counts the rows
+     that page lists, deduped by name exactly as the licence donut dedupes name@version. */
+  const aiRows = aiAssets();
+  const aiLicenceTotal = aiRows.length;
+  const aiLicenceCounts: Record<AiRisk, number> = { LOW: 0, MEDIUM: 0, HIGH: 0 };
+  const worstRisk = (x: AiRisk, y: AiRisk): AiRisk =>
+    (x === 'HIGH' || y === 'HIGH' ? 'HIGH' : x === 'MEDIUM' || y === 'MEDIUM' ? 'MEDIUM' : 'LOW');
+  const byAiLicence = new Map<string, { n: number; risk: AiRisk }>();
+  for (const r of aiRows) {
+    aiLicenceCounts[r.licenseRisk]++;
+    const prev = byAiLicence.get(r.license);
+    /* Worst risk wins, the same rule an algorithm's slice takes its worst posture by: a licence
+       that is HIGH on one component is not a clean licence because it is LOW on another. */
+    byAiLicence.set(r.license, prev
+      ? { n: prev.n + 1, risk: worstRisk(prev.risk, r.licenseRisk) }
+      : { n: 1, risk: r.licenseRisk });
+  }
+  const aRanked = [...byAiLicence.entries()].sort((a, b) => b[1].n - a[1].n);
+  const aHead = aRanked.slice(0, TOP);
+  const aTailRows = aRanked.slice(TOP);
+  const aTail = aTailRows.reduce((n, [, v]) => n + v.n, 0);
+  const aiLicences: AiLicenceSlice[] = aHead.map(([licence, v]) => ({
+    licence, count: v.n, pct: (v.n / Math.max(1, aiLicenceTotal)) * 100, risk: v.risk,
+  }));
+  /* Other takes the worst risk in the tail rather than a clean default. The long tail of AI
+     licences is where the unknown and the strong-copyleft ones sit — calling that slice LOW
+     because it is small would hide the two rows most worth reading. */
+  if (aTail > 0) {
+    aiLicences.push({
+      licence: 'Other', count: aTail, pct: (aTail / Math.max(1, aiLicenceTotal)) * 100,
+      risk: aTailRows.reduce((w, [, v]) => worstRisk(w, v.risk), 'LOW' as AiRisk),
+    });
+  }
+
   // ── certificates and models, soonest first ────────────────────────────
   const certs = [...certByName.values()]
     .map((c) => ({ ...c, cis: certCis.get(c.name)?.size ?? 1 }))
@@ -624,6 +675,9 @@ export const bomDashboard = (): BomDashboard => {
     crypto,
     cryptoTotal,
     cryptoCounts,
+    aiLicences,
+    aiLicenceTotal,
+    aiLicenceCounts,
 
     /* All of them, soonest first. The panel is a timeline now, not a list: every certificate is a
        dot, so slicing to five would have drawn a picture of the estate with most of it missing. */

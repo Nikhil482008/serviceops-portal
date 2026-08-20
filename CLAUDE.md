@@ -257,6 +257,55 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   export and `ADMIN_SECTIONS_ALL` is deliberately not exported so nothing can read around it.
   Hiding it in one place only is exactly how the two disagree.
 
+- **Ask AI (`src/app/ai/`)** — the assistant that lives at the bottom of the left icon rail.
+  **`AskAiProvider` wraps `DrawerStackProvider` in `App.tsx`**, which is what lets the rail button
+  (rendered by `Sidebar`, inside every one of the ~23 pages) reach it without a prop threaded
+  through all of them — and what lets a conversation outlive the detail drawer, since the drawer
+  host minimises on navigation and that is exactly what destroyed the old in-panel chat. Its
+  contexts are **SPLIT** into volatile state and stable actions on purpose: a consumer that only
+  dispatches subscribes to a value whose identity never changes, so a streaming answer cannot
+  re-render it. Gated by **one** flag, `AI_FLAGS.ai_assistant_enabled` (`ai/flags.ts`); off means
+  the button does not render and the panel is never mounted — absent, not disabled, which is this
+  repo's convention. Shortcut **Ctrl/⌘+J**, verified unbound (the app claims only Ctrl+K, Ctrl+F,
+  Ctrl+Shift+F, plus a dead Ctrl+B in the never-imported shadcn `ui/sidebar.tsx`); `preventDefault`
+  is load-bearing because Ctrl+J is Downloads in Chrome, Edge and Firefox.
+  ⚠️ **The rail pins its footer with ABSOLUTE positioning, never `overflow-y-auto`.** A box with any
+  non-`visible` axis is a scroll container on **both**, so scrolling the module list would clip the
+  four `absolute left-full` hover flyouts (Assets, Vulnerability, Patch, BOM). The list reserves
+  the footer's height with `pb-[41px]` instead. **KNOWN, PRE-EXISTING, UNFIXED:** 17 items × 40px =
+  680px, so below roughly that viewport height the tail of the rail is unreachable — fixing it
+  means portaling those flyouts.
+  **The ticket panel's chat is the visual precedent, not the architectural one** — it is canned
+  (free-text answers are `aiResponses[Math.floor(Math.random() * 5)]`, five essays about a locked
+  account) and its primitives now come from `ai/components/` (`AiMessageBubble`,
+  `AiSuggestionChip`, `AskAiBar`, `AiMarkdown`). ⚠️ **`DrawerShortcuts`' Alt+I finds that chat by
+  DOM-scraping** — a regex on the input's placeholder and `button[title="Close AI"]`
+  (`DrawerShortcuts.tsx:59-67`). `ASK_AI_PLACEHOLDER` is exported from `AskAiBar` so the two match
+  a constant rather than a string typed twice; the scrape itself is still to be replaced.
+  ⚠️ **A latent freeze in that chat:** the follow-up pills are scheduled by
+  `responseText.length * AI_TYPE_SPEED_MS + 500` — a GUESS at the typewriter's duration. Appending
+  that message changes `chatMessages.length`, which is the typing effect's only dependency, so the
+  effect restarts and then fails its own `!displayedText` guard and typing stops one character in.
+  Harmless today only because the guess runs longer than what it estimates.
+- **The AI accent is tokenised, but only for `ai/` and `TicketPropertiesPanel`.** `theme.css` now
+  carries `--ai-accent` / `--ai-gradient` / `--ai-tint-8` / `--ai-tint-12` / `--ai-border-gradient`
+  — the **first product tokens in that file**, which otherwise holds the shadcn layer `DESIGN.md`
+  says is not what ships. Canon is `#731EFB`, the gradient's own stop. The same purple also exists
+  as `#7B4EFB` (one site, not a gradient stop — a typo that shipped, now gone), `#8B5CF6` and
+  `#A855F7`, with two gradient midpoints and three alphas; **~24 drawer files still carry the
+  literal hex** and are a follow-up sweep, deliberately not bundled in.
+- **The Licence distribution card's second view is AI BOM, not CBOM** (`bomDashboardUi.tsx` +
+  `bomDashboardData.ts`). The card's heading is "Licence distribution" and CBOM was the one reading
+  that could not answer it — a crypto asset has no licence, so that view reported posture instead.
+  An AI component does have one. `aiLicences` / `aiLicenceTotal` / `aiLicenceCounts` are derived
+  from **`aiAssets()`**, the same accessor the AI Components register reads, in the same
+  top-5-then-Other shape as the SBOM half, so the donut and that page count one population. A slice
+  takes the **worst** licence risk under it, and so does `Other` — the tail is where `Unknown` and
+  `AGPL-3.0` sit, and defaulting it clean would hide the two rows most worth reading. View-all
+  follows the view to `ai-components`; the AI ring is **hover-only** because the drawer behind
+  `onPickLicence` lists SOFTWARE rows. `crypto`/`cryptoTotal`/`cryptoCounts` are still derived and
+  no longer rendered.
+
 ## Deployment
 Repo: https://github.com/Nikhil482008/serviceops-portal
 Live URL: https://nikhil482008.github.io/serviceops-portal/

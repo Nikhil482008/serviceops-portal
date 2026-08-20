@@ -1,95 +1,100 @@
-# Handoff — 2026-08-20 14:38
+# Handoff — 2026-08-20 18:00
 
 ## Read first
 
-`CLAUDE.md` → the **sticky headers** bullet (the scroll-container rule bit twice this session
-and my first fix made it worse) and the **two lists name the BOM modules** bullet. Then the
-**CI targeting** and **`ruleAutoIds` / `ruleHits`** bullets, which the earlier part of this
-session rewrote. For the reasoning behind every decision and the record of what was deleted,
-`../../BOM/HANDOFF.md` is the narrative — it is much longer than this file and was updated
-continuously.
+`CLAUDE.md` → the **Ask AI** bullet (its provider placement, the rail-pinning constraint and the
+two hazards in the ticket chat), then the **AI accent tokens** bullet and the **Licence
+distribution** one. The Ask AI work is 2 of 7 phases against an approved plan at
+`C:\Users\Nikhil Khemaria\.claude\plans\linked-crunching-milner.md` — **read that plan before
+continuing**; it records the four decisions the work is built on and six known deviations.
 
 ## What we worked on this session
 
-`public/bom-admin/index.html` — the **BOM Management** screens (Licensing, Scheduler, Retention,
-BOM Policies) — plus one React-side change. Two model corrections, a UI standardisation pass
-across every screen, a table audit against `DESIGN.md` §4, and several bugs found by driving the
-page rather than reading it.
+Two unrelated pieces. The BOM dashboard's "Licence distribution" card had its second view changed
+from CBOM to **AI BOM**. Then the first two phases of a new **Ask AI** feature: a persistent entry
+point at the bottom of the left icon rail, and the extraction of the ticket panel's chat
+primitives into a shared `src/app/ai/` module so both surfaces draw from one set.
 
 ## Completed
 
-**CI selection & reuse** — automatic and manual **combine** (`ciSnapshot` is the single read
-behind the rows, the overlap and the coverage total); rows state counts and criteria, never
-hostnames; the add block offers what is missing. **Reuse** means a rule configured in *another
-module*, resolved recursively with a cycle guard through **`ruleAutoIds`** (enrolment scope) and
-**`ruleHits`** (discovered scope — Licensing hands out the seats). Rolled out to all three
-editors; the BOM-Policy chooser had no mount left and was deleted.
+**Licence distribution → AI BOM.** `aiLicences` / `aiLicenceTotal` / `aiLicenceCounts` derived in
+`bomDashboardData.ts` from `aiAssets()` — the AI Components register's own accessor — in the same
+top-5-then-Other shape as the SBOM half. Worst-risk-wins per slice, including `Other`. View-all
+follows the view to `ai-components`. 47 checks (`aibomcheck.mjs`).
 
-**Chrome** — every drawer/modal header is title + close, with evidence moved onto the content it
-describes; section headings lost their em-dash appendages to ⓘ buttons; the three page sub-lines
-are one short line each; the retention rule drawer is two folds and says "rule" everywhere.
+**`cb4d106` — tokens + extraction.** `src/app/ai/` created: `types.ts`, `flags.ts`, `timing.ts`,
+and `components/` (`AiMessageBubble`, `AiSuggestionChip`, `AskAiBar`, `AiMarkdown`). Five AI tokens
+added to `theme.css`. ~28,000 characters of dead code deleted from `TicketPropertiesPanel` — the
+295-line `{false && …}` block, `suggestedActions`/`handleSuggestedAction`, `previousGroup`, a
+dangling `data-onboarding` hook and five debug `console.log`s.
 
-**KPI cards** on Scheduler and Retention moved onto the **product standard** (two lines, header
-action revealed on hover *and* focus and pinned on touch, ⓘ definition, one chip, truncating
-context). The default-policy card shows **both** limits as the figure — *10 versions or 90 days*.
-
-**One enabled/disabled switch** across all four screens; a disabled schedule policy can no longer
-be Run now, and the Run button now *looks* unavailable rather than merely being inert.
-
-**Tables** — audited against `DESIGN.md` §4. The CSS was already right; the inconsistencies were
-terminology (the page still said "Exception" after the drawer was renamed), layout (Retention's
-toolbar sat outside its card while the Scheduler's sat inside), headers (a blank Actions header;
-the same count labelled *Coverage* on one table and *Applies To* on the other) and widths.
-
-**Fixes** — tooltips became a document-level fixed layer; the sticky toolbar and table header
-work in both mounts; the chevron came off the Add CIs block; `.govby`'s anchor stopped falling
-through to the browser-default blue underline; **BOM Policies is hidden** from the hub *and* from
-`adminData.ts`.
+**`2f57ebb` — the rail entry point.** `AskAiRailButton` pinned to the rail's bottom behind
+`ai_assistant_enabled`, plus `AskAiProvider` (split contexts) wrapping `DrawerStackProvider` in
+`App.tsx`. Ctrl/⌘+J. 41 checks (`airail.mjs`).
 
 ## In progress
 
-Nothing mid-flight. Everything is built, verified and left green.
+Nothing mid-flight — both commits are complete and green. **Phase 3 (the docked panel) has not
+been started.** It is the next thing to build: `ai/panel/AskAiPanel.tsx`, lazy-loaded and mounted
+in `App.tsx` beside `GlobalSearch`, consuming `AskAiProvider`'s state.
 
 ## Next steps
 
-1. **Close the KPI gap** — Licensing and BOM Policies are still on the older bottom-action card
-   grammar, so the module shows two card shapes. Asserted as a KNOWN GAP in `admkpicheck.mjs`.
-2. **One manual devtools pass, in the EMBEDDED mount.** jsdom has no layout, so every geometry
-   claim is asserted as construction. The sticky headers in particular were wrong twice and are
-   only provable by eye.
-3. **Settle the BOM Policy story** — reuse now means "another module's rule", which contradicts
-   `BOM/CLAUDE.md`'s "one policy drives rules in three modules". Nothing is broken; the idea just
-   has two shapes now, and only one is reachable.
-4. **Decide the recorded removals** — every deletion is a `KNOWN REMOVAL` check. Most notable:
-   the picker's "only licensed CIs can be targeted" line, and the Applies-to kind pill.
+1. **Phase 3 — the docked panel.** `fixed right-0`, no scrim, `z-[10020]`, 420px default,
+   resizable 360–720, width persisted. Header → thread → sticky composer. **Answer the markdown
+   question first** (below) — it blocks the message renderer.
+2. **Phase 4 — context registry** (`registerAIContext`, snapshot at send time, cap 100 rows,
+   deterministic truncation, redaction) wired to the Vulnerabilities list only.
+3. **Phase 5 — action registry** with preview-before-apply. Note `filterList` and `sortList` need
+   filter/sort state ADDED to `VulnerabilitiesListPage` first; the page has only a search string.
+4. **Phase 6 — `aiClient`** with the mock adapter shipping and the SSE adapter stubbed.
+5. **Phase 7 — `ai/README.md`.**
+6. **Replace the Alt+I DOM scrape** in `DrawerShortcuts` with a real call, in the panel commit.
 
 ## Decisions made
 
-- **`ciSnapshot` is the single read**, so a naive `auto + manual` is structurally impossible.
-- **Two resolvers on purpose** — Licensing counts the discovered estate, the other two the
-  enrolled set. Collapsing them would make one module lie.
-- **The count is the affordance** — where chrome was deleted, the number itself became the link,
-  so no drawer became unreachable.
-- **Removals are recorded, never silent** — each has a `KNOWN REMOVAL` check naming what went and
-  where the fact now lives.
-- **Deviations are stated** — the Scheduler's switch card breaks the KPI standard twice, both
-  with reasons beside the code.
+- **Ask AI transport is mock-only, contract stubbed.** There is no backend anywhere in this repo —
+  zero `fetch`, zero env, zero streaming — so the endpoint shape is not invented. `aiClient` gets
+  an SSE-shaped interface and only the mock adapter ships.
+- **The panel overlays; content does not shrink.** Shrinking is structurally possible (the shell is
+  flex) but the shell is copy-pasted across ~23 pages and 14 drawers hardcode
+  `window.innerWidth - 54`. Recorded as a known deviation rather than silently chosen.
+- **Verification uses the repo's jsdom + esbuild harness**, not a new test runner. There is no test
+  framework here and TypeScript is not even installed.
+- **Accent tokenised for `ai/` + the ticket panel only.** ~24 drawer files keep literal hex; a full
+  ~170-site sweep in a repo with no type-checker was not worth bundling in.
+- **Glyph is lucide `Sparkles`, not the gradient `AiSparkle`.** The rail's other 17 icons are flat
+  `currentColor`, and `AiSparkle`'s fixed gradient would ignore the white the rail paints its
+  selected icon with.
+- **No shared `useTypewriter` hook**, though the plan listed one. The ticket panel animates a
+  prefix of text it already has; the panel renders deltas with no known ending. One hook over both
+  would mean the streaming side pretending to know an ending it has not been told.
 
 ## Gotchas & notes
 
-- **A broken template renders NOTHING and logs nothing.** Every renderer is wrapped in a
-  try/catch that logs and moves on, so an empty card row is the only symptom. Backticks inside an
-  HTML comment inside a template literal did exactly that. `admkpicheck.mjs` now calls each
-  renderer directly so the throw is the failure.
-- **Scroll containers**: either axis non-`visible` makes one. This cost two attempts — see
-  `CLAUDE.md`.
-- **Check misattribution, repeatedly.** Checks that matched the right string on the wrong
-  element; a grep that matched its own rationale comment; assertions that the shared CSS existed
-  rather than the result on the screen being ported to; and two checks that asserted the
-  declaration I had written rather than the behaviour I wanted. **Assert the behaviour, on the
-  screen under test.**
-- **Suites in the session scratchpad**: `cicheck` 188, `admbomcheck` 175, `condcheck` 116,
-  `admkpicheck` 111, `schedcheck` 76, `headcheck` 61, `liccheck` 61, `tablecheck` 49, `tglcheck`
-  40, `tipcheck` 30, `admincheck` 18, `rtsame` 17, `admdatacheck` 11 — all green.
-- **`public/` is not what the built app serves** — `dist/` is. Run `npm run build` before judging
-  a change to `public/bom-admin/index.html`.
+- ⚠️ **The rail cannot use `overflow-y-auto` to pin its footer.** Any non-`visible` axis makes a
+  scroll container on **both**, which clips the four `absolute left-full` hover flyouts. The footer
+  is absolutely positioned and the list carries `pb-[41px]`.
+- ⚠️ **Pre-existing, unfixed:** 17 rail items × 40px = 680px, so below that viewport height the
+  tail of the rail is unreachable. Not new, not made worse — fixing it needs those flyouts portaled.
+- ⚠️ **A latent freeze in the ticket chat.** Follow-up pills are scheduled off a GUESS at the
+  typewriter's duration; appending that message changes `chatMessages.length`, the typing effect's
+  only dependency, and the restarted effect fails its own `!displayedText` guard. Typing stops one
+  character in. Only harmless because the guess runs long.
+- ⚠️ **jsdom cannot diff the gradient border.** Its CSS parser drops the double-background
+  shorthand entirely, so the pre-refactor element has no background at all, while the same property
+  written as `var(...)` survives. The token's value is proved equal to the literal textually instead.
+- ⚠️ **A snapshot that does not contain the markup under test passes for the wrong reason.**
+  `aiextract.mjs` did exactly that on its first run — it snapshotted only the thread while the pills
+  it was meant to verify were in the welcome state. It now captures two states and asserts its own
+  coverage before comparing.
+- **Harnesses** (session scratchpad, all self-contained): `aiextract.mjs` 23 — byte-identical
+  comparison against a baseline recorded from the pre-refactor tree, so re-running it after a
+  future edit still means something; `airail.mjs` 41; `aibomcheck.mjs` 47.
+- **Open question for phase 3:** the panel needs headings, lists, **tables** and code blocks.
+  `react-markdown` + `remark-gfm` is the recommendation (React elements, no
+  `dangerouslySetInnerHTML`, and a hand-rolled GFM table parser is where the bugs live) — but the
+  dependency-free option was chosen twice already this session, so it was **not** assumed. Decide
+  before building the message renderer.
+- `npm run build` proves only that the code parses — esbuild strips types without checking them,
+  and there is no type-checker in this repo.

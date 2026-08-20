@@ -2,7 +2,8 @@ import { useId, useState } from 'react';
 import { ChevronRight, ArrowUpRight, Info, CheckCircle2, Layers, ShieldAlert, Bot } from 'lucide-react';
 import { mockEndpoints } from './endpointsData';
 import { BomKpiCard, KpiValue, KpiChip, KpiSplit, KpiContext } from './BomKpiCard';
-import type { LicencePolicy, BomDashboard, EolModel, CryptoPosture } from './bomDashboardData';
+import type { LicencePolicy, BomDashboard, EolModel } from './bomDashboardData';
+import type { AiRisk } from './aiModelsData';
 import type { Patch } from './PatchesListPage';
 import type { BomType } from './bomData';
 
@@ -232,7 +233,7 @@ export function Donut({ slices, total, caption, size = 200, hover, onHover, onPi
           {total.toLocaleString()}
         </span>
         {/* The caption drops the same 3px. It is not decoration here — it names what the figure
-            counts, which is the only thing telling the SBOM and CBOM views apart — and at 11px
+            counts, which is the only thing telling the SBOM and AI BOM views apart — and at 11px
             "components" was about 80px of text in the 78px chord available at its own height,
             so it sat over the ring. */}
         <span className="mt-1.5 text-[8px] uppercase tracking-wide text-[#7B8FA5]">{caption}</span>
@@ -766,17 +767,23 @@ export function ManagedPathsCard({ d, onNavigate, layout = 'stack' }: {
 
 /** Distribution — the risk states lead, the distribution is context underneath.
  *
- *  Two views of one card, switched by BOM type. They share an anatomy on purpose: three risk
- *  states across the top, a ring, a legend. A reader who has learned to read one has learned the
- *  other, and the two cannot report their totals differently because the same arithmetic in
- *  `bomDashboardData` produces both.
+ *  Two views of one card, switched by BOM type — SBOM and AI BOM. They share an anatomy on
+ *  purpose: a ring and a legend. A reader who has learned to read one has learned the other, and
+ *  the two cannot report their totals differently because the same arithmetic in
+ *  `bomDashboardData` produces both, over the two populations.
  *
  *  `layout` is a prop rather than a breakpoint because the two dashboards put this card in
  *  columns of different widths at the SAME viewport size — a media query cannot tell those apart,
  *  and guessing leaves one of them wrong.
  */
 const UNDECLARED_HINT = 'A blank licence is not a safe licence — it means we do not know.';
-const QUANTUM_HINT = 'Breakable by a sufficiently large quantum computer — the reason a CBOM exists.';
+/* An AI component's terms are the register's own reading (`licenseRisk`), so the note a slice
+   carries is that judgement spelled out rather than a second opinion formed here. */
+const AI_RISK_HINT: Record<AiRisk, string | null> = {
+  HIGH: 'high licence risk — restrictive or unattested terms, worth a legal review',
+  MEDIUM: 'medium licence risk — usable, but the terms are contractual rather than open',
+  LOW: null,
+};
 
 export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPickLicence }: {
   d: BomDashboard; onNavigate: (p: string) => void; layout?: 'stack' | 'row';
@@ -786,20 +793,18 @@ export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPic
   onPickLicence?: (licence: string) => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const [view, setView] = useState<'sbom' | 'cbom'>('sbom');
+  const [view, setView] = useState<'sbom' | 'aibom'>('sbom');
   const row = layout === 'row';
-  const cbom = view === 'cbom';
+  const ai = view === 'aibom';
 
   /* Undeclared licences are grey rather than a palette colour — "we do not know" is not one more
-     kind of licence. Nothing in the CBOM view is an unknown in that sense, so nothing is greyed. */
-  const rows = cbom
-    ? d.crypto.map((c, i) => ({
-      key: c.algorithm, label: c.algorithm, count: c.count,
-      color: SLICE[i % SLICE.length],
-      /* The posture states used to sit above the ring. With that row gone this is the only place
-         on the card that says an algorithm is quantum-vulnerable. */
-      note: c.posture === 'quantum' ? `quantum-vulnerable — ${QUANTUM_HINT}`
-        : c.posture === 'deprecated' ? 'deprecated' : 'compliant',
+     kind of licence. Both views grey theirs: the AI register spells the same absence 'Unknown'. */
+  const rows = ai
+    ? d.aiLicences.map((l, i) => ({
+      key: l.licence, label: l.licence, count: l.count,
+      color: l.licence === 'Unknown' ? '#CBD5E1' : SLICE[i % SLICE.length],
+      note: l.licence === 'Unknown' ? `not declared by the supplier — ${UNDECLARED_HINT}`
+        : AI_RISK_HINT[l.risk],
     }))
     : d.licences.map((l, i) => ({
       key: l.licence, label: l.licence, count: l.count,
@@ -808,15 +813,17 @@ export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPic
         : l.policy === 'denied' ? 'denied by policy'
           : l.policy === 'restricted' ? 'restricted — worth a legal review' : null,
     }));
-  const total = cbom ? d.cryptoTotal : d.licenceTotal;
+  const total = ai ? d.aiLicenceTotal : d.licenceTotal;
 
   return (
     <Card
-      /* One heading for both views. It names the SBOM reading, so in the CBOM view — which draws
-         algorithms — the ring's own caption ("24 assets" against "711 components") and the switch
-         are what say which of the two you are looking at. */
+      /* One heading, and now it is true of both views: an AI component is licensed too. The
+         ring's own caption ("29 AI components" against "711 components") and the switch are what
+         say which of the two populations you are looking at. */
       title="Licence distribution"
-      right={<ViewAll onClick={() => onNavigate('software-components')} />}
+      /* View all follows the view. It used to land on the software register from both, which in
+         the second view sent you to a list that did not contain what you had just clicked. */
+      right={<ViewAll onClick={() => onNavigate(ai ? 'ai-components' : 'software-components')} />}
     >
 
       <div className={DIST_BLOCK(row)}>
@@ -827,31 +834,32 @@ export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPic
             value={view} onChange={setView}
             options={[
               { key: 'sbom' as const, label: 'SBOM', hint: 'Licences across the software components' },
-              { key: 'cbom' as const, label: 'CBOM', hint: 'Algorithms across the cryptographic assets — a crypto asset has no licence, so this view reports its posture instead' },
+              { key: 'aibom' as const, label: 'AI BOM', hint: 'Licences across the AI components — models, frameworks, vector stores and datasets each ship under their own terms' },
             ]}
           />
         </div>
         <Donut
-          total={total} caption={cbom ? 'assets' : 'components'} size={DIST_RING(row)}
+          total={total} caption={ai ? 'AI components' : 'components'} size={DIST_RING(row)}
           hover={hover} onHover={setHover}
-          /* Only the SBOM view: a crypto algorithm has no component list to open. */
-          onPick={!cbom && onPickLicence ? (i) => onPickLicence(rows[i].key) : undefined}
+          /* Only the SBOM view. The drawer behind `onPickLicence` lists SOFTWARE components; an
+             AI slice picked into it would open a list of the wrong population, so the AI ring is
+             hover-only and its View all is the way through to those rows. */
+          onPick={!ai && onPickLicence ? (i) => onPickLicence(rows[i].key) : undefined}
           slices={rows.map((r) => ({ label: r.label, value: r.count, color: r.color }))}
         />
         <div className={DIST_LEGEND(row)} onMouseLeave={() => setHover(null)}>
           {rows.map((r, i) => {
             /* The legend row and the arc are one control in two places — they already shared a
                hover state, so they share the pick too. */
-            const pick = !cbom && onPickLicence ? () => onPickLicence(r.key) : undefined;
+            const pick = !ai && onPickLicence ? () => onPickLicence(r.key) : undefined;
             const Row = pick ? 'button' : ('div' as const);
             return (
             <Row
               key={r.key}
               onMouseEnter={() => setHover(i)}
               onClick={pick}
-              /* The posture a slice colour cannot carry — the ring is a MIX, and tinting more
-                 than half of it one danger red would make it a block rather than a mix. The three
-                 states above the ring are where that count is stated. */
+              /* What a slice's colour cannot carry — the ring is a MIX, and tinting more than
+                 half of it one danger red would make it a block rather than a mix. */
               title={r.note ? `${r.label} — ${r.note}` : r.label}
               className={`${DIST_ROW} ${pick ? 'hover:bg-[#F9FAFB]' : ''}`}
               style={{ opacity: hover !== null && hover !== i ? 0.45 : 1 }}
