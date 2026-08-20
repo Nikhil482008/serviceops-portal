@@ -15,6 +15,12 @@ import { NotificationsPanel } from './NotificationsPanel';
 import { toast } from 'sonner';
 import { PATCH_AFFECTED_PRODUCTS, PATCH_FILES } from './PatchPanelData';
 import type { EmailNotification } from './SendEmailModal';
+/* Ask AI primitives. This panel and the rail-launched Ask AI panel render the same message
+   bubbles, the same prompt pills and the same markdown, so they come from one place. */
+import { AiMessageBubble } from '../ai/components/AiMessageBubble';
+import { AiSuggestionChip, AI_CHIP_ICON } from '../ai/components/AiSuggestionChip';
+import { AskAiBar } from '../ai/components/AskAiBar';
+import { AI_TYPE_SPEED_MS } from '../ai/timing';
 
 interface TicketPropertiesPanelProps {
   // Display label for the fields accordion (defaults to "Ticket Fields")
@@ -666,7 +672,6 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
     setTrackerTasks((prev) => prev.filter((t) => t.id !== id));
   };
   const [chatMessages, setChatMessages] = useState<Array<{ id: number; text: string; isUser: boolean; timestamp: string; isTyping?: boolean; fullText?: string; displayedText?: string; followUpActions?: string[] }>>([]);
-  const [previousGroup, setPreviousGroup] = useState<'properties' | 'activity' | 'suggestions'>('suggestions');
   // Asset-only Notes group
   const [assetNotes, setAssetNotes] = useState<{ id: number; name: string; author: string; initials: string; color: string; time: string; text: string }[]>([
     { id: 1, name: 'Reassignment', author: 'A. Kumar', initials: 'AK', color: '#10B981', time: '12 Jun 2026, 10:24 AM', text: 'Reassigned to the End User Computing pool after the Sales handover.' },
@@ -823,52 +828,6 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
 <li>Reset authentication credentials and verify account status</li>
 </ul>`;
 
-  const suggestedActions = [
-    { label: 'Unlock Account', icon: User, color: 'text-[#3D8BD0]' },
-    { label: 'Reset Password', icon: Activity, color: 'text-[#10B981]' },
-    { label: 'Escalate Priority', icon: ChevronUp, color: 'text-[#EF4444]' },
-    { label: 'Resolve Request', icon: Check, color: 'text-[#F59E0B]' },
-  ];
-
-  const handleSuggestedAction = (actionLabel: string) => {
-    // Add user message
-    const userMessage = {
-      id: Date.now(),
-      text: actionLabel,
-      isUser: true,
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-    };
-    
-    setChatMessages(prev => [...prev, userMessage]);
-
-    // Define responses for each action
-    const actionResponses: { [key: string]: string } = {
-      'Unlock Account': "I'll help you unlock this account right away. I've initiated the account unlock process and the user's account is now active. The account was locked due to multiple failed login attempts, which triggered our automated security protocols.\n\nThe unlock has been completed successfully, and I've sent a notification to the user at their registered email address. I recommend asking them to verify their identity and reset their password as an additional security measure.\n\nWould you like me to also send them a secure password reset link?",
-      
-      'Reset Password': "I've initiated the password reset process for this user account. A secure password reset link has been generated and will be sent to the user's registered email address.\n\nThe reset link will expire in 24 hours for security purposes. I've also included instructions in the email to help guide the user through the password reset process.\n\nAdditionally, I recommend enabling two-factor authentication for this account to enhance security and prevent future unauthorized access attempts. Would you like me to enable 2FA for this account?",
-      
-      'Escalate Priority': "I've successfully escalated this request to High Priority status. The request has been reassigned to the senior technical support team for immediate attention.\n\nBased on the critical nature of the login issue and its business impact, I've updated the SLA timeline to reflect a 2-hour resolution target. All relevant stakeholders have been notified via email and will receive automated updates as the request progresses.\n\nThe escalation includes a detailed summary of the issue, failed login attempt logs, and recommended resolution steps. The senior support team will be reviewing this shortly. Would you like me to schedule a follow-up notification?",
-      
-      'Resolve Request': "Before we proceed with resolving this request, let me verify that all necessary actions have been completed:\n\n✓ Account unlock status: Ready to process\n✓ User notification: Pending\n✓ Security verification: Required\n✓ Follow-up actions: To be documented\n\nTo properly resolve this request, please confirm that:\n1. The user's account has been successfully unlocked\n2. The user has been contacted and verified their identity\n3. A password reset has been completed\n4. The user can now successfully access the portal\n\nOnce you confirm these steps are complete, I can update the request status to 'Resolved' and send the resolution notification to the requester. Would you like to proceed with resolving this request?",
-    };
-
-    // Add AI response after a short delay
-    setTimeout(() => {
-      const responseText = actionResponses[actionLabel] || "I've processed your request. How else can I assist you with this request?";
-      
-      const aiMessage = {
-        id: Date.now() + 1,
-        text: '',
-        fullText: responseText,
-        displayedText: '',
-        isUser: false,
-        isTyping: true,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-      };
-      
-      setChatMessages(prev => [...prev, aiMessage]);
-    }, 500);
-  };
 
   const handleSendMessage = () => {
     if (!chatInput.trim()) return;
@@ -923,7 +882,6 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
   const handleQuickAction = (actionType: string, customResponse?: string) => {
     // Open chatbot if not already open
     if (activeGroup !== 'chatbot') {
-      setPreviousGroup(activeGroup as 'properties' | 'activity' | 'suggestions');
       setActiveGroup('chatbot');
     }
 
@@ -1053,7 +1011,10 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
             followUpActions: response.followUpActions
           };
           setChatMessages(prev => [...prev, followUpMessage as any]);
-        }, responseText.length * 8 + 500); // Wait for typing animation to complete
+          // Wait for the typing animation to complete. This is an ESTIMATE of the typewriter's
+          // duration, not a signal from it — the two are only in step because the same speed
+          // constant drives both. It used to be a bare `* 8` here and a bare `8` there.
+        }, responseText.length * AI_TYPE_SPEED_MS + 500);
       }
     }, 500);
   };
@@ -1168,7 +1129,7 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
     
     if (typingMessage && typingMessage.fullText) {
       let currentIndex = 0;
-      const typingSpeed = 8; // milliseconds per character
+      const typingSpeed = AI_TYPE_SPEED_MS; // milliseconds per character
       const fullText = typingMessage.fullText;
       const messageId = typingMessage.id;
       
@@ -1209,27 +1170,33 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
     }
   }, [chatMessages.length]);
 
-  // Function to render markdown text with bold support and line breaks
-  const renderMarkdown = (text: string) => {
-    // Split by line breaks first
-    const lines = text.split('\n');
-    return lines.map((line, lineIndex) => {
-      // Then split each line by bold markers
-      const parts = line.split(/(\*\*.*?\*\*)/g);
-      const renderedLine = parts.map((part, partIndex) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={`${lineIndex}-${partIndex}`}>{part.slice(2, -2)}</strong>;
-        }
-        return part;
-      });
+  /* The Quick-AI pill row. Six copy-pasted Tooltip blocks before this; the shape is the same one
+     `aiWelcome` already used for its prompts (label + prompt + icon + tip), so the two rows of
+     pills in this panel are now described the same way.
 
-      // Add line break after each line except the last one
-      if (lineIndex < lines.length - 1) {
-        return <span key={lineIndex}>{renderedLine}<br /></span>;
-      }
-      return <span key={lineIndex}>{renderedLine}</span>;
-    });
-  };
+     `action` must match a key of `handleQuickAction`'s response map exactly — that lookup is a
+     plain object index with a generic fallback, so a typo degrades silently into "I've processed
+     your request" rather than failing. */
+  const QUICK_AI_ACTIONS: { action: string; label: string; tip: string; Icon: typeof Sparkles; iconClass?: string }[] = [
+    { action: 'Show AI Summary', label: 'AI Summary', Icon: Sparkles,
+      tip: assetMode ? 'Show AI-generated summary of this asset' : 'Show AI-generated summary of this request' },
+    { action: 'Find Similar Requests', label: assetMode ? 'Find Similar Assets' : 'Find Similar Requests', Icon: SearchIcon,
+      tip: assetMode ? 'Search for similar assets in the inventory' : 'Search for similar requests in the system' },
+    { action: 'Suggest KB', label: 'Suggest KB', Icon: FileText,
+      tip: 'Find relevant knowledge base articles' },
+    /* The odd one out: this icon tilts where the others grow. Preserved deliberately. */
+    { action: 'Next Action', label: 'Next Action', Icon: Zap,
+      tip: 'Get AI-powered recommendations for next steps',
+      iconClass: 'flex-shrink-0 group-hover:rotate-12 transition-transform duration-200' },
+    { action: 'Root Cause', label: 'Root Cause', Icon: Brain,
+      tip: 'Analyze potential root causes' },
+    { action: 'Draft Reply', label: 'Draft Reply', Icon: MessageSquare,
+      tip: 'Generate a draft response for the requester' },
+  ];
+
+  // Markdown moved to ai/components/AiMarkdown as `renderAiText` — same function, one copy,
+  // now shared with the docked Ask AI panel. It is imported at the top of this file and used
+  // inside AiMessageBubble; nothing in this component calls it directly any more.
 
   // Auto-scroll effect when messages update or typing is in progress
   useEffect(() => {
@@ -1248,16 +1215,10 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
     }
   }, [activeGroup]);
 
-  // Debug: Log when showReopenTooltip changes
-  useEffect(() => {
-    console.log('showReopenTooltip state changed to:', showReopenTooltip);
-  }, [showReopenTooltip]);
-
   // Calculate tooltip position when it shows
   useEffect(() => {
     if (showReopenTooltip && aiIconRef.current) {
       const rect = aiIconRef.current.getBoundingClientRect();
-      console.log('AI Icon position:', rect);
       setTooltipPosition({
         top: rect.top + rect.height / 2, // Center vertically with the icon
         left: rect.left - 296 // 280px tooltip width + 16px gap
@@ -1269,7 +1230,6 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
   useEffect(() => {
     if (showReopenTooltip) {
       const timer = setTimeout(() => {
-        console.log('Auto-closing tooltip after 5 seconds');
         setShowReopenTooltip(false);
         sessionStorage.setItem('hasSeenReopenTooltip', 'true');
       }, 5000);
@@ -1308,7 +1268,6 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
           aiIconRef.current &&
           !aiIconRef.current.contains(event.target as Node)
         ) {
-          console.log('Clicked outside tooltip, closing');
           setShowReopenTooltip(false);
           sessionStorage.setItem('hasSeenReopenTooltip', 'true');
         }
@@ -1352,7 +1311,7 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
       {/* Main Content Container - Flex Column */}
       <div className={`flex-shrink-0 flex flex-col transition-all duration-300 h-full ${
         isAccordionCollapsed ? 'hidden' : ''
-      }`} style={{ width: isAccordionCollapsed ? '0px' : `${accordionWidth}px` }} data-onboarding={activeGroup === 'chatbot' ? 'serviceops-ai' : undefined}>
+      }`} style={{ width: isAccordionCollapsed ? '0px' : `${accordionWidth}px` }}>
         
         {/* Scrollable Content Area */}
         <div className={`${activeGroup === 'chatbot' ? '' : 'flex-1 overflow-y-auto p-4 pt-0 pb-8'}`}>
@@ -3052,358 +3011,53 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
                   {/* Suggested Prompts — module-aware set (see aiWelcome) */}
                   <div className="w-full max-w-lg space-y-2">
                     {aiWelcome.prompts.map((sp) => (
-                      <Tooltip key={sp.label}>
-                        <TooltipTrigger asChild>
-                          <button
-                            onClick={() => handleQuickAction(sp.prompt)}
-                            style={{ background: 'linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), var(--Core-White, #FFF)' }}
-                            className="group w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-[#364658] text-[13px] font-medium hover:text-[#3D8BD0] hover:shadow-sm transition-all duration-200 cursor-pointer"
-                          >
-                            <sp.icon size={16} className="flex-shrink-0 group-hover:scale-110 transition-transform duration-200" />
-                            <span>{sp.label}</span>
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="text-xs">
-                          {sp.tip}
-                        </TooltipContent>
-                      </Tooltip>
+                      <AiSuggestionChip
+                        key={sp.label}
+                        variant="block"
+                        tipSide="right"
+                        label={sp.label}
+                        tip={sp.tip}
+                        icon={<sp.icon size={16} className={AI_CHIP_ICON} />}
+                        onClick={() => handleQuickAction(sp.prompt)}
+                      />
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* AI Greeting - Removed since AI Summary is already shown on the left side */}
-              {false && chatMessages.length > 0 && (
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <div className="bg-[#F9FAFB] rounded-2xl rounded-tl-sm px-4 py-3 relative">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[14px] text-[#364658] font-medium flex items-center gap-2">
-                        <svg width="16" height="16" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-                        <defs>
-                          <linearGradient id="sparkle-gradient-icon" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#4CB1FE" />
-                            <stop offset="20.44%" stopColor="#731EFB" />
-                            <stop offset="99.68%" stopColor="#F911E3" />
-                          </linearGradient>
-                        </defs>
-                        <path fill="url(#sparkle-gradient-icon)" d="M15,5h.83v.83c0,.46.37.83.83.83.46,0,.83-.37.83-.83v-.83h.83c.46,0,.83-.37.83-.83,0-.46-.37-.83-.83-.83h-.83v-.83c0-.46-.37-.83-.83-.83-.46,0-.83.37-.83.83v.83h-.83c-.46,0-.83.37-.83.83,0,.46.37.83.83.83ZM18.97,9.33l-.06-.08-.07-.08c-.16-.18-.37-.3-.6-.37h-.01s-5.11-1.32-5.11-1.32c-.14-.04-.28-.11-.38-.22-.11-.11-.18-.24-.22-.38l-1.32-5.11v-.02s-.04-.1-.04-.1c-.08-.22-.23-.42-.42-.56-.22-.16-.48-.25-.76-.25-.24,0-.47.07-.67.2l-.08.06c-.22.16-.37.4-.45.66v.02s-1.32,5.11-1.32,5.11c-.04.14-.11.28-.22.38-.08.08-.17.14-.28.18l-.11.04-5.11,1.32s-.01,0-.02,0c-.23.06-.43.19-.59.37l-.07.08c-.14.19-.23.42-.25.65v.1s0,.1,0,.1c.02.24.1.46.25.65.16.22.39.37.66.45,0,0,.01,0,.02,0l5.11,1.32c.14.04.28.11.38.22.11.11.18.24.22.38l1.32,5.11s0,.01,0,.02c.07.26.23.49.45.66.22.16.48.25.76.25.27,0,.54-.09.75-.25.22-.16.37-.4.45-.66,0,0,0-.01,0-.02l1.32-5.11c.04-.14.11-.28.22-.38.11-.11.24-.18.38-.22l5.11-1.32h.01c.26-.08.5-.23.66-.45.17-.22.25-.48.25-.76,0-.24-.07-.47-.2-.67ZM12.71,10.91c-.43.11-.83.34-1.14.65-.32.32-.54.71-.65,1.14l-.91,3.54-.91-3.54c-.11-.43-.34-.83-.65-1.14-.32-.32-.71-.54-1.14-.65l-3.54-.91,3.54-.91c.43-.11.83-.34,1.14-.65.32-.32.54-.71.65-1.14l.91-3.54.91,3.54.05.16c.12.37.33.71.61.98.32.32.71.54,1.14.65l3.54.91-3.54.91ZM4.25,14.17h-.09c0-.46-.37-.84-.83-.84-.46,0-.83.37-.83.83h-.08c-.42.05-.75.4-.75.83s.33.79.75.83h.08s0,.09,0,.09c.04.42.4.75.83.75.43,0,.79-.33.83-.75v-.08s.09,0,.09,0c.42-.04.75-.4.75-.83s-.33-.79-.75-.83Z"/>
-                      </svg>
-                        {isRegeneratingSummary ? 'Generating Summary...' : 'AI Summary'}
-                      </p>
-                      {onboardingStep !== 2 ? (
-                      <div className="relative">
-                        <button
-                          onClick={() => setShowAISummaryMenu(!showAISummaryMenu)}
-                          className="p-1 hover:bg-white rounded transition-colors"
-                        >
-                          <MoreVertical size={16} className="text-[#7B8FA5]" />
-                        </button>
-                        
-                        {showAISummaryMenu && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-[100]"
-                              onClick={() => setShowAISummaryMenu(false)}
-                            />
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-1 z-[101]">
-                              <button 
-                                onClick={() => {
-                                  onChatbotAddAsNote?.(aiSummaryContent);
-                                  setShowAISummaryMenu(false);
-                                }}
-                                className="w-full px-3 py-2 text-left text-[13px] text-[#364658] hover:bg-[#F9FAFB] flex items-center gap-2"
-                              >
-                                <StickyNote size={14} className="text-[#7B8FA5]" />
-                                Add as Note
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  onChatbotAddAsCollaborate?.(aiSummaryContent);
-                                  setShowAISummaryMenu(false);
-                                }}
-                                className="w-full px-3 py-2 text-left text-[13px] text-[#364658] hover:bg-[#F9FAFB] flex items-center gap-2"
-                              >
-                                <Users size={14} className="text-[#7B8FA5]" />
-                                Add as Collaborate
-                              </button>
-                              <div className="my-1 h-px bg-[#E5E7EB]"></div>
-                              <button 
-                                onClick={() => {
-                                  onChatbotReply?.(aiSummaryContent);
-                                  setShowAISummaryMenu(false);
-                                }}
-                                className="w-full px-3 py-2 text-left text-[13px] text-[#364658] hover:bg-[#F9FAFB] flex items-center gap-2"
-                              >
-                                <CornerUpRight size={14} className="text-[#7B8FA5]" />
-                                Reply
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  onChatbotForward?.(aiSummaryContent);
-                                  setShowAISummaryMenu(false);
-                                }}
-                                className="w-full px-3 py-2 text-left text-[13px] text-[#364658] hover:bg-[#F9FAFB] flex items-center gap-2"
-                              >
-                                <Mail size={14} className="text-[#7B8FA5]" />
-                                Forward
-                              </button>
-                              <div className="my-1 h-px bg-[#E5E7EB]"></div>
-                              <button className="w-full px-3 py-2 text-left text-[13px] text-[#364658] hover:bg-[#F9FAFB] flex items-center gap-2">
-                                <Copy size={14} className="text-[#7B8FA5]" />
-                                Copy
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            const textarea = document.createElement('textarea');
-                            textarea.value = 'User is experiencing critical login issues with the main portal. The account appears to be locked after multiple failed attempts. Priority escalation recommended due to business impact.\n\nKey Points:\n- Account locked after multiple failed login attempts\n- Critical business impact requiring priority escalation\n- Reset authentication credentials and verify account status';
-                            document.body.appendChild(textarea);
-                            textarea.select();
-                            document.execCommand('copy');
-                            document.body.removeChild(textarea);
-                          }}
-                          className="p-1 hover:bg-white rounded transition-colors"
-                          title="Copy"
-                        >
-                          <Copy size={16} className="text-[#7B8FA5]" />
-                        </button>
-                      )}
-                    </div>
-                    {isRegeneratingSummary ? (
-                      /* Loading State with Gradient Animation */
-                      <div className="p-1">
-                        {/* Animated gradient lines */}
-                        <div className="space-y-3">
-                          <div className="h-2 rounded-full overflow-hidden relative" style={{ background: 'linear-gradient(90deg, rgba(61,139,208,0.1) 0%, rgba(108,229,232,0.2) 50%, rgba(28,229,177,0.1) 100%)' }}>
-                            <div 
-                              className="absolute inset-0"
-                              style={{
-                                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)',
-                                backgroundSize: '200% 100%',
-                                animation: 'shimmer 2s infinite',
-                              }}
-                            />
-                          </div>
-                          <div className="h-2 rounded-full overflow-hidden relative w-3/4" style={{ background: 'linear-gradient(90deg, rgba(61,139,208,0.1) 0%, rgba(108,229,232,0.2) 50%, rgba(28,229,177,0.1) 100%)' }}>
-                            <div 
-                              className="absolute inset-0"
-                              style={{
-                                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)',
-                                backgroundSize: '200% 100%',
-                                animation: 'shimmer 2s infinite 0.3s',
-                              }}
-                            />
-                          </div>
-                          <div className="h-2 rounded-full overflow-hidden relative w-5/6" style={{ background: 'linear-gradient(90deg, rgba(61,139,208,0.1) 0%, rgba(108,229,232,0.2) 50%, rgba(28,229,177,0.1) 100%)' }}>
-                            <div 
-                              className="absolute inset-0"
-                              style={{
-                                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%)',
-                                backgroundSize: '200% 100%',
-                                animation: 'shimmer 2s infinite 0.6s',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <p className={`text-[13px] text-[#364658] leading-relaxed mb-3 ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '0ms' } : {}}>
-                          {ticketId === 'INC-35' ? (
-                            'Employee requesting Apple MacBook Pro 16-inch allocation due to performance limitations of current laptop. Required for software development tasks involving resource-intensive tools, virtual machines, and cross-platform projects.'
-                          ) : ticketId === 'INC-32' ? (
-                            'User reporting complete internet outage on work laptop despite showing Wi-Fi connection. Unable to access websites or company resources since morning. Urgent assistance needed for business-critical work and scheduled meetings.'
-                          ) : (
-                            'User is experiencing critical login issues with the main portal. The account appears to be locked after multiple failed attempts. Priority escalation recommended due to business impact.'
-                          )}
-                        </p>
+              {/* The AI-Summary-inside-the-chat block that used to sit here was disabled
+                  with `{false && ...}` and has been removed. It carried the summary card, its
+                  overflow menu, the shimmer loading state, all three ticket-specific summary
+                  variants and the onboarding choreography — ~295 unreachable lines. The
+                  summary it duplicated is shown on the left of the drawer, which is why it
+                  was switched off. */}
 
-                        {/* Key Points */}
-                        <div className={`space-y-2 ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '200ms' } : {}}>
-                          <h4 className="text-[12px] font-semibold text-[#7B8FA5] uppercase tracking-wide">
-                            Key Points
-                          </h4>
-                          <ul className="space-y-1.5">
-                            {ticketId === 'INC-35' ? (
-                              <>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '400ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>Senior Software Developer role requires high-performance device</span>
-                                </li>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '500ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>Current laptop unable to handle Docker containers and multiple IDEs</span>
-                                </li>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '600ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>MacBook Pro 16-inch needed with standard development licenses</span>
-                                </li>
-                              </>
-                            ) : ticketId === 'INC-32' ? (
-                              <>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '400ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>No internet access despite Wi-Fi showing as connected</span>
-                                </li>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '500ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>Impacting ability to access emails and cloud applications</span>
-                                </li>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '600ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>Requires network diagnostics and connectivity troubleshooting</span>
-                                </li>
-                              </>
-                            ) : (
-                              <>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '400ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>Account locked after multiple failed login attempts</span>
-                                </li>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '500ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>Critical business impact requiring priority escalation</span>
-                                </li>
-                                <li className={`flex items-start gap-2 text-[13px] text-[#364658] ${onboardingStep === 2 ? 'animate-slide-up' : ''}`} style={onboardingStep === 2 ? { animationDelay: '600ms' } : {}}>
-                                  <span className="size-1.5 rounded-full bg-[#3D8BD0] mt-1.5 flex-shrink-0"></span>
-                                  <span>Reset authentication credentials and verify account status</span>
-                                </li>
-                              </>
-                            )}
-                          </ul>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Regenerate AI Summary Notification - Hidden during onboarding */}
-                    {onboardingStep !== 2 && (hasNewConversations ? (
-                      <div className="mt-3 flex items-center justify-between p-2.5 bg-[#EBF5FF] border border-[#B8DCFF] rounded-lg">
-                        <p className="text-[12px] text-[#364658] flex-1">
-                          New conversations have been added
-                        </p>
-                        <button 
-                          onClick={() => {
-                            setIsRegeneratingSummary(true);
-                            setTimeout(() => {
-                              setIsRegeneratingSummary(false);
-                              setHasNewConversations(false);
-                            }, 2500);
-                          }}
-                          disabled={isRegeneratingSummary}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#3D8BD0] rounded hover:bg-[#F9FAFB] transition-all text-[11px] text-[#3D8BD0] font-medium flex-shrink-0 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                          <RefreshCw size={12} className={`text-[#3D8BD0] ${isRegeneratingSummary ? 'animate-spin' : ''}`} />
-                          {isRegeneratingSummary ? 'Generating Summary...' : 'Regenerate'}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-3 flex items-center justify-end">
-                        <button 
-                          onClick={() => {
-                            setIsRegeneratingSummary(true);
-                            setTimeout(() => {
-                              setIsRegeneratingSummary(false);
-                            }, 2500);
-                          }}
-                          disabled={isRegeneratingSummary}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-[#E5E7EB] rounded hover:border-[#3D8BD0] hover:bg-[#F9FAFB] transition-all text-[11px] text-[#7B8FA5] hover:text-[#3D8BD0] font-medium disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                          <RefreshCw size={12} className={isRegeneratingSummary ? 'animate-spin' : ''} />
-                          {isRegeneratingSummary ? 'Generating Summary...' : 'Regenerate summary'}
-                        </button>
-                      </div>
-                    ))}
-
-                    {/* Action Buttons */}
-                    {onboardingStep !== 2 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(aiSummaryContent);
-                        }}
-                        className="px-2 py-1 bg-white border border-[#E5E7EB] rounded hover:border-[#3D8BD0] hover:bg-[#F9FAFB] transition-all text-[11px] text-[#364658] font-medium flex items-center gap-1"
-                        title="Copy to clipboard"
-                      >
-                        <Copy size={11} className="text-[#7B8FA5]" />
-                      </button>
-                      <button 
-                        onClick={() => onChatbotAddAsNote?.(aiSummaryContent)}
-                        className="px-2.5 py-1 bg-white border border-[#E5E7EB] rounded hover:border-[#3D8BD0] hover:bg-[#F9FAFB] transition-all text-[11px] text-[#364658] font-medium flex items-center gap-1"
-                      >
-                        <StickyNote size={11} className="text-[#7B8FA5]" />
-                        Add as Note
-                      </button>
-                    </div>
-                    ) : showOnboardingSummaryContent && (
-                      <div className="mt-3 flex items-center gap-2 animate-slide-up" style={{ animationDelay: '800ms' }}>
-                        <button
-                          onClick={() => {
-                            const textarea = document.createElement('textarea');
-                            textarea.value = 'User is experiencing critical login issues with the main portal. The account appears to be locked after multiple failed attempts. Priority escalation recommended due to business impact.\n\nKey Points:\n- Account locked after multiple failed login attempts\n- Critical business impact requiring priority escalation\n- Reset authentication credentials and verify account status';
-                            document.body.appendChild(textarea);
-                            textarea.select();
-                            document.execCommand('copy');
-                            document.body.removeChild(textarea);
-                          }}
-                          className="p-1.5 hover:bg-white rounded transition-colors border border-[#E5E7EB] hover:border-[#3D8BD0]"
-                          title="Copy"
-                        >
-                          <Copy size={14} className="text-[#7B8FA5]" />
-                        </button>
-                        <button 
-                          onClick={() => onChatbotAddAsNote?.(aiSummaryContent)}
-                          className="px-2.5 py-1.5 bg-white border border-[#E5E7EB] rounded hover:border-[#3D8BD0] hover:bg-[#F9FAFB] transition-all text-[11px] text-[#364658] font-medium flex items-center gap-1.5"
-                        >
-                          <StickyNote size={12} className="text-[#7B8FA5]" />
-                          Add as Note
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              )}
-
-              {/* Chat Messages */}
+              {/* Chat Messages.
+                  The bubble markup lives in ai/components/AiMessageBubble so this panel and the
+                  rail-launched Ask AI panel cannot drift. What stays here is this chat's own
+                  message model: `isUser` / `isTyping` / `displayedText` belong to the canned
+                  typewriter, and are mapped to the shared component's props at the call site
+                  rather than pushed down into it. */}
               {chatMessages.map((message) => (
                 message.isUser ? (
-                  // User Messages (right side)
-                  <div key={message.id} className="flex gap-3 justify-end">
-                    <div className="flex-1 max-w-[80%]">
-                      <div className="rounded-lg rounded-bl-sm px-4 py-3" style={{ background: 'rgba(223, 229, 237, 0.40)' }}>
-                        <p className="text-[13px] text-[#364658] leading-relaxed">
-                          {renderMarkdown(message.text)}
-                        </p>
-                      </div>
-                      <p className="text-[10px] text-[#7B8FA5] mt-1 text-right">
-                        {message.timestamp}
-                      </p>
-                    </div>
-                  </div>
+                  <AiMessageBubble
+                    key={message.id}
+                    role="user"
+                    text={message.text}
+                    timestamp={message.timestamp}
+                  />
                 ) : message.followUpActions ? (
-                  // Follow-up Actions (now hidden - shown above input instead)
+                  // A message that exists only to carry the follow-up pills, which render above
+                  // the composer instead. It has no body, so it draws nothing here.
                   null
                 ) : (
-                  // AI Messages (left side)
-                  <div key={message.id} className="flex gap-3">
-                    <Sparkles size={16} className="text-[#3D8BD0] flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <div className="rounded-2xl rounded-tl-sm">
-                        <p className="text-[13px] text-[#364658] leading-relaxed whitespace-pre-wrap">
-                          {message.isTyping ? renderMarkdown(message.displayedText || '') : renderMarkdown(message.text)}
-                          {message.isTyping && <span className="inline-block w-1 h-4 bg-[#3D8BD0] ml-0.5 animate-pulse"></span>}
-                        </p>
-                      </div>
-                      <p className="text-[10px] text-[#7B8FA5] mt-1">
-                        {message.timestamp}
-                      </p>
-                    </div>
-                  </div>
+                  <AiMessageBubble
+                    key={message.id}
+                    role="assistant"
+                    text={message.isTyping ? (message.displayedText || '') : message.text}
+                    timestamp={message.timestamp}
+                    streaming={message.isTyping}
+                  />
                 )
               ))}
               </div>
@@ -3456,107 +3110,15 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
                 {/* Scrollable Pills Container */}
                 <div className="overflow-x-auto scrollbar-hide">
                   <div className="flex gap-2 py-1 px-1">
-                    {/* AI Summary */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          style={{ background: 'linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), var(--Core-White, #FFF)' }}
-                          className="group flex items-center gap-1.5 px-3 py-2 rounded text-[#364658] text-xs font-medium whitespace-nowrap hover:text-[#3D8BD0] hover:shadow-sm transition-all duration-200"
-                          onClick={() => handleQuickAction('Show AI Summary')}
-                        >
-                          <Sparkles size={13} className="flex-shrink-0 group-hover:scale-110 transition-transform duration-200" />
-                          <span>AI Summary</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        {assetMode ? 'Show AI-generated summary of this asset' : 'Show AI-generated summary of this request'}
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Find Similar Requests */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          style={{ background: 'linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), var(--Core-White, #FFF)' }}
-                          className="group flex items-center gap-1.5 px-3 py-2 rounded text-[#364658] text-xs font-medium whitespace-nowrap hover:text-[#3D8BD0] hover:shadow-sm transition-all duration-200"
-                          onClick={() => handleQuickAction('Find Similar Requests')}
-                        >
-                          <SearchIcon size={13} className="flex-shrink-0 group-hover:scale-110 transition-transform duration-200" />
-                          <span>{assetMode ? 'Find Similar Assets' : 'Find Similar Requests'}</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        {assetMode ? 'Search for similar assets in the inventory' : 'Search for similar requests in the system'}
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Suggest KB Article */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          style={{ background: 'linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), var(--Core-White, #FFF)' }}
-                          className="group flex items-center gap-1.5 px-3 py-2 rounded text-[#364658] text-xs font-medium whitespace-nowrap hover:text-[#3D8BD0] hover:shadow-sm transition-all duration-200"
-                          onClick={() => handleQuickAction('Suggest KB')}
-                        >
-                          <FileText size={13} className="flex-shrink-0 group-hover:scale-110 transition-transform duration-200" />
-                          <span>Suggest KB</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        Find relevant knowledge base articles
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Next Best Action */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          style={{ background: 'linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), var(--Core-White, #FFF)' }}
-                          className="group flex items-center gap-1.5 px-3 py-2 rounded text-[#364658] text-xs font-medium whitespace-nowrap hover:text-[#3D8BD0] hover:shadow-sm transition-all duration-200"
-                          onClick={() => handleQuickAction('Next Action')}
-                        >
-                          <Zap size={13} className="flex-shrink-0 group-hover:rotate-12 transition-transform duration-200" />
-                          <span>Next Action</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        Get AI-powered recommendations for next steps
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Root Cause Hint */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          style={{ background: 'linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), var(--Core-White, #FFF)' }}
-                          className="group flex items-center gap-1.5 px-3 py-2 rounded text-[#364658] text-xs font-medium whitespace-nowrap hover:text-[#3D8BD0] hover:shadow-sm transition-all duration-200"
-                          onClick={() => handleQuickAction('Root Cause')}
-                        >
-                          <Brain size={13} className="flex-shrink-0 group-hover:scale-110 transition-transform duration-200" />
-                          <span>Root Cause</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        Analyze potential root causes
-                      </TooltipContent>
-                    </Tooltip>
-
-                    {/* Draft Reply */}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          style={{ background: 'linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), var(--Core-White, #FFF)' }}
-                          className="group flex items-center gap-1.5 px-3 py-2 rounded text-[#364658] text-xs font-medium whitespace-nowrap hover:text-[#3D8BD0] hover:shadow-sm transition-all duration-200"
-                          onClick={() => handleQuickAction('Draft Reply')}
-                        >
-                          <MessageSquare size={13} className="flex-shrink-0 group-hover:scale-110 transition-transform duration-200" />
-                          <span>Draft Reply</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
-                        Generate a draft response for the requester
-                      </TooltipContent>
-                    </Tooltip>
+                    {QUICK_AI_ACTIONS.map((a) => (
+                      <AiSuggestionChip
+                        key={a.action}
+                        label={a.label}
+                        tip={a.tip}
+                        icon={<a.Icon size={13} className={a.iconClass ?? AI_CHIP_ICON} />}
+                        onClick={() => handleQuickAction(a.action)}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
@@ -3687,16 +3249,10 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
             />
           )}
           
-          <div 
-            className="flex items-center gap-2 p-2.5 rounded-lg shadow-md cursor-pointer hover:shadow-lg transition-shadow"
-            style={{
-              background: 'linear-gradient(white, white) padding-box, linear-gradient(90deg, rgba(76, 177, 254, 0.80) 0%, rgba(115, 30, 251, 0.80) 41.49%, rgba(249, 17, 227, 0.80) 100%) border-box',
-              border: '2px solid transparent',
-              display: activeGroup === 'chatbot' ? 'none' : 'flex',
-            }}
-            onClick={() => {
+          <AskAiBar
+            hidden={activeGroup === 'chatbot'}
+            onOpen={() => {
               if (activeGroup !== 'chatbot') {
-                setPreviousGroup(activeGroup as 'properties' | 'activity' | 'suggestions');
                 setActiveGroup('chatbot');
                 setIsChatbotOpening(true);
 
@@ -3708,15 +3264,7 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
                 });
               }
             }}
-          >
-            <Sparkles size={16} className="text-[#7B4EFB] flex-shrink-0" />
-            <input
-              type="text"
-              placeholder="Ask AI for insights, summaries, and actions..."
-              className="flex-1 text-sm text-[#364658] placeholder:text-[#7B8FA5] bg-transparent border-none outline-none cursor-pointer"
-              readOnly
-            />
-          </div>
+          />
         </div>
       </div>
 
@@ -4338,7 +3886,6 @@ export function TicketPropertiesPanel(props: TicketPropertiesPanelProps) {
 
       {/* Reopen AI Panel Tooltip */}
       {(() => {
-        console.log('Tooltip render check - showReopenTooltip:', showReopenTooltip, 'aiIconRef.current:', aiIconRef.current);
         return showReopenTooltip && aiIconRef.current ? (
           <div 
             ref={reopenTooltipRef}

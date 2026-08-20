@@ -41,6 +41,47 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* ── Ask AI ─────────────────────────────────────────────────────────────
+ *
+ * These are PRODUCT tokens, unlike everything above them. The shadcn block
+ * in this file is read only by `src/app/components/ui/*` and is documented in
+ * DESIGN.md as "not what ships" — product UI is literal hex. So do not reach
+ * for `--primary` here expecting the brand blue; it is near-black.
+ *
+ * The AI accent earns a token because it is the one colour with no single
+ * source: the same purple ships as #731EFB (57 sites), #7B4EFB (1), #8B5CF6
+ * and #A855F7, and the gradient exists at two midpoints (20.44% / 24.52%) and
+ * three alphas. Canon below is the GRADIENT's stop, since that is what 57 of
+ * those sites already use and what `AiSparkle` paints.
+ *
+ * Only `src/app/ai/*` and TicketPropertiesPanel read these today. The ~24
+ * drawer files still carry their literal hex — a follow-up sweep, deliberately
+ * not bundled into this change.
+ *
+ * Contrast, measured: --ai-accent on white is 4.86:1, on the rail's #F9FAFB
+ * 4.72:1. Both clear AA text (4.5:1) and the 3:1 non-text threshold. There is
+ * no dark theme — the `.dark` block below is shadcn's and the product has no
+ * dark mode — so these need no second definition.
+ */
+:root {
+  --ai-accent: #731efb;
+  /* The three stops, exposed individually so the SVG gradient defs in
+     AiSparkle can consume the same values the CSS gradients do. */
+  --ai-stop-1: #4cb1fe;
+  --ai-stop-2: #731efb;
+  --ai-stop-3: #f911e3;
+  /* One midpoint. 20.44% is the SVG's and the majority; 24.52% was the bar's. */
+  --ai-gradient: linear-gradient(90deg, var(--ai-stop-1) 0%, var(--ai-stop-2) 20.44%, var(--ai-stop-3) 100%);
+  /* The pill fill. Kept as an explicit rgba list rather than a colour-mix so
+     it renders identically to the 13 inline copies it replaces. */
+  --ai-tint-8: linear-gradient(90deg, rgba(76, 177, 254, 0.08) 0%, rgba(115, 30, 251, 0.08) 41.49%, rgba(249, 17, 227, 0.08) 100%), #fff;
+  --ai-tint-12: linear-gradient(90deg, rgba(76, 177, 254, 0.12) 0%, rgba(115, 30, 251, 0.12) 41.49%, rgba(249, 17, 227, 0.12) 100%), #fff;
+  /* The double-background border trick, as one token. `padding-box` paints the
+     surface, `border-box` the gradient, and the element supplies a transparent
+     border for it to show through. */
+  --ai-border-gradient: linear-gradient(#fff, #fff) padding-box, linear-gradient(90deg, rgba(76, 177, 254, 0.8) 0%, rgba(115, 30, 251, 0.8) 41.49%, rgba(249, 17, 227, 0.8) 100%) border-box;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
