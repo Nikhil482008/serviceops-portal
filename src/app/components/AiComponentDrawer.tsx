@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Search, X, FileText, Sparkles, ShieldCheck, RefreshCw, Check, CircleAlert, ScanLine } from 'lucide-react';
+import { ChevronDown, Search, X, FileText, Sparkles, ShieldCheck, RefreshCw, Check, CircleAlert, ScanLine, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDrawerStack } from './DrawerStack';
 import { DrawerTabStrip } from './DrawerTabStrip';
 import { MinimizedDrawerRail } from './MinimizedDrawerRail';
 import { Pagination } from './Pagination';
 import { aiAssetCis, aiRiskSignals, KIND_TITLE } from './aiModelsData';
+/* The same office catalogue the software component drawer filters by — one list, so the two
+   endpoint pickers cannot offer different vocabularies under the same label. */
+import { REMOTE_OFFICES } from './PatchComputersTab';
 import type { AiAssetRow, SignalStatus } from './aiModelsData';
 
 /* One AI component's own page — the same shell as the Software Component drawer, because it is
@@ -114,11 +117,18 @@ export function AiComponentDrawer({
 
   const tq = tabQuery.trim().toLowerCase();
   const cisFiltered = cis
-    .filter((r) => bucket === ALL_ENDPOINTS || r.ciType === bucket)
-    .filter((r) => !tq || [r.ciId, r.endpointId, r.hostname, r.ip, r.os, r.ciType, r.location, r.version].join(' ').toLowerCase().includes(tq));
+    .filter((r) => bucket === ALL_ENDPOINTS || r.office === bucket)
+    /* `office` is searchable for the same reason it is on the software side: neither table has
+       an office column, so once the picker has narrowed the list nothing on screen says which
+       office you are in, and search is the way back to that word. */
+    .filter((r) => !tq || [r.ciId, r.endpointId, r.hostname, r.ip, r.os, r.ciType, r.office, r.location, r.version].join(' ').toLowerCase().includes(tq));
   const totalPages = Math.ceil(cisFiltered.length / itemsPerPage) || 1;
   const cisPage = cisFiltered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const ciTypes = [ALL_ENDPOINTS, ...Array.from(new Set(cis.map((r) => r.ciType)))];
+  /* Offices, in the catalogue's order and only the ones this asset is actually on — the same
+     construction the software component drawer uses, so the two pickers cannot drift. */
+  const bucketOptions = [ALL_ENDPOINTS, ...REMOTE_OFFICES.filter((o) => cis.some((r) => r.office === o))];
+  const bucketCount = (o: string) =>
+    (o === ALL_ENDPOINTS ? cis.length : cis.filter((r) => r.office === o).length);
 
   /* The same hop the Software Component drawer makes: the CI, opened on its own BOM, already
      looking at this component. `bomComponent` is what stops the trail going cold. */
@@ -266,18 +276,29 @@ export function AiComponentDrawer({
                     <div className="relative flex-shrink-0" ref={bucketRef}>
                       <button
                         onClick={() => setBucketOpen((v) => !v)}
-                        className="inline-flex h-9 w-[240px] items-center justify-between gap-2 rounded border border-[#DFE5ED] bg-white px-3 text-[13px] text-[#364658] transition-colors hover:border-[#3D8BD0]"
+                        aria-haspopup="listbox"
+                        aria-expanded={bucketOpen}
+                        className={`inline-flex h-9 w-[240px] items-center justify-between gap-2 rounded border px-3 text-[13px] transition-colors ${
+                          bucket !== ALL_ENDPOINTS
+                            ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+                            : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0]'
+                        }`}
                       >
-                        {bucket}
-                        <ChevronDown size={15} className={`text-[#7B8FA5] transition-transform ${bucketOpen ? 'rotate-180' : ''}`} />
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          <Building2 size={14} className={bucket !== ALL_ENDPOINTS ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
+                          <span className="truncate">{bucket}</span>
+                        </span>
+                        <ChevronDown size={15} className={`flex-shrink-0 transition-transform ${bucketOpen ? 'rotate-180' : ''} ${bucket !== ALL_ENDPOINTS ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
                       </button>
                       {bucketOpen && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setBucketOpen(false)} />
                           <div className="absolute left-0 top-full z-50 mt-1 w-[240px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                            {ciTypes.map((o) => (
+                            {bucketOptions.map((o) => (
                               <button
                                 key={o}
+                                role="option"
+                                aria-selected={bucket === o}
                                 onClick={() => { setBucket(o); setBucketOpen(false); }}
                                 className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-[13px] transition-colors ${
                                   bucket === o ? 'bg-[#F1F5F9] text-[#364658]' : 'text-[#364658] hover:bg-[#F9FAFB]'
@@ -285,7 +306,7 @@ export function AiComponentDrawer({
                               >
                                 <span className="truncate">{o}</span>
                                 <span className="flex flex-shrink-0 items-center gap-2">
-                                  <span className="text-[12px] text-[#7B8FA5]">{o === ALL_ENDPOINTS ? cis.length : cis.filter((r) => r.ciType === o).length}</span>
+                                  <span className="text-[12px] tabular-nums text-[#7B8FA5]">{bucketCount(o)}</span>
                                   {bucket === o && <Check size={15} className="text-[#3D8BD0]" />}
                                 </span>
                               </button>

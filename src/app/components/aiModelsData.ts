@@ -199,6 +199,10 @@ export interface AiAssetCi {
   ip: string;
   os: string;
   ciType: string;
+  /** The remote office the CI belongs to — the same field the endpoint record carries and the
+   *  same vocabulary the software component drawer filters by, so the two pickers offer one list
+   *  rather than two that happen to overlap. */
+  office: string;
   /** The scan path of the product scope that declared it — where on the host it actually is. */
   location: string;
   origin: string;
@@ -222,6 +226,9 @@ export const aiAssetCis = (name: string): AiAssetCi[] => {
         ip: ep.ipAddress,
         os: ep.osName,
         ciType: /Server/i.test(ep.osName) ? 'Infrastructure' : 'Endpoint',
+        /* The endpoint's OWN office. Not a draw: this row is a real CI, so inventing one would
+           make the same machine sit in two places depending on which drawer opened it. */
+        office: ep.remoteOffice ?? 'Unassigned',
         location: p.path === '/' ? '/' : `${p.path}/lib`,
         origin: 'AIROM scan',
       });
