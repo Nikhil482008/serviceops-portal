@@ -8,6 +8,7 @@ import type { BomType } from './bomData';
 import type { SoftwareComponent } from './softwareComponentsData';
 import { BomComponentListDrawer, type ComponentListSpec } from './BomComponentListDrawer';
 /* Chrome lives in one place now that a second dashboard draws it too. */
+import type { BomNavigate } from './bomDashboardUi';
 import {
   Card, HeadPill, ViewAll,
   sevColor, bomPatchRecord, EstateKpis, LicenceDistributionCard, CertTimeline, CertBands, ExposureRing,
@@ -22,7 +23,7 @@ import {
  */
 
 // ── page ───────────────────────────────────────────────────────────────
-export function BomDashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
+export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
   const d = bomDashboard();
   const { open: openInStack } = useDrawerStack();
   /** Shared by the ring and the legend, so pointing at either lights the same slice. */

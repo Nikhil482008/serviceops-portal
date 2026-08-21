@@ -15,6 +15,18 @@ import type { BomType } from './bomData';
  * Nothing here computes anything: the figures come from `bomDashboardData`, these only draw.
  */
 
+/** Navigation that can carry the thing you clicked.
+ *
+ *  A dashboard link used to hand over a page name and nothing else, so "Review" and "View all"
+ *  arrived at the register in the same state — the reader had to find their way back to the cut
+ *  they had just made. The second argument is the DESTINATION's own filter vocabulary
+ *  (`ComponentFocus`), not a new one invented here, so the chip that appears in its search box
+ *  is the same chip its own KPI cards set.
+ *
+ *  It is optional, and a link that genuinely means "all of it" leaves it off. Most of them do:
+ *  see the note on `EstateKpis` about which links can carry a selection and which cannot. */
+export type BomNavigate = (page: string, focus?: string | null) => void;
+
 // ── palette ────────────────────────────────────────────────────────────
 export const BRAND = '#3D8BD0';
 
@@ -450,7 +462,7 @@ export function Empty({ children }: { children: React.ReactNode }) {
  *  of different heights.
  */
 export function EstateKpis({ d, onNavigate }: {
-  d: BomDashboard; onNavigate: (p: string) => void;
+  d: BomDashboard; onNavigate: BomNavigate;
 }) {
   const chip = d.eolChip;
   return (
@@ -474,7 +486,17 @@ export function EstateKpis({ d, onNavigate }: {
       <BomKpiCard
         icon={<ShieldAlert size={16} />}
         title="Vulnerabilities identified"
-        action={{ label: 'Review', onClick: () => onNavigate('software-components') }}
+        /* The only link on this row that CAN carry its selection, and the reason the second
+           argument exists. "Review" now lands on the register already showing "Vulnerable only"
+           - the same chip the register's own Vulnerabilities card sets, so arriving from here
+           and pressing that card leave the page in ONE state rather than two.
+
+           Its neighbours deliberately do not carry one. "View all" on card 1 means everything,
+           so a filter would contradict the label. Card 3 goes to Configuration Items because the
+           AI models it counts are read per CI; the AI register is a DIFFERENT population (14
+           models here against 29 rows there, 3 past EOL against 7), so handing it "past EOL"
+           would quote a number the destination cannot show. */
+        action={{ label: 'Review', onClick: () => onNavigate('software-components', 'vulnerable') }}
       >
         <KpiValue value={d.cveIds.length} tone={d.cveIds.length ? 'danger' : 'neutral'} />
         {d.cveIds.length === 0 ? (
@@ -715,7 +737,7 @@ export function EolTimeline({ models, onOpen }: {
  *  the same KIND of reading and drawing them differently would imply they were not.
  */
 export function ManagedPathsCard({ d, onNavigate, layout = 'stack' }: {
-  d: BomDashboard; onNavigate: (p: string) => void; layout?: 'stack' | 'row';
+  d: BomDashboard; onNavigate: BomNavigate; layout?: 'stack' | 'row';
 }) {
   const [hover, setHover] = useState<number | null>(null);
   /* The same prop, the same two shapes and the same measurements as the licence card beside it.
@@ -786,7 +808,7 @@ const AI_RISK_HINT: Record<AiRisk, string | null> = {
 };
 
 export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPickLicence }: {
-  d: BomDashboard; onNavigate: (p: string) => void; layout?: 'stack' | 'row';
+  d: BomDashboard; onNavigate: BomNavigate; layout?: 'stack' | 'row';
   /** A slice is a count; picking one asks the page to open the components behind it. Absent on
    *  Dashboard 2, which has no list drawer — there the ring stays hover-only rather than
    *  pretending to a click it cannot answer. */

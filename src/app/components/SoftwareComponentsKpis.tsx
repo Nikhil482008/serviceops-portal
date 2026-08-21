@@ -29,6 +29,15 @@ export const FOCUS_LABEL: Record<Exclude<ComponentFocus, null>, string> = {
   license: 'Flagged licenses',
 };
 
+/** Is this one of the cuts this page can actually make?
+ *
+ *  A focus can now arrive from ANOTHER screen — the dashboard hands one over as it navigates —
+ *  so it is checked before it becomes a chip. An unrecognised one is dropped rather than shown:
+ *  a chip is a claim that the table has been narrowed, and one that narrows nothing is a label
+ *  for a cut that was never made. */
+export const isComponentFocus = (f: string | null | undefined): f is Exclude<ComponentFocus, null> =>
+  !!f && Object.prototype.hasOwnProperty.call(focusFn, f);
+
 /* InfoTip moved into BomKpiCard with the rest of line 1 — it is part of the grammar, not
    of this page. */
 

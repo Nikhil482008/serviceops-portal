@@ -11,7 +11,7 @@ import { useDrawerStack } from './DrawerStack';
 import { SOFTWARE_COMPONENTS, isKev } from './softwareComponentsData';
 import { AiModelsTab } from './AiModelsTab';
 import { aiAssets } from './aiModelsData';
-import { SoftwareComponentsKpis, focusFn, FOCUS_LABEL } from './SoftwareComponentsKpis';
+import { SoftwareComponentsKpis, focusFn, FOCUS_LABEL, isComponentFocus } from './SoftwareComponentsKpis';
 import type { ComponentFocus } from './SoftwareComponentsKpis';
 
 /* BOM Inventory — the fleet seen the other way up from Configuration Items.
@@ -239,14 +239,30 @@ function ComponentsControls({
 /** Counted once: the tab label needs it before the tab is ever opened. */
 const AI_ASSETS = aiAssets();
 
-export function SoftwareComponentsListPage({ onNavigate, tab = 'components' }: {
-  onNavigate: (page: string) => void;
+export function SoftwareComponentsListPage({
+  onNavigate, tab = 'components', initialFocus = null, onInitialFocusConsumed,
+}: {
+  onNavigate: (page: string, focus?: string | null) => void;
   /** Which half to render. The rail routes to it, so the page does not own the choice. */
   tab?: BomTab;
+  /** A narrowing chosen on the screen that sent you here — the dashboard's "Review" arrives as
+   *  `vulnerable`. It seeds the same `focus` a KPI card sets, so the chip, the table and the
+   *  card's "Showing this" all agree without a second notion of "filtered from elsewhere".
+   *  Validated, not trusted: an unrecognised value is ignored. */
+  initialFocus?: string | null;
+  onInitialFocusConsumed?: () => void;
 }) {
   const [kev, setKev] = useState<KevFilter>('');
   const [sev, setSev] = useState<SevFilter>('');
-  const [focus, setFocus] = useState<ComponentFocus>(null);
+  const [focus, setFocus] = useState<ComponentFocus>(isComponentFocus(initialFocus) ? initialFocus : null);
+  /* Taken once. Navigating here fresh remounts the page, so the initial state above is what
+     usually applies it; this covers arriving while already on the page, and tells the sender it
+     has been used so a later visit does not inherit it. */
+  useEffect(() => {
+    if (!initialFocus) return;
+    if (isComponentFocus(initialFocus)) setFocus(initialFocus);
+    onInitialFocusConsumed?.();
+  }, [initialFocus]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');

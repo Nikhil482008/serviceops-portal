@@ -33,7 +33,16 @@ type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | '
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('request');
-  const navigate = (page: string) => setActivePage(page as Page);
+  /* A narrowing handed over WITH the navigation: the dashboard's "Review" lands on the register
+     already showing only the vulnerable rows, rather than dumping the reader into everything and
+     making them re-find what they clicked. Second argument, so the ~23 existing one-argument
+     callers are untouched. Cleared as soon as the destination has taken it, or coming back to
+     the page later by the rail would silently re-apply a filter nobody asked for. */
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null);
+  const navigate = (page: string, focus?: string | null) => {
+    setPendingFocus(focus ?? null);
+    setActivePage(page as Page);
+  };
   // A software asset id requested from elsewhere (e.g. the Software License "Managed Softwares" card),
   // consumed by the Software Assets list page to auto-open that asset's detail drawer.
   const [pendingSoftwareAssetId, setPendingSoftwareAssetId] = useState<string | null>(null);
@@ -69,8 +78,8 @@ export default function App() {
       {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
       {/* One page, two halves — which half is the ROUTE now, not a tab inside it, so the rail can
           land on either and a link can name one. */}
-      {activePage === 'software-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="components" />}
-      {activePage === 'ai-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="models" />}
+      {activePage === 'software-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="components" initialFocus={pendingFocus} onInitialFocusConsumed={() => setPendingFocus(null)} />}
+      {activePage === 'ai-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="models" initialFocus={pendingFocus} onInitialFocusConsumed={() => setPendingFocus(null)} />}
       {activePage === 'compliance-reports' && <ComplianceReportsModule onNavigate={navigate} />}
       {activePage === 'compliance-reports-2' && <ComplianceReports2Module onNavigate={navigate} />}
       {activePage === 'admin' && <AdminPage onNavigate={navigate} />}

@@ -6,6 +6,7 @@ import { useDrawerStack } from './DrawerStack';
 import { bomDashboard } from './bomDashboardData';
 import type { ExpiringCert, EolModel } from './bomDashboardData';
 import type { BomType } from './bomData';
+import type { BomNavigate } from './bomDashboardUi';
 import {
   Card, HeadPill, ExposureBar, ViewAll, bomPatchRecord,
   EstateKpis, LicenceDistributionCard, Empty, SEVERITY, sev, BAND, bandFor,
@@ -62,7 +63,7 @@ function Axis({ marks, gridlines }: { marks: { at: number; label: string; strong
 }
 
 // ── page ───────────────────────────────────────────────────────────────
-export function BomDashboard2Page({ onNavigate }: { onNavigate: (page: string) => void }) {
+export function BomDashboard2Page({ onNavigate }: { onNavigate: BomNavigate }) {
   const d = bomDashboard();
   const { open: openInStack } = useDrawerStack();
   const [licHover, setLicHover] = useState<number | null>(null);
@@ -153,7 +154,17 @@ export function BomDashboard2Page({ onNavigate }: { onNavigate: (page: string) =
                       return (
                         <button
                           key={a.key}
-                          onClick={() => onNavigate('software-components')}
+                          /* A row is ONE thing, so it opens that thing - the same gesture the
+                             first dashboard's exposure rows make. It used to navigate to the
+                             register unfiltered, which threw the selection away entirely; and it
+                             could not be fixed by handing the register a filter instead, because
+                             these rows are counted over the dashboard's own reconciled
+                             population (711 components) while the register is a 12-row fixture -
+                             only 2 of the 8 names on this list exist over there. */
+                          onClick={() => {
+                            const c = d.components.find((x) => x.name === a.name && x.version === a.version);
+                            if (c) openInStack('software-components', c.id, `${c.name} ${c.version}`, c);
+                          }}
                           className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[#F9FAFB]"
                         >
                           <span className="flex size-5 flex-shrink-0 items-center justify-center rounded-full bg-[#F1F5F9] text-[11px] font-semibold tabular-nums text-[#9CA3AF]">{i + 1}</span>
