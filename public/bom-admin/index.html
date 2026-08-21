@@ -560,11 +560,8 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .cb-prev{margin-top:16px}
 .cb-q{display:inline-flex;align-items:center;color:var(--dim)}
 .cb-q:hover{color:var(--ink)}
-/* The count, on its own below the conditions box. The trailing margin went with the table it
-   used to separate itself from — it is the last thing in the option now. */
-.cb-prev-h{font-size:12px;color:var(--dim);background:var(--sel-blue);
-  border-radius:4px;padding:9px 12px}
-.cb-prev-h b{color:var(--ink);font-weight:600}
+/* The count is a `.covline` now — the same treatment Licensing and both editors use — so it
+   needs no box of its own. `.cb-prev-h` and its tinted panel went with that. */
 .ddwrap.full{display:block}
 .ddwrap.full .ddbtn,.ddwrap.full .ddmenu{width:100%}
 
@@ -3529,11 +3526,29 @@ const TP_MODS = {
       ? {t:"Enrolled", s: c.by === "Auto" ? "By rule" : "By hand"}
       : {t:DASH, s:"Not enrolled"} },
   },
+  /* The conditions being written RIGHT NOW, in the stacked drawer. Its own entry rather than
+     borrowing the schedule's or retention's, because those describe what the rule will DO — and
+     they cover hand-picked CIs too, which these conditions have no opinion about. Saying
+     "CIs this schedule will run on" over a list that is only the automatic half would be wrong
+     in the one place someone came to check their work. */
+  cond: {
+    title:  "Condition preview",
+    line:   n => `<b>${n}</b> enrolled CI${n===1?"":"s"} match${n===1?"es":""} these conditions`,
+    cta:    "View matching CIs",
+    drawer: "CIs these conditions match",
+    sub:    n => `${n} enrolled CI${n===1?"":"s"} match the conditions as written.`,
+    foot:   "Not saved yet \u2014 this is the draft you are editing.",
+    emptyT: "Nothing matches yet.",
+    emptyD: "Add a condition to start matching CIs.",
+    col4:   { head:"Origin", cell:c => ({t: c.origin, s: c.by === "Auto" ? "By rule" : "By hand"}) },
+  },
 };
 
 /* Which CIs the draft in each module currently resolves to. Read live rather than
    snapshotted, so a preview can never describe a state its drawer has left. */
 function tpTargets(mod){
+  /* Read from the drawer that is actually open, not from the draft it will commit to. */
+  if(mod === "cond") return COND ? autoMatches(COND.groups) : [];
   if(mod === "bp"){  const d = BP_DRAFT;   return d ? matchIn(ALL_CIS, d.groups) : []; }
   if(mod === "lic"){ const d = LIC_DRAWER; return d ? licPending(d) : []; }
   if(mod === "bs"){
@@ -4434,10 +4449,18 @@ function wireCbGroups(G, rerender, onVal){
    field offers, so the preview answers "which population did I just
    sweep in" rather than only "how many". */
 function cbPrevLine(hits){
-  /* ONE line. The agent/manual split was a second reading nobody came here for, and
+  /* `.covline`, the same shape Licensing and the two editors use: a plain muted line with the
+     number in ink, and the whole line a button into the CIs it counts. It used to be a tinted
+     box, which made the count look like a status message rather than a thing to click.
+     ONE line. The agent/manual split was a second reading nobody came here for, and
      "new matching CIs auto-join" is a property of automatic targeting that the ⓘ on the
      option states once — repeating it under every count made it read as news. */
-  return `Matches <b>${fmt(hits.length)}</b> of ${fmt(ENROLLED_CIS.length)} enrolled CIs`;
+  const nn = hits.length;
+  return `<button class="covline" type="button" id="cov-cond"
+      title="View the ${nn} CI${nn===1?"":"s"} these conditions match">
+    <span class="cov-t">Matches <b>${fmt(nn)}</b> CI${nn===1?"":"s"}</span>
+    <span class="cov-b">· of ${fmt(ENROLLED_CIS.length)} enrolled</span>
+  </button>`;
 }
 
 /* Handlers for whichever stacked drawer is open. Split out so the
@@ -4493,9 +4516,16 @@ function wireStack(){
     if($("cbBack")) $("cbBack").onclick = closeCond;
     $("cbCancel").onclick = closeCond;
     $("cbScrim").onclick  = closeCond;
+    /* The count is a button, and the live path REPLACES it — so the click has to be bound in
+       both places or typing a value silently turns the line back into plain text. */
+    const wireCondCov = ()=>{
+      const b = document.getElementById("cov-cond");
+      if(b) b.onclick = ()=>tpOpen("cond");
+    };
+    wireCondCov();
     wireCbGroups(G, renderStack, ()=>{
       const h = document.getElementById("cbPrevH");
-      if(h) h.innerHTML = cbPrevLine(autoMatches(G));
+      if(h){ h.innerHTML = cbPrevLine(autoMatches(G)); wireCondCov(); }
     });
     /* One question, one answer: applying writes the chosen definition and CLEARS the
        other, so the rule can never carry a policy and conditions that disagree. */
@@ -4728,7 +4758,7 @@ function renderStack(){
                  NOTE, and this file has been bitten by it before: no BACKTICKS in a comment that
                  lives inside a template literal. One closes the string, and what follows is read
                  as code. -->
-            ${cbDone ? `<div class="cb-prev"><div class="cb-prev-h" id="cbPrevH">${cbPrevLine(hits)}</div></div>` : ""}
+            ${cbDone ? `<div class="cb-prev" id="cbPrevH">${cbPrevLine(hits)}</div>` : ""}
             </div>`}
           </div>
         </div>
