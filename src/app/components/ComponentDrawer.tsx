@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   X, RefreshCw, ShieldCheck, Zap, Globe, Flag, ArrowUp, Upload, FileText,
   Boxes, Shield, Radio, Search, ChevronDown, Sparkles, Copy, Check, AlertTriangle, Clock, Building2,
-  Inbox, Loader, PauseCircle, XCircle, HelpCircle, ListFilter, Layers,
+  Inbox, Loader, PauseCircle, XCircle, HelpCircle, ListFilter,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDrawerStack } from './DrawerStack';
@@ -13,7 +13,7 @@ import { Pagination } from './Pagination';
 import { REMOTE_OFFICES } from './PatchComputersTab';
 import type { SoftwareComponent } from './softwareComponentsData';
 import {
-  affectedCis, componentCves, componentSources, componentEvidence, componentVersions,
+  affectedCis, componentCves, componentSources, componentEvidence,
   LANGUAGE_OF, businessServices, firstSeen, lastSeen, VULN_STATUSES,
 } from './softwareComponentDetail';
 
@@ -141,14 +141,6 @@ export function ComponentDrawer({
      same shape PatchComputersTab uses for Missing / Installed / Ignored. */
   const ALL_ENDPOINTS = 'All Endpoints';
   const [bucket, setBucket] = useState<string>(ALL_ENDPOINTS);
-  /* Version filter. Drift is the reason this drawer exists — the estate runs several builds of
-     one library — so "show me only the CIs on 2.13.2" is the question the CI table is opened
-     with. The counts that used to sit in the properties rail live on these options now, where
-     they are a reason to pick one rather than a list to read. */
-  const ALL_VERSIONS = 'All versions';
-  const [verFilter, setVerFilter] = useState<string>(ALL_VERSIONS);
-  const [verOpen, setVerOpen] = useState(false);
-  const verRef = useRef<HTMLDivElement>(null);
   const [bucketQuery, setBucketQuery] = useState('');
   const [bucketOpen, setBucketOpen] = useState(false);
   const bucketRef = useRef<HTMLDivElement>(null);
@@ -195,12 +187,6 @@ export function ComponentDrawer({
   }, [filterOpen]);
   useEffect(() => { setCurrentPage(1); setSelected(new Set()); }, [activeTab, bucket, tabQuery, activeAssetId, sevBucket, nFilters]);
   useEffect(() => { if (!bucketOpen) setBucketQuery(''); }, [bucketOpen]);
-  useEffect(() => {
-    if (!verOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setVerOpen(false); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [verOpen]);
   const [fieldQuery, setFieldQuery] = useState('');
   const [fieldsOpen, setFieldsOpen] = useState(true);
 
@@ -243,15 +229,15 @@ export function ComponentDrawer({
   const cves = componentCves(c);
   const sources = componentSources(c);
   const evidence = componentEvidence(c);
-  const versions = componentVersions(c);
-  const drift = versions.length - 1;
   const wide = drawerWidth > 1080;
 
   const tq = tabQuery.trim().toLowerCase();
   const cisFiltered = allCis
     .filter((r) => bucket === ALL_ENDPOINTS || r.office === bucket)
-    .filter((r) => verFilter === ALL_VERSIONS || r.version === verFilter)
-    .filter((r) => !tq || [r.ciId, r.endpointId, r.hostname, r.ip, r.os, r.origin, r.office, r.version].join(' ').toLowerCase().includes(tq));
+    /* `version` is NOT a search field any more. The column is gone, so a query matching on it
+       would return rows with nothing on them to explain the match — a search that appears to
+       have highlighted nothing. */
+    .filter((r) => !tq || [r.ciId, r.endpointId, r.hostname, r.ip, r.os, r.origin, r.office].join(' ').toLowerCase().includes(tq));
   /* Patch availability is DERIVED from `fixedIn` rather than stored, so the filter and the
      column can never disagree about what "Yes" means. */
   const patchLabel = (v: { fixedIn: string | null }) => (v.fixedIn ? 'Yes' : 'No');
@@ -329,18 +315,13 @@ export function ComponentDrawer({
 
   /* ── FOLD 1 — the meta line under the heading, identical on all three tabs ── */
   const kpis: HeaderKpiItem[] = [
-    /* The primary build, and how many OTHER builds the estate is running. Drift is the
-       reason a fix can be applied and the component still be present: upgrading the
-       primary leaves the laggards behind. */
-    { key: 'version', tip: drift > 0
-        ? `Versions: ${versions.map((v) => `${v.version} (${v.cis} CIs)`).join(', ')}`
-        : `Version: ${c.version}`, node: (
+    /* The build this row IS. The `+N` drift count that rode beside it is gone, with the
+       version column, the version filter and the rail's version row — one build per row is
+       the reading this drawer keeps. */
+    { key: 'version', tip: `Version: ${c.version}`, node: (
       <span className="inline-flex items-center gap-1.5">
         <span className="text-[11px] text-[#7B8FA5]">Version</span>
         <span className="text-[12px] font-medium text-[#364658]">{c.version}</span>
-        {drift > 0 && (
-          <span className="rounded-sm bg-[#F1F5F9] px-1.5 py-0.5 text-[11px] font-semibold text-[#475467]">+{drift}</span>
-        )}
       </span>) },
     { key: 'sev', tip: `Top severity: ${c.topSeverity === 'None' ? 'no known vulnerabilities' : c.topSeverity}`, node: (
       <span className="inline-flex items-center gap-1.5">
@@ -379,19 +360,6 @@ export function ComponentDrawer({
   const FIELDS: { label: string; value: React.ReactNode }[] = [
     { label: 'Component ID', value: c.id },
     { label: 'Name', value: c.name },
-    /* Every build, not just the primary — the rail is where you look something up, and
-       "which versions are out there" is the question drift creates. The per-build CI counts
-       moved to the version picker on the CI tab: there they are a reason to choose one, here
-       they were a second column of numbers to read past. */
-    { label: 'Version', value: (
-      <span className="block space-y-1">
-        {versions.map((v) => (
-          <span key={v.version} className="block">
-            {v.version}
-            {v.version === c.version && <span className="ml-1.5 text-[12px] text-[#7B8FA5]">primary</span>}
-          </span>
-        ))}
-      </span>) },
     { label: 'Ecosystem', value: `${c.ecosystem} · ${LANGUAGE_OF[c.ecosystem]}` },
     { label: 'PURL', value: <span className="break-all">{c.purl}</span> },
     { label: 'License', value: c.licenseFlag
@@ -617,55 +585,6 @@ export function ComponentDrawer({
                         </>
                       )}
                     </div>
-                    {/* Beside the endpoint picker and before the search: both narrow the same
-                        table, so they belong in one run rather than on separate rows. */}
-                    <div className="relative flex-shrink-0" ref={verRef}>
-                      <button
-                        onClick={() => setVerOpen((v) => !v)}
-                        aria-haspopup="listbox"
-                        aria-expanded={verOpen}
-                        className={`inline-flex h-[36px] items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
-                          verFilter !== ALL_VERSIONS
-                            ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
-                            : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
-                        }`}
-                      >
-                        <Layers size={14} className={verFilter !== ALL_VERSIONS ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'} />
-                        {verFilter}
-                        <ChevronDown size={14} className={`transition-transform ${verOpen ? 'rotate-180' : ''} ${verFilter !== ALL_VERSIONS ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
-                      </button>
-                      {verOpen && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setVerOpen(false)} />
-                          <div role="listbox" className="absolute left-0 top-full z-50 mt-1 w-[240px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                            {/* No search box: a component runs a handful of builds, not fifteen
-                                offices. A search field here would imply a longer list. */}
-                            {[{ version: ALL_VERSIONS, cis: allCis.length }, ...versions].map((o) => (
-                              <button
-                                key={o.version}
-                                role="option"
-                                aria-selected={verFilter === o.version}
-                                onClick={() => { setVerFilter(o.version); setVerOpen(false); setCurrentPage(1); }}
-                                className={`flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-[13px] transition-colors ${
-                                  verFilter === o.version ? 'bg-[#F1F5F9] text-[#364658]' : 'text-[#364658] hover:bg-[#F9FAFB]'
-                                }`}
-                              >
-                                <span className="truncate">
-                                  {o.version}
-                                  {o.version === c.version && (
-                                    <span className="ml-1.5 text-[12px] text-[#7B8FA5]">primary</span>
-                                  )}
-                                </span>
-                                <span className="flex flex-shrink-0 items-center gap-2">
-                                  <span className="text-[12px] tabular-nums text-[#7B8FA5]">{o.cis}</span>
-                                  {verFilter === o.version && <Check size={15} className="flex-shrink-0 text-[#3D8BD0]" />}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
                     {tabSearch('Select field to search...', 'relative min-w-[240px] flex-1')}
                   </div>
 
@@ -679,7 +598,7 @@ export function ComponentDrawer({
                   )}
 
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[1100px]">
+                    <table className="w-full min-w-[1000px]">
                       <thead className="border-b border-[#e5e7eb]">
                         <tr>
                           <th className="w-[40px] px-4 py-2.5 text-left">
@@ -690,14 +609,14 @@ export function ComponentDrawer({
                               className="h-3.5 w-3.5 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
                             />
                           </th>
-                          {['CI ID', 'Endpoint ID', 'Host Name', 'Version', 'IP Address', 'CI Type', 'OS Name', 'Origin', 'Products'].map((h) => (
+                          {['CI ID', 'Endpoint ID', 'Host Name', 'IP Address', 'CI Type', 'OS Name', 'Origin', 'Products'].map((h) => (
                             <th key={h} className={`${TH} whitespace-nowrap`}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#e5e7eb] bg-white">
                         {cisPage.length === 0 ? (
-                          <tr><td colSpan={10} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">No configuration items match.</td></tr>
+                          <tr><td colSpan={9} className="px-4 py-12 text-center text-[13px] text-[#9CA3AF]">No configuration items match.</td></tr>
                         ) : cisPage.map((r) => (
                           <tr key={r.ciId} className="hover:bg-[#f9fafb] transition-colors">
                             <td className="px-4 py-3">
@@ -724,12 +643,6 @@ export function ComponentDrawer({
                             </td>
                             <td className={`${TD} text-[#7B8FA5]`}>{r.endpointId}</td>
                             <td className={TD}><span className="block max-w-[170px] truncate">{r.hostname}</span></td>
-                            {/* The build on THIS endpoint. Anything behind the primary is
-                                the drift the header counts, so it is marked rather than
-                                left for the reader to diff against the title. */}
-                            <td className="px-4 py-3 whitespace-nowrap text-[12px]">
-                              <span className={r.version === c.version ? 'text-[#364658]' : 'font-medium text-[#B54708]'}>{r.version}</span>
-                            </td>
                             <td className={TD}>{r.ip}</td>
                             <td className="px-4 py-3 whitespace-nowrap"><Pill tone="neutral">{r.ciType}</Pill></td>
                             <td className={TD}><span className="block max-w-[200px] truncate">{r.os}</span></td>

@@ -61,7 +61,7 @@ function ProductRow({ r, endpointId, isOpen, onToggle, onEdit, onDelete }: {
       <button
         onClick={() => onToggle(r.key)}
         aria-expanded={isOpen}
-        className={`group flex w-full items-center gap-2.5 py-2.5 pl-8 pr-4 text-left transition-colors ${isOpen ? 'bg-[#F9FAFB]' : 'hover:bg-[#F9FAFB]'}`}
+        className={`group flex w-full items-center gap-2.5 py-2.5 pl-4 pr-4 text-left transition-colors ${isOpen ? 'bg-[#F9FAFB]' : 'hover:bg-[#F9FAFB]'}`}
       >
         <ChevronRight
           size={14}
@@ -160,6 +160,10 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
   /** The agent-discovered group. Shut by default: the BOM tab behind this drawer is already that
    *  list, and showing it twice is what made the old panel feel like a wall. */
   const [showFound, setShowFound] = useState(false);
+  /* Open by default — it is the only group this drawer can change. It is collapsible all the
+     same, because the group beside it is: a heading with a phantom 14px spacer where its
+     neighbour has a chevron is what left the two reading as different left edges. */
+  const [showManual, setShowManual] = useState(true);
 
   // Re-seed from the host each time the panel opens (edits are local to the session).
   useEffect(() => {
@@ -217,6 +221,9 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
   const manual = visible.filter((r) => r.addedManually);
   const found = visible.filter((r) => !r.addedManually);
   const foundOpen = showFound || q.length > 0;
+  /* A search opens whatever it found, in both groups — a hit hidden inside a collapsed group is
+     a search that answered nothing. */
+  const manualOpen = showManual || q.length > 0;
 
   const toggle = (key: string) => setOpen((prev) => {
     const next = new Set(prev);
@@ -274,23 +281,28 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
             <>
               {/* Declared by hand — the only thing this drawer can change, so it stands open. */}
               <div className="overflow-hidden rounded-lg border border-[#E5E7EB]">
-                <div className="flex items-center gap-2.5 border-b border-[#F0F2F5] bg-[#FCFDFE] py-2 pl-8 pr-4">
-                  {/* One left edge for the heading and the rows under it: the heading used to sit
-                      in its own column, which read as a third level that does not exist. The
-                      14px chevron slot keeps both groups' labels on that same x. */}
-                  <span className="w-3.5 flex-shrink-0" />
+                {/* One left edge for the heading and the rows under it: the heading used to sit
+                    in its own column, which read as a third level that does not exist. Both
+                    groups now lead with a real chevron rather than one of them holding an empty
+                    slot where the other has ink. */}
+                <button
+                  onClick={() => setShowManual((v) => !v)}
+                  aria-expanded={manualOpen}
+                  className={`flex w-full items-center gap-2.5 py-2 pl-4 pr-4 text-left transition-colors ${manualOpen ? 'bg-[#FCFDFE]' : 'hover:bg-[#F9FAFB]'}`}
+                >
+                  <ChevronRight size={14} className={`flex-shrink-0 text-[#9CA3AF] transition-transform ${manualOpen ? 'rotate-90' : ''}`} />
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Added manually</span>
                   <span className="text-[11px] font-semibold text-[#9CA3AF]">{manual.length}</span>
-                </div>
-                {manual.length === 0 ? (
-                  <div className="px-4 py-8 text-center">
+                </button>
+                {!manualOpen ? null : manual.length === 0 ? (
+                  <div className="border-t border-[#F0F2F5] px-4 py-8 text-center">
                     <p className="text-[13px] text-[#7B8FA5]">No products added by hand on this host.</p>
                     <p className="mt-1 text-[12px] text-[#9CA3AF]">
                       Use <span className="font-medium text-[#364658]">Add product</span> to declare a path the agent should scan as its own product.
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-[#F0F2F5]">
+                  <div className="divide-y divide-[#F0F2F5] border-t border-[#F0F2F5]">
                     {manual.map((r) => (
                       <ProductRow
                         key={r.key} r={r} endpointId={endpointId}
@@ -309,7 +321,7 @@ export function BomManageProductsPanel({ isOpen, onClose, endpointId, hostName, 
                   <button
                     onClick={() => setShowFound((v) => !v)}
                     aria-expanded={foundOpen}
-                    className={`flex w-full items-center gap-2.5 py-2 pl-8 pr-4 text-left transition-colors ${foundOpen ? 'bg-[#FCFDFE]' : 'hover:bg-[#F9FAFB]'}`}
+                    className={`flex w-full items-center gap-2.5 py-2 pl-4 pr-4 text-left transition-colors ${foundOpen ? 'bg-[#FCFDFE]' : 'hover:bg-[#F9FAFB]'}`}
                   >
                     <ChevronRight size={14} className={`flex-shrink-0 text-[#9CA3AF] transition-transform ${foundOpen ? 'rotate-90' : ''}`} />
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Found by the agent</span>

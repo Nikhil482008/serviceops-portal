@@ -153,39 +153,63 @@ export function BomProductFormPanel({ isOpen, onClose, editing, onSave }: BomPro
               Scoped to this product — these globs are skipped only under the path above.
             </p>
 
-            {/* Opt into the standard exclusions rather than retyping them every time */}
-            <label className="mt-3 flex cursor-pointer items-start gap-2.5">
-              <input
-                type="checkbox"
-                checked={useDefaults}
-                onChange={(e) => setDefaultPaths(e.target.checked ? DEFAULT_EXCLUDE_PATHS : [])}
-                className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
-              />
-              <span className="min-w-0">
-                <span className="block text-[13px] text-[#364658]">Add the default exclude paths</span>
-                <span className="mt-0.5 block text-[12px] text-[#7B8FA5]">
-                  Logs, caches, temp files and other runtime noise that never belongs in a BOM.
-                </span>
-              </span>
-            </label>
+            {/* A CARD rather than a bare checkbox. Ticking it writes seven globs into the scan
+                configuration, and a control that changes the config that much should show what
+                it changed it to — so checking it opens the card onto exactly those paths, each
+                one removable. The default is a starting point, not a package.
 
-            {defaultPaths.length > 0 && (
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                {defaultPaths.map((p) => (
-                  <span
-                    key={p}
-                    className="group inline-flex items-center gap-1 rounded-sm border border-[#E5E7EB] bg-[#F1F5F9] py-0.5 pl-1.5 pr-1 font-mono text-[11px] text-[#475467]"
-                  >
-                    {p}
-                    <button
-                      onClick={() => setDefaultPaths((prev) => prev.filter((x) => x !== p))}
-                      title={`Remove ${p}`}
-                      className="text-[#9CA3AF] opacity-0 transition-opacity hover:text-[#DC2626] group-hover:opacity-100"
-                    ><X size={11} /></button>
+                The chips used to sit loose under the checkbox, which read as a separate thing
+                that happened to appear; inside the card they read as its contents. */}
+            <div className={`mt-3 overflow-hidden rounded-lg border transition-colors ${
+              useDefaults ? 'border-[#3D8BD0] bg-[#F7FBFF]' : 'border-[#DFE5ED] bg-white'}`}>
+              <label className="flex cursor-pointer items-start gap-2.5 p-3">
+                <input
+                  type="checkbox"
+                  checked={useDefaults}
+                  onChange={(e) => setDefaultPaths(e.target.checked ? DEFAULT_EXCLUDE_PATHS : [])}
+                  className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 cursor-pointer rounded border-[#d1d5db] text-[#3D8BD0] focus:ring-[#3D8BD0] focus:ring-offset-0"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] text-[#364658]">Add the default exclude paths</span>
+                  <span className="mt-0.5 block text-[12px] text-[#7B8FA5]">
+                    Logs, caches, temp files and other runtime noise that never belongs in a BOM.
                   </span>
-                ))}
-              </div>
-            )}
+                </span>
+                {/* Unchecked it states what ticking WOULD add; checked, what is actually in —
+                    the two are the same number until one is removed, and then they should not be. */}
+                <span className="mt-0.5 flex-shrink-0 text-[12px] tabular-nums text-[#9CA3AF]">
+                  {useDefaults ? defaultPaths.length : DEFAULT_EXCLUDE_PATHS.length} paths
+                </span>
+              </label>
+
+              {useDefaults && (
+                <div className="border-t border-[#DCE9F7] px-3 py-2.5">
+                  <div className="flex flex-wrap gap-1.5">
+                    {defaultPaths.map((p) => (
+                      <span
+                        key={p}
+                        className="group inline-flex items-center gap-1 rounded-sm border border-[#E5E7EB] bg-white py-0.5 pl-1.5 pr-1 font-mono text-[11px] text-[#475467]"
+                      >
+                        {p}
+                        <button
+                          onClick={() => setDefaultPaths((prev) => prev.filter((x) => x !== p))}
+                          title={`Remove ${p}`}
+                          className="text-[#9CA3AF] opacity-0 transition-opacity hover:text-[#DC2626] group-hover:opacity-100"
+                        ><X size={11} /></button>
+                      </span>
+                    ))}
+                  </div>
+                  {/* Only once something has been dropped — offering to restore a complete set
+                      is a button that does nothing. */}
+                  {defaultPaths.length < DEFAULT_EXCLUDE_PATHS.length && (
+                    <button
+                      onClick={() => setDefaultPaths(DEFAULT_EXCLUDE_PATHS)}
+                      className="mt-2 text-[12px] font-medium text-[#3D8BD0] hover:underline"
+                    >Restore all {DEFAULT_EXCLUDE_PATHS.length}</button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
         </div>
