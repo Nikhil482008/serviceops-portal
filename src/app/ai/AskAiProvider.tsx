@@ -34,6 +34,52 @@ export const PANEL_MAX_WIDTH = 720;
 export const PANEL_SHEET_BREAKPOINT = 768;
 
 const WIDTH_KEY = 'askAi:panelWidth';
+const MODE_KEY = 'askAi:mode';
+const FLOAT_KEY = 'askAi:floatPos';
+
+/** How the panel presents itself.
+ *
+ *  - `sidebar`   docked to the right edge, resizable. The reading-while-it-works mode.
+ *  - `floating`  a detached window you can drag anywhere. For when the dock covers the column
+ *                you actually need.
+ *  - `fullscreen` the whole viewport, for a long answer you want to read rather than glance at.
+ */
+export type AskAiMode = 'sidebar' | 'floating' | 'fullscreen';
+
+export const FLOAT_W = 420;
+export const FLOAT_H = 620;
+
+const readMode = (): AskAiMode => {
+  if (typeof window === 'undefined') return 'sidebar';
+  const raw = window.localStorage.getItem(MODE_KEY);
+  return raw === 'floating' || raw === 'fullscreen' || raw === 'sidebar' ? raw : 'sidebar';
+};
+
+/** Where the floating window sits. Clamped on read as well as on write: a position saved on a
+ *  second monitor must not open the window off-screen on a laptop. */
+const readFloatPos = (): { x: number; y: number } => {
+  const fallback = () => ({
+    x: Math.max(12, (typeof window === 'undefined' ? 1280 : window.innerWidth) - FLOAT_W - 24),
+    y: 80,
+  });
+  if (typeof window === 'undefined') return fallback();
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(FLOAT_KEY) || 'null');
+    if (!raw || typeof raw.x !== 'number' || typeof raw.y !== 'number') return fallback();
+    return clampFloat(raw.x, raw.y);
+  } catch { return fallback(); }
+};
+
+export const clampFloat = (x: number, y: number) => {
+  const w = typeof window === 'undefined' ? 1280 : window.innerWidth;
+  const h = typeof window === 'undefined' ? 800 : window.innerHeight;
+  /* At least a chunk of the title bar stays reachable, so the window can never be dragged
+     somewhere it cannot be dragged back from. */
+  return {
+    x: Math.min(Math.max(x, -FLOAT_W + 120), w - 120),
+    y: Math.min(Math.max(y, 0), h - 48),
+  };
+};
 
 const readStoredWidth = () => {
   if (typeof window === 'undefined') return PANEL_DEFAULT_WIDTH;
@@ -49,6 +95,11 @@ const readStoredWidth = () => {
 interface AskAiState {
   open: boolean;
   width: number;
+  mode: AskAiMode;
+  /** Collapsed to a pill, but still open — the conversation is intact behind it. Distinct from
+   *  closed, which is why it is not just `open: false`. */
+  minimized: boolean;
+  floatPos: { x: number; y: number };
   /** The scope whose thread is showing, e.g. `vulnerabilities.list`. */
   scope: string;
   threads: AiThread[];
@@ -59,6 +110,9 @@ interface AskAiActions {
   close: () => void;
   toggle: () => void;
   setWidth: (w: number) => void;
+  setMode: (m: AskAiMode) => void;
+  setMinimized: (v: boolean) => void;
+  setFloatPos: (p: { x: number; y: number }) => void;
   setScope: (scope: string) => void;
   /** Replaces ONE thread's messages, addressed by id. Addressed rather than searched: the panel
    *  used to find "its" thread by scanning for the first with a matching scope, which is how a
@@ -98,6 +152,9 @@ const loadThreads = (): AiThread[] => {
 export function AskAiProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [width, setWidthState] = useState(readStoredWidth);
+  const [mode, setModeState] = useState<AskAiMode>(readMode);
+  const [minimized, setMinimizedState] = useState(false);
+  const [floatPos, setFloatPosState] = useState(readFloatPos);
   const [scope, setScopeState] = useState('app');
   const [threads, setThreads] = useState<AiThread[]>(loadThreads);
 
@@ -108,7 +165,23 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
     try { window.localStorage.setItem(WIDTH_KEY, String(clamped)); } catch { /* private mode */ }
   }, []);
 
-  const open = useCallback(() => setIsOpen(true), []);
+  const setMode = useCallback((m: AskAiMode) => {
+    setModeState(m);
+    /* Choosing a mode is also un-minimising: you cannot pick how the window should look and then
+       be shown a pill instead. */
+    setMinimizedState(false);
+    try { window.localStorage.setItem(MODE_KEY, m); } catch { /* private mode */ }
+  }, []);
+
+  const setMinimized = useCallback((v: boolean) => setMinimizedState(v), []);
+
+  const setFloatPos = useCallback((p: { x: number; y: number }) => {
+    const c = clampFloat(p.x, p.y);
+    setFloatPosState(c);
+    try { window.localStorage.setItem(FLOAT_KEY, JSON.stringify(c)); } catch { /* quota */ }
+  }, []);
+
+  const open = useCallback(() => { setIsOpen(true); setMinimizedState(false); }, []);
   const close = useCallback(() => {
     setIsOpen(false);
     /* Focus goes back where it came from. Without this a keyboard user who opens the panel with
@@ -177,16 +250,16 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const state = useMemo<AskAiState>(
-    () => ({ open: isOpen, width, scope, threads }),
-    [isOpen, width, scope, threads],
+    () => ({ open: isOpen, width, mode, minimized, floatPos, scope, threads }),
+    [isOpen, width, mode, minimized, floatPos, scope, threads],
   );
 
   /* Every function here is `useCallback`-stable, so this object's identity never changes after
      mount — which is the entire point of the split. `newThread` and `selectThread` close over
      `threads`, so they are excluded from that guarantee and the memo lists them honestly. */
   const actions = useMemo<AskAiActions>(
-    () => ({ open, close, toggle, setWidth, setScope, setMessages, newThread }),
-    [open, close, toggle, setWidth, setScope, setMessages, newThread],
+    () => ({ open, close, toggle, setWidth, setMode, setMinimized, setFloatPos, setScope, setMessages, newThread }),
+    [open, close, toggle, setWidth, setMode, setMinimized, setFloatPos, setScope, setMessages, newThread],
   );
 
   return (

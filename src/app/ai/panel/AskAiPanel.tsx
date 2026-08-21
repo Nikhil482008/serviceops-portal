@@ -10,11 +10,16 @@
  * hardcode `window.innerWidth - 54` so a full-width drawer will still paint over this panel.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { History, Plus, Send, Square, X, ArrowDown, Copy, RefreshCw, Check } from 'lucide-react';
 import {
-  PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, PANEL_SHEET_BREAKPOINT,
-  useAskAiActions, useAskAiState,
+  ChevronDown, Minus, PanelRight, PictureInPicture2, Plus, Send, Square, X,
+  ArrowDown, Copy, RefreshCw, Check,
+} from 'lucide-react';
+import {
+  FLOAT_H, FLOAT_W, PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, PANEL_SHEET_BREAKPOINT,
+  clampFloat, useAskAiActions, useAskAiState,
 } from '../AskAiProvider';
+import { AskAiModeMenu } from './AskAiModeMenu';
+import { AskAiMinimized } from './AskAiMinimized';
 import { aiClient } from '../client/aiClient';
 import { AI_ERROR_RETRYABLE, AI_ERROR_TEXT } from '../client/errors';
 import { AiRichText } from '../components/AiRichText';
@@ -34,8 +39,9 @@ let idSeq = 0;
 const nextId = () => `m${Date.now().toString(36)}-${idSeq++}`;
 
 export default function AskAiPanel() {
-  const { open, width, scope, threads } = useAskAiState();
-  const { close, setWidth, setMessages, newThread } = useAskAiActions();
+  const { open, width, mode, minimized, floatPos, scope, threads } = useAskAiState();
+  const { close, setWidth, setMode, setMinimized, setFloatPos, setMessages, newThread } = useAskAiActions();
+  const [showModes, setShowModes] = useState(false);
 
   /* The thread this panel is showing, by ID. It used to be found by scanning `threads` for the
      first entry with a matching scope — which meant New chat could mint one and the scan could
@@ -158,6 +164,35 @@ export default function AskAiPanel() {
     void runSend(lastUser.text, upto);
   }, [messages, runSend]);
 
+  /* ── drag, floating mode only ─────────────────────────────────────
+   *
+   * Grabbing the header moves the window. The offset between the pointer and the window's corner
+   * is captured on mousedown, so the window does not jump to centre itself under the cursor. */
+  const [dragging, setDragging] = useState(false);
+  const dragOff = useRef({ x: 0, y: 0 });
+  useEffect(() => {
+    if (!dragging) return undefined;
+    const move = (e: MouseEvent) => setFloatPos({ x: e.clientX - dragOff.current.x, y: e.clientY - dragOff.current.y });
+    const up = () => setDragging(false);
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+    document.body.style.userSelect = 'none';
+    return () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      document.body.style.userSelect = '';
+    };
+  }, [dragging, setFloatPos]);
+
+  /* A floating window pinned near the right edge would hang off-screen after the browser is made
+     narrower, with its header out of reach. Re-clamp on resize. */
+  useEffect(() => {
+    if (mode !== 'floating') return undefined;
+    const onResize = () => setFloatPos(clampFloat(floatPos.x, floatPos.y));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [mode, floatPos, setFloatPos]);
+
   /* ── resize ──────────────────────────────────────────────────────── */
   const [resizing, setResizing] = useState(false);
   useEffect(() => {
@@ -177,9 +212,36 @@ export default function AskAiPanel() {
     };
   }, [resizing, setWidth]);
 
+  /* Below the tablet breakpoint every mode collapses to a full-height sheet. A 420px floating
+     window on a 600px screen is not a floating window, it is the screen. */
   const sheet = typeof window !== 'undefined' && window.innerWidth < PANEL_SHEET_BREAKPOINT;
+  const effective: 'sidebar' | 'floating' | 'fullscreen' = sheet ? 'fullscreen' : mode;
 
   if (!open) return null;
+
+  if (minimized) {
+    return (
+      <AskAiMinimized
+        onRestore={() => setMinimized(false)}
+        subtitle={messages.find((m) => m.role === 'user')?.text.slice(0, 40)}
+      />
+    );
+  }
+
+  /* One shell, three geometries. Everything inside — header, thread, composer — is identical in
+     all three; only the box changes, which is what keeps the modes from drifting into three
+     slightly different assistants. */
+  const shell = {
+    sidebar: 'fixed right-0 top-0 h-screen border-l border-[#e5e7eb] shadow-2xl',
+    floating: 'fixed rounded-xl border border-[#DFE5ED] shadow-2xl overflow-hidden',
+    fullscreen: 'fixed inset-0 h-screen w-screen',
+  }[effective];
+
+  const shellStyle = effective === 'sidebar'
+    ? { width: sheet ? '100vw' : width }
+    : effective === 'floating'
+      ? { left: floatPos.x, top: floatPos.y, width: FLOAT_W, height: FLOAT_H }
+      : undefined;
 
   const empty = messages.length === 0;
   const streamingText = messages.find((m) => m.streaming)?.text ?? '';
@@ -188,11 +250,13 @@ export default function AskAiPanel() {
     <aside
       role="complementary"
       aria-label="Ask AI"
-      className={`fixed right-0 top-0 flex h-screen flex-col border-l border-[#e5e7eb] bg-white shadow-2xl ${Z}`}
-      style={{ width: sheet ? '100vw' : width }}
+      data-mode={effective}
+      className={`flex flex-col bg-white ${shell} ${Z}`}
+      style={shellStyle}
     >
-      {/* Drag handle. Not offered on the sheet, where the panel is the whole screen. */}
-      {!sheet && (
+      {/* Edge resize belongs to the docked mode only. The floating window has a fixed size and is
+          moved instead; full screen has nothing to resize against. */}
+      {effective === 'sidebar' && !sheet && (
         <div
           onMouseDown={(e) => { e.preventDefault(); setResizing(true); }}
           className="group absolute bottom-0 left-0 top-0 z-10 w-3 cursor-ew-resize"
@@ -204,38 +268,63 @@ export default function AskAiPanel() {
         </div>
       )}
 
-      {/* header */}
-      <div className="flex h-[50px] flex-shrink-0 items-center gap-2 border-b border-[#e5e7eb] px-4">
-        <h2 ref={headingRef} tabIndex={-1} className="flex-shrink-0 text-[15px] font-semibold text-[#364658] outline-none">
-          Ask AI
-        </h2>
-        <div className="ml-auto flex items-center gap-1">
-          <div className="relative">
-            <button
-              type="button" title="Recent chats" aria-label="Recent chats" aria-expanded={showHistory}
-              onClick={() => setShowHistory((v) => !v)}
-              className="flex size-8 items-center justify-center rounded text-[#6B7280] transition-colors hover:bg-[#F3F4F6]"
-            ><History size={16} /></button>
-            {showHistory && (
-              <div className="absolute right-0 top-full z-20 mt-1 w-[240px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-                {threads.length === 0
-                  ? <div className="px-3 py-2 text-[12px] text-[#9CA3AF]">No earlier chats yet.</div>
-                  : threads.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => {
-                        abortRef.current?.abort();
-                        liveThread.current = t.id;
-                        setThreadId(t.id);
-                        setLocal(t.messages);
-                        setShowHistory(false);
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F5F7FA]"
-                    ><span className="min-w-0 flex-1 truncate">{t.title}</span></button>
-                  ))}
-              </div>
-            )}
-          </div>
+      {/* header
+          Draggable in floating mode, and only there — a grab cursor on a docked panel would
+          promise a move that cannot happen. Buttons stop the drag from starting so clicking one
+          never nudges the window. */}
+      <div
+        onMouseDown={(e) => {
+          if (effective !== 'floating') return;
+          if ((e.target as HTMLElement).closest('button')) return;
+          dragOff.current = { x: e.clientX - floatPos.x, y: e.clientY - floatPos.y };
+          setDragging(true);
+        }}
+        className={`flex h-[50px] flex-shrink-0 items-center gap-1 border-b border-[#e5e7eb] px-4 ${
+          effective === 'floating' ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : ''
+        }`}
+      >
+        {/* The title IS the thread switcher, as it is in the reference — one affordance for
+            "which conversation am I in" rather than a label plus a history icon saying the same. */}
+        <div className="relative min-w-0">
+          <button
+            type="button"
+            onClick={() => { setShowHistory((v) => !v); setShowModes(false); }}
+            aria-expanded={showHistory}
+            aria-haspopup="menu"
+            className="flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[15px] font-semibold text-[#364658] transition-colors hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D8BD0]"
+          >
+            <h2 ref={headingRef} tabIndex={-1} className="min-w-0 truncate outline-none">
+              {messages.length === 0 ? 'New chat' : (threads.find((t) => t.id === threadId)?.title || 'Ask AI')}
+            </h2>
+            <ChevronDown size={15} className="flex-shrink-0 text-[#7B8FA5]" />
+          </button>
+          {showHistory && (
+            <div role="menu" className="absolute left-0 top-full z-30 mt-1 w-[260px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
+              {threads.length === 0
+                ? <div className="px-3 py-2 text-[12px] text-[#9CA3AF]">No earlier chats yet.</div>
+                : threads.map((t) => (
+                  <button
+                    key={t.id}
+                    role="menuitemradio"
+                    aria-checked={t.id === threadId}
+                    onClick={() => {
+                      abortRef.current?.abort();
+                      liveThread.current = t.id;
+                      setThreadId(t.id);
+                      setLocal(t.messages);
+                      setShowHistory(false);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+                  >
+                    <span className="min-w-0 flex-1 truncate">{t.title}</span>
+                    {t.id === threadId && <Check size={13} className="flex-shrink-0 text-[#3D8BD0]" />}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+
+        <div className="ml-auto flex flex-shrink-0 items-center gap-1">
           <button
             type="button" title="New chat" aria-label="New chat"
             onClick={() => {
@@ -252,6 +341,32 @@ export default function AskAiPanel() {
             }}
             className="flex size-8 items-center justify-center rounded text-[#6B7280] transition-colors hover:bg-[#F3F4F6]"
           ><Plus size={16} /></button>
+
+          {/* Layout. The trigger shows the mode you are IN, so the header answers the question
+              without opening anything. */}
+          <div className="relative">
+            <button
+              type="button"
+              title="Panel layout" aria-label="Panel layout"
+              aria-haspopup="menu" aria-expanded={showModes}
+              onClick={() => { setShowModes((v) => !v); setShowHistory(false); }}
+              className={`flex size-8 items-center justify-center rounded transition-colors hover:bg-[#F3F4F6] ${showModes ? 'bg-[#F3F4F6] text-[#364658]' : 'text-[#6B7280]'}`}
+            >
+              {effective === 'floating' ? <PictureInPicture2 size={16} />
+                : effective === 'fullscreen' ? <Square size={15} />
+                  : <PanelRight size={16} />}
+            </button>
+            {showModes && (
+              <AskAiModeMenu mode={mode} onPick={setMode} onClose={() => setShowModes(false)} />
+            )}
+          </div>
+
+          <button
+            type="button" title="Minimise" aria-label="Minimise Ask AI"
+            onClick={() => setMinimized(true)}
+            className="flex size-8 items-center justify-center rounded text-[#6B7280] transition-colors hover:bg-[#F3F4F6]"
+          ><Minus size={16} /></button>
+
           <button
             type="button" title="Close" aria-label="Close Ask AI"
             onClick={close}
@@ -261,7 +376,18 @@ export default function AskAiPanel() {
       </div>
 
       {/* thread */}
-      <div ref={scrollRef} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      {/* In full screen the thread is centred and capped. 13px body text set across a 2,500px
+          window is not readable — a measure is the whole reason a wide mode needs different
+          treatment rather than just more room. The docked and floating modes are already narrow
+          enough that a cap would do nothing, so `mx-auto` on a max-width is a no-op there. */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className={`relative min-h-0 flex-1 overflow-y-auto py-4 ${
+          effective === 'fullscreen' ? 'px-6' : 'px-4'
+        }`}
+      >
+       <div className={effective === 'fullscreen' ? 'mx-auto w-full max-w-[720px]' : ''}>
         {empty ? (
           <div className="flex h-full flex-col justify-center">
             <p className="mb-1 text-[14px] font-semibold text-[#364658]">How can I help?</p>
@@ -351,6 +477,8 @@ export default function AskAiPanel() {
           </div>
         )}
 
+       </div>
+
         {/* Streaming text announced politely and THROTTLED — the live region carries the answer so
             far, updated per delta rather than per character, so a screen reader is not read a
             word-at-a-time stutter. */}
@@ -365,7 +493,8 @@ export default function AskAiPanel() {
       )}
 
       {/* composer */}
-      <div className="flex-shrink-0 border-t border-[#e5e7eb] bg-white px-4 py-3">
+      <div className={`flex-shrink-0 border-t border-[#e5e7eb] bg-white py-3 ${effective === 'fullscreen' ? 'px-6' : 'px-4'}`}>
+       <div className={effective === 'fullscreen' ? 'mx-auto w-full max-w-[720px]' : ''}>
         {contextOn && (
           <div className="mb-2 flex items-center gap-1.5">
             <span className="inline-flex items-center gap-1.5 rounded-sm bg-[#F1F5F9] px-2 py-1 text-[11px] text-[#364658]">
@@ -412,6 +541,7 @@ export default function AskAiPanel() {
         <p className="mt-1.5 text-[11px] text-[#9CA3AF]">
           Enter to send · Shift+Enter for a new line
         </p>
+       </div>
       </div>
     </aside>
   );
