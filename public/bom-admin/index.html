@@ -517,6 +517,15 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .lnk.danger{color:var(--crit)}
 .lnk.danger:hover{background:var(--crit-soft)}
 
+/* The prefix column. "Where" and the echoed joins are labels; row two is a real button, and is
+   the only one that looks like one — an affordance on every row would suggest they could differ. */
+.cb-w.tog{display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;
+  font-weight:600;color:var(--ink);transition:border-color .12s,background .12s}
+.cb-w.tog:hover{border-color:var(--brand);background:var(--sel-blue)}
+.cb-w.tog:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
+.cb-w.tog svg{color:var(--faint)}
+.cb-w.echo{color:var(--faint)}
 .cb-row{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto auto;
   gap:8px;align-items:center;margin-bottom:10px}
 .cb-w{background:var(--chip-n2);color:var(--ink);font-size:12px;font-weight:600;border-radius:4px;
@@ -2960,7 +2969,14 @@ function condMatch(c, ci){
    same way every builder of this shape behaves. */
 function groupMatch(g, ci){
   const cs = g.conds.filter(condDone);
-  return cs.length > 0 && cs.every(c=>condMatch(c, ci));
+  if(!cs.length) return false;
+  /* A group is ALL by default and ANY when switched — the same two-level model the Request Form
+     Rules builder uses: match within a group, join between groups. Changing this without changing
+     `groupSummary` below would let the sentence on a collapsed group describe a different rule
+     from the one the count was computed with. */
+  return (g.match === "any")
+    ? cs.some(c=>condMatch(c, ci))
+    : cs.every(c=>condMatch(c, ci));
 }
 /* ONE matcher, against whichever population the question is about. A BOM Policy
    asks it of the whole CMDB — who a rule targets is a fact about the estate,
@@ -2988,10 +3004,25 @@ function condPhrase(c){
   if(!f || !c.op) return "";
   return `${f.lab} ${OP_PHRASE[c.op] || c.op.toLowerCase()} ${c.value || "…"}`;
 }
-const groupSummary = g => g.conds.map(condPhrase).filter(Boolean).join(" and ");
+const groupSummary = g => g.conds.map(condPhrase).filter(Boolean)
+  .join(g.match === "any" ? " or " : " and ");
+
+/* ONE copier for condition groups.
+   They are cloned in seven places, and each site used to enumerate the fields it carried. That is
+   how `join` came to be dropped in exactly one of them (the Retention draft, so editing a saved
+   rule silently lost its And/Or), and how `match` would have been dropped in all seven the moment
+   it was added. Spreading the group means a new group-level field is carried everywhere for free.
+   `openLast` is the one real variation: some callers open the final group for editing. */
+const cloneGroups = (gs, opt) => (gs || []).map((g, i, a) => ({
+  ...g,
+  join: g.join || "And",
+  match: g.match || "all",
+  open: (opt && opt.openLast) ? i === a.length - 1 : g.open,
+  conds: (g.conds || []).map(c => ({...c})),
+}));
 
 const newCond  = () => ({field:"", op:"", value:""});
-const newGroup = () => ({join:"And", open:true, conds:[newCond()]});
+const newGroup = () => ({join:"And", match:"all", open:true, conds:[newCond()]});
 
 /* ══════════════════════════════════════════════════════════════
    BOM POLICIES — the reusable WHO
@@ -3388,8 +3419,11 @@ function reusePopHTML(sel){
   const body = gs.length ? gs.map((g, gi) => {
     const rows = (g.conds || []).map(condPhrase).filter(Boolean);
     if(!rows.length) return "";
+    /* Reads the GROUP's match rather than assuming AND — a group can be either now, and a peek
+       that always said AND would describe a different rule from the one being matched. */
+    const within = (g.match === "any") ? "OR" : "AND";
     return `${gi ? `<div class="rp-join"><span>OR</span></div>` : ""}
-      ${rows.map((t, i) => `${i ? `<div class="rp-join"><span>AND</span></div>` : ""}
+      ${rows.map((t, i) => `${i ? `<div class="rp-join"><span>${within}</span></div>` : ""}
         <div class="rp-c"><i></i>${esc(t)}</div>`).join("")}`;
   }).join("") : "";
   /* Nothing interactive in here any more — which is what lets it be a plain hover tooltip
@@ -3982,6 +4016,18 @@ function ddSet(id, val){
        value control is, so a value carried across would be nonsense. */
     if(kind==="co"){ if(isPickOp(c.op) !== isPickOp(val)) c.value = ""; c.op = val; }
     if(kind==="cv") c.value = val;
+    /* Field → operator → value, the same chain the form-rules row walks. It stops at the value
+       when that value is a free-text box: opening a menu that does not exist would be a no-op,
+       and the input is focused by the render instead. */
+    const f2 = fieldOf(c.field);
+    DD_OPEN = kind === "cf" ? `co-${gi}-${ri}`
+      : (kind === "co" && f2 && f2.opts && isPickOp(val)) ? `cv-${gi}-${ri}`
+        : null;
+    if(PICK || COND) renderStack();
+    renderRetention(); if(RT_DRAFT || RT_DEF_EDIT) renderModal(); if(BS_DRAFT) renderBsDrawers();
+    if(LIC_DRAWER && !COND) renderLicDrawer();
+    if(BP_DRAFT || BP_VIEW) renderPolicyDrawer();
+    return;
   }
   DD_OPEN = null;
   if(PICK || COND) renderStack();
@@ -4200,7 +4246,7 @@ const DW2_W = Math.round(DW_W * 0.8);   // picker stacks 20% narrower
 
 function rtOpen(id){
   const r = id && RT_RULES.find(x=>x.id===id);
-  RT_DRAFT = r ? {...r, groups:(r.groups||[]).map(g=>({conds:g.conds.map(c=>({...c}))})),
+  RT_DRAFT = r ? {...r, groups:cloneGroups(r.groups),
                   manual:[...r.manual], editing:true, err:false}
                : {id:null, name:"", keep:RT_DEFAULT.keep, period:RT_DEFAULT.period,
                   auto:false, groups:[], manual:[], policyId:null, editing:false, err:false};
@@ -4233,9 +4279,7 @@ function pickSeatsLeft(){
 function closePick(){ const b = PICK && PICK.back; PICK = null; renderStack(); if(b) b(); }
 
 function openCond(target, back, mod){
-  const g = (target.groups || []).map((x,i,a)=>({
-    join: x.join || "And", open: i === a.length-1, conds: x.conds.map(c=>({...c}))
-  }));
+  const g = cloneGroups(target.groups, {openLast:true});
   /* `mod` is the module being edited, and it is the ONE thing reuse needs: a rule cannot
      reuse the module it lives in, or "configured elsewhere" stops meaning anything. */
   COND = {auto: true, tmode: target.reuse ? "reuse" : "conditions",
@@ -4289,8 +4333,18 @@ function cbGroupsHTML(groups){
         ${g.open ? `<div class="cg-body">
           ${g.conds.map((c,ri)=>{
             const f = fieldOf(c.field);
+            /* Row one says "Where". Row two is the TOGGLE — one control, at the first place the
+               question can arise. Rows after it echo the answer statically: three buttons all
+               setting the same flag would imply they could disagree. */
+            const jw = g.match === "any" ? "Or" : "And";
             return `<div class="cb-row">
-              <span class="cb-w">${ri ? "And" : "Where"}</span>
+              ${ri === 0
+                ? `<span class="cb-w">Where</span>`
+                : ri === 1
+                  ? `<button class="cb-w tog" data-cmatch="${gi}" title="Switch to ${g.match === "any" ? "And — every condition must match" : "Or — any one condition can match"}" aria-label="Match ${g.match === "any" ? "any" : "all"} conditions in this group. Activate to switch.">${jw}
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13.4 8a5.4 5.4 0 11-1.6-3.8"/><path d="M13.6 2.3v2.9h-2.9"/></svg>
+                    </button>`
+                  : `<span class="cb-w echo">${jw}</span>`}
               ${ddHTML(`cf-${gi}-${ri}`, f ? f.lab : "", COND_FIELDS.map(x=>x.lab), "full", "Choose field")}
               ${ddHTML(`co-${gi}-${ri}`, c.op, COND_OPS, "full", "Choose")}
               ${f && f.opts && isPickOp(c.op)
@@ -4337,12 +4391,26 @@ function wireCbGroups(G, rerender, onVal){
   document.querySelectorAll("[data-cgdup]").forEach(b=>b.onclick=()=>{
     const gi = +b.dataset.cgdup;
     G.forEach(g=>g.open=false);
-    G.splice(gi+1, 0, {join:G[gi].join, open:true, conds:G[gi].conds.map(c=>({...c}))});
+    G.splice(gi+1, 0, {join:G[gi].join, match:G[gi].match || "all", open:true,
+      conds:G[gi].conds.map(c=>({...c}))});
     rerender();
   });
   document.querySelectorAll("[data-cgdel]").forEach(b=>b.onclick=()=>{ G.splice(+b.dataset.cgdel,1); rerender(); });
-  document.querySelectorAll("[data-caddc]").forEach(b=>b.onclick=()=>{
-    G[+b.dataset.caddc].conds.push(newCond()); rerender();
+  document.querySelectorAll("[data-cmatch]").forEach(b=>b.onclick=()=>{
+    const g = G[+b.dataset.cmatch]; g.match = g.match === "any" ? "all" : "any"; rerender();
+  });
+  document.querySelectorAll("[data-caddc]").forEach(b=>b.onclick=e=>{
+    /* A document-level listener closes any open dropdown on click. Opening one from inside a
+       click therefore has to stop the event, or the same click that opened the field picker
+       closes it again — which is why every [data-dd] control here does the same. */
+    e.stopPropagation();
+    const gi = +b.dataset.caddc, g = G[gi];
+    g.conds.push(newCond());
+    /* PROGRESSIVE DISCLOSURE. A fresh row is three empty controls; opening the first one says
+       which to start with. `DD_OPEN` is the dropdowns' own open-menu state, so this is the
+       existing mechanism pointed at the new row rather than a second one. */
+    DD_OPEN = `cf-${gi}-${g.conds.length - 1}`;
+    rerender();
   });
   document.querySelectorAll("[data-cdup]").forEach(b=>b.onclick=()=>{
     const [gi,ri] = b.dataset.cdup.split("-").map(Number);
@@ -4925,7 +4993,7 @@ function renderModal(){
        the default, and a warning that greets you before you have done anything is noise. */
     if(rtSameAsDefault(d)){ d.sameErr = true; renderModal(); return; }
     const rule = {id:d.id || rtNextId(), name:d.name.trim(), keep:d.keep, period:d.period,
-                  auto:d.auto, groups:(d.groups||[]).map(g=>({join:g.join, conds:g.conds.map(c=>({...c}))})),
+                  auto:d.auto, groups:cloneGroups(d.groups),
                   manual:[...d.manual], policyId:d.policyId || null, reuse:d.reuse || null};
     if(d.editing) RT_RULES = RT_RULES.map(r=>r.id===rule.id ? rule : r);
     else RT_RULES.push(rule);
@@ -5448,7 +5516,7 @@ function bsOpen(id){
   const soon = new Date(); soon.setMinutes(0,0,0); soon.setHours(soon.getHours()+1);
   BS_DRAFT = p
     ? {...p, cis:[...(p.cis||[])], days:[...(p.days||[])],
-       groups:(p.groups||[]).map(g=>({join:g.join, conds:g.conds.map(c=>({...c}))})),
+       groups:cloneGroups(p.groups),
        editing:true, err:false}
     : {id:null, name:"", kind:"Recurring", freq:"Daily", days:["Mon"],
        mMode:"date", mDate:"1", mOcc:"First", mDow:"Monday", mMonth:"Every month",
@@ -5746,7 +5814,7 @@ function renderBsDrawers(){
                days:[...d.days], mMode:d.mMode, mDate:d.mDate, mOcc:d.mOcc, mDow:d.mDow, mMonth:d.mMonth,
                startAt:d.startAt, startDate:d.startDate, endDate:d.endDate, tz:d.tz, on:d.on,
                cis:[...d.cis], auto:d.auto, policyId:d.policyId || null, reuse:d.reuse || null,
-               groups:(d.groups||[]).map(g=>({join:g.join, conds:g.conds.map(c=>({...c}))}))};
+               groups:cloneGroups(d.groups)};
     if(d.editing) BS_POLICIES = BS_POLICIES.map(x=>x.id===p.id?p:x); else BS_POLICIES.push(p);
     bsClose(); renderScheduler();
     const n = bsCis(p).length;
@@ -6424,7 +6492,7 @@ function licRuleOpen(id, fromRules){
   LIC_DRAWER = r
     ? {id:r.id, name:r.name, auto:r.on, editing:true, err:false, fromRules:!!fromRules, policyId:r.policyId||null,
        tmode:r.policyId ? "policy" : "conditions", stash:null,
-       groups:r.groups.map((g,i,a)=>({join:g.join||"And", open:i===a.length-1, conds:g.conds.map(c=>({...c}))}))}
+       groups:cloneGroups(r.groups, {openLast:true})}
     /* A new rule opens on its own conditions: the builder is usable straight away,
        and the reusable option sits above it, one click and clearly unselected. */
     : {id:null, name:"", auto:true, editing:false, err:false, fromRules:!!fromRules, policyId:null,
@@ -7166,7 +7234,7 @@ function bpOpen(id, opts){
   const s = id && bpOf(id);
   BP_DRAFT = s
     ? {id:s.id, name:s.name, desc:s.desc||"", on:s.on, err:false,
-       groups:s.groups.map((g,i,a)=>({join:g.join||"And", open:i===a.length-1, conds:g.conds.map(c=>({...c}))})),
+       groups:cloneGroups(s.groups, {openLast:true}),
        caps:capDraftFor(s.id), ...(opts||{})}
     : {id:null, name:"", desc:"", on:true, err:false, groups:[newGroup()],
        caps:capDraftFor(null), ...(opts||{})};
@@ -7503,7 +7571,7 @@ function renderPolicyDrawer(){
     }
     const s = {id:d.id || bpNextId(), name:d.name.trim(), desc:d.desc.trim(), on:d.on,
                updated:todayLabel(),
-               groups:(d.groups||[]).map(g=>({join:g.join, conds:g.conds.map(c=>({...c}))}))};
+               groups:cloneGroups(d.groups)};
     const imp = bpImpact(d);
     if(d.id) BOM_POLICIES = BOM_POLICIES.map(x=>x.id===s.id ? s : x); else BOM_POLICIES.push(s);
     /* The switches are written to the modules AFTER the policy exists, so a rule
