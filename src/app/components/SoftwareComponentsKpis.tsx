@@ -173,8 +173,13 @@ export function SoftwareComponentsKpis({
         active={focus === 'fixable'} onToggle={toggle('fixable')} cta="View comp. with fixes"
       >
         {/* The bar is the same fact as "10 of 10" drawn a second way, so it belongs on the same
-            line — stacked, it read as a separate reading and cost the card a third row. */}
-        <div className="flex items-center gap-3">
+            line — stacked, it read as a separate reading and cost the card a third row.
+
+            `w-full` is what makes it VISIBLE. This row is itself a flex item of the card's line 2,
+            and a flex item does not grow unless told to; its width settled on its content, and
+            the bar's content is nothing — an empty span whose `flex-1` had no slack to claim. The
+            bar was in the markup the whole time, sized to zero. */}
+        <div className="flex w-full items-center gap-3">
           <span className="flex flex-shrink-0 items-baseline gap-2">
             <span className={`${KPI_NUM} text-[#364658]`}>{fixable}</span>
             <span className="text-[15px] font-medium text-[#7B8FA5]">of {vulnerable.length}</span>
@@ -193,12 +198,28 @@ export function SoftwareComponentsKpis({
         icon={<Flag size={15} />} title="Flagged licenses"
         active={focus === 'license'} onToggle={toggle('license')} cta="Review licenses"
       >
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-          <span className={`${KPI_NUM} ${flagged.length ? 'text-[#D97706]' : 'text-[#364658]'}`}>{flagged.length}</span>
-          {[...new Set(flagged.map((c) => c.license))].map((l) => (
-            <KpiChip key={l} tone="warn">{l}</KpiChip>
-          ))}
-        </div>
+        {/* Two licences, then a count. The card's job is "how many, and what KIND" — two names
+            answer the second question, and a third pushed the row to a width the card does not
+            have. The rest are named on the +N's own hover rather than dropped. */}
+        {(() => {
+          const kinds = [...new Set(flagged.map((c) => c.license))];
+          const SHOWN = 2;
+          const rest = kinds.slice(SHOWN);
+          return (
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
+              <span className={`${KPI_NUM} ${flagged.length ? 'text-[#D97706]' : 'text-[#364658]'}`}>{flagged.length}</span>
+              {kinds.slice(0, SHOWN).map((l) => (
+                <KpiChip key={l} tone="warn">{l}</KpiChip>
+              ))}
+              {rest.length > 0 && (
+                <span
+                  className="cursor-help text-[12px] font-medium tabular-nums text-[#D97706]"
+                  title={rest.join(', ')}
+                >+{rest.length}</span>
+              )}
+            </div>
+          );
+        })()}
       </KpiCard>
     </div>
   );
