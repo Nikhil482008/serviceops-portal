@@ -298,6 +298,13 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
   font-size:13px;color:var(--ink);display:inline-flex;align-items:center;justify-content:space-between;
   gap:8px;transition:border-color .14s}
 .ddbtn:hover{border-color:var(--brand)}
+/* The label and anything inline after it. `min-width:0` on both so the NAME is what truncates —
+   without it the flex item refuses to shrink and pushes the clear out of the field. */
+.dd-face{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.dd-face .truncate{min-width:0}
+/* A combobox div gets neither of these from the browser the way a <button> does. */
+.ddbtn[role="combobox"]{cursor:pointer}
+.ddbtn[role="combobox"]:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .ddbtn.ph{color:var(--faint)}
 .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ddbtn .cv{color:var(--dim);transition:transform .16s;display:grid;place-items:center}
@@ -437,14 +444,11 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .reuse-field .ddwrap{display:block}
 .reuse-peek{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}
 .reuse-peek .lnk{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
-/* Clear sits OVER the field, just inside it, left of the chevron. Positioned rather than nested:
-   a button inside the dropdown's button is invalid and is not announced as its own control. The
-   field reserves room for both, so a long rule name ellipsises before it reaches them. */
-.reuse-field.has-clr .ddbtn{padding-right:52px}
-.reuse-clr{position:absolute;right:28px;top:50%;transform:translateY(-50%);
-  display:inline-flex;align-items:center;justify-content:center;
-  width:22px;height:22px;border:0;background:transparent;border-radius:5px;cursor:pointer;
-  color:var(--faint);transition:background .12s,color .12s;z-index:2}
+/* Clear sits INLINE, immediately after the rule name — it moves with the text rather than being
+   pinned to the field's edge, which is why the trigger had to stop being a <button>. */
+.reuse-clr{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border:0;background:transparent;border-radius:5px;cursor:pointer;
+  color:var(--faint);transition:background .12s,color .12s}
 .reuse-clr:hover{background:var(--crit-soft);color:var(--crit)}
 .reuse-clr:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .reuse-empty{margin-top:9px;font-size:12.5px;color:var(--dim)}
@@ -3327,9 +3331,9 @@ function reuseControlsHTML(groups, sel, owner){
      The "changes made in X apply here too" line was removed — the ⓘ on this option already
      says "Changes made where it lives apply everywhere it is used", so it now reads once. */
   return `<div class="reuse-row">
-    <span class="reuse-field${sel ? " has-clr" : ""}">
-      ${ddGroupHTML("cbReuse", label, groups, "Choose a rule…")}
-      ${sel ? `<button class="reuse-clr" id="cbReuseClear" aria-label="Clear the selected rule" title="Clear">${IC_X}</button>` : ""}
+    <span class="reuse-field">
+      ${ddGroupHTML("cbReuse", label, groups, "Choose a rule…",
+        sel ? `<button class="reuse-clr" id="cbReuseClear" aria-label="Clear the selected rule" title="Clear">${IC_X}</button>` : "")}
     </span>
     ${sel ? `<span class="reuse-peek">
       <button class="lnk" id="cbReuseView" aria-describedby="cbReusePop">View rule ${IC_CHEV_R}</button>
@@ -3364,7 +3368,12 @@ function wireReuse(owner, rerender){
   if(!owner) return;
   /* No handler on View: the peek is opened by hover and by focus, in CSS. A click-to-toggle would
      be a second way to do the same thing, and the one that needs a re-render to undo itself. */
-  if($("cbReuseClear")) $("cbReuseClear").onclick = ()=>{ owner.reuse = null; owner.view = false; rerender(); };
+  /* The clear lives inside the combobox now, so its click would bubble to the trigger and open
+     the very menu it just cleared. */
+  if($("cbReuseClear")) $("cbReuseClear").onclick = (e)=>{
+    e.stopPropagation();
+    owner.reuse = null; owner.view = false; rerender();
+  };
 }
 
 /* Read-only on purpose. Editing a shared rule from a screen that merely consumes it is how
@@ -3894,13 +3903,19 @@ let DD_OPEN = null;
 /* Same control as `ddHTML`, but the options carry a module and a count. Kept separate rather
    than overloading the workhorse: every other dropdown in this file is a list of strings, and
    teaching that one to also be a list of objects is how it starts guessing. */
-function ddGroupHTML(id, label, groups, placeholder){
+function ddGroupHTML(id, label, groups, placeholder, slot){
   const open = DD_OPEN === id;
+  /* `slot` is markup that sits INLINE, immediately after the label — a clear button, typically.
+     A <button> may not contain another button, so a trigger carrying a slot is rendered as a
+     combobox DIV instead. Callers that pass no slot get the original <button>, unchanged.
+     The click wiring keys off the [data-dd] ATTRIBUTE, so both shapes bind identically. */
+  const face = `<span class="dd-face"><span class="truncate">${esc(label || placeholder || "Choose…")}</span>${slot || ""}</span>
+      <span class="cv"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6.5L8 10.5l4-4"/></svg></span>`;
+  const cls = `ddbtn${open?" open":""}${label?"":" ph"}`;
   return `<span class="ddwrap full">
-    <button class="ddbtn${open?" open":""}${label?"":" ph"}" data-dd="${id}" aria-expanded="${open}">
-      <span class="truncate">${esc(label || placeholder || "Choose…")}</span>
-      <span class="cv"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6.5L8 10.5l4-4"/></svg></span>
-    </button>
+    ${slot
+      ? `<div class="${cls}" data-dd="${id}" role="combobox" tabindex="0" aria-haspopup="listbox" aria-expanded="${open}">${face}</div>`
+      : `<button class="${cls}" data-dd="${id}" aria-expanded="${open}">${face}</button>`}
     ${open ? `<span class="catcher" data-ddclose="1"></span>
       <span class="ddmenu">${groups.map(g=>
         `<span class="ddgrp">${esc(g.label)}</span>` + g.items.map(it=>
@@ -4111,6 +4126,20 @@ function renderRetention(){
       <div class="cta"><button class="btn pri lg" id="rtEmptyNew">New rule</button></div></div>`;
 
   /* wiring */
+  /* A <div role="combobox"> does not open on Enter or Space the way a <button> does. One
+     document-level handler covers every host rather than each of the seven binding sites. */
+  if(!window.__ddKeys){
+    window.__ddKeys = true;
+    document.addEventListener("keydown", e=>{
+      if(!e.target.closest) return;
+      /* Anything focusable INSIDE the trigger — the clear button — handles its own keys. Without
+         this, Enter on the clear fires the button and opens the menu behind it. */
+      if(e.target.closest('button, a, input, select, textarea')) return;
+      const t = e.target.closest('[data-dd][role="combobox"]');
+      if(!t) return;
+      if(e.key === "Enter" || e.key === " " || e.key === "Spacebar"){ e.preventDefault(); t.click(); }
+    });
+  }
   document.querySelectorAll("[data-dd]").forEach(b=>b.onclick=e=>{
     e.stopPropagation(); DD_OPEN = DD_OPEN===b.dataset.dd ? null : b.dataset.dd;
     renderRetention(); if(RT_DRAFT || RT_DEF_EDIT) renderModal();
