@@ -907,10 +907,19 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .sb-t{font-size:12px;color:var(--dim);line-height:1.5}
 .sb-t b{color:var(--ink);font-weight:600}
 .seatbar.over .sb-t b{color:var(--crit)}
-.sb-m{margin-top:8px;height:5px;border-radius:9999px;background:#fff;overflow:hidden}
-.sb-m i{display:block;height:100%;border-radius:9999px;background:var(--brand)}
-.seatbar.tight .sb-m i{background:var(--warn-dot)}
-.seatbar.over  .sb-m i{background:var(--crit-dot)}
+.sb-m{margin-top:8px;height:5px;border-radius:9999px;background:#fff;overflow:hidden;display:flex}
+/* Two segments, not one: what fits, and what does not. No radius on the segments — the track
+   clips them, so the pair butt together instead of each rounding its inner edge. */
+.sb-m i{display:block;height:100%;background:var(--brand);transition:width .18s ease-out}
+/* A hairline at zero so the control reads as an empty BAR rather than as a stray rule. Only
+   while nothing overflows — with the headroom gone a blue sliver would claim a seat that
+   is not there. */
+.sb-m i.stub{min-width:2px}
+.sb-m i.ovr{background:var(--crit-dot)}
+.seatbar.tight .sb-m i.ok{background:var(--warn-dot)}
+/* Deliberately no `.seatbar.over .sb-m i.ok` rule: over the limit the blue segment is the part
+   that still FITS, and recolouring it red would say everything is a problem. */
+@media (prefers-reduced-motion: reduce){ .sb-m i{transition:none} }
 /* licensing: paired top actions + seat card meter */
 .actpair{display:flex;gap:8px;align-items:stretch}
 .polbtn{display:flex;align-items:center;gap:10px;height:auto;padding:8px 12px;border:1px solid var(--line);
@@ -4419,8 +4428,23 @@ function renderStack(){
       ${PICK.seat ? `<div class="seatbar${over?" over":left<=1?" tight":""}">
         <div class="sb-t">${over
           ? `<b>Over limit by ${Math.abs(left)}</b> — remove ${Math.abs(left)} CI${Math.abs(left)===1?"":"s"} or free up seats before enrolling.`
-          : `<b>${left} seat${left===1?"":"s"}</b> would remain after enrolling ${PICK.sel.size} CI${PICK.sel.size===1?"":"s"}.`}</div>
-        <div class="sb-m"><i style="width:${Math.min(100,Math.round((PICK.seat.used+PICK.sel.size)/PICK.seat.cap*100))}%"></i></div>
+          : PICK.sel.size === 0
+            ? `<b>${left} seat${left===1?"":"s"}</b> available to enrol.`
+            : `<b>${left} seat${left===1?"":"s"}</b> would remain after enrolling ${PICK.sel.size} CI${PICK.sel.size===1?"":"s"}.`}</div>
+        <div class="sb-m">${(() => {
+          /* Scaled to the HEADROOM, not to capacity. `free` is what this drawer has left to
+             spend; `nOver` is how far past it the selection has gone. */
+          const free = Math.max(0, PICK.seat.cap - PICK.seat.used);
+          const sel = PICK.sel.size;
+          const nOver = Math.max(0, sel - free);
+          /* Past the headroom the whole bar becomes the SELECTION, so the blue shrinks as a
+             proportion while the red grows — the two always sum to the full track. */
+          const scale = nOver > 0 ? sel : free;
+          const okPct = scale > 0 ? Math.min(100, (Math.min(sel, free) / scale) * 100) : 0;
+          const ovrPct = scale > 0 ? (nOver / scale) * 100 : 0;
+          return `<i class="ok${nOver ? "" : " stub"}" style="width:${okPct}%"></i>`
+               + (nOver ? `<i class="ovr" style="width:${ovrPct}%"></i>` : "");
+        })()}</div>
       </div>` : ""}
       <div class="pk-bar">
         <b style="color:var(--ink);font-weight:600">${PICK.sel.size}</b> of ${pool.length} selected
