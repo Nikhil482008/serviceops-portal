@@ -288,7 +288,9 @@ export function BomComponentsPanel({
               <p className="mt-0.5 truncate text-[13px] text-[#7B8FA5]">{title}</p>
             </div>
           </div>
-          <button onClick={onClose} className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
+          {/* An icon-only button with no accessible name announces as "button" and nothing else.
+              Every other drawer in this product labels its cross; this one did not. */}
+          <button onClick={onClose} aria-label="Close" title="Close" className="flex size-8 flex-shrink-0 items-center justify-center rounded text-[#7B8FA5] transition-colors hover:bg-[#F3F4F6] hover:text-[#364658]">
             <X size={18} />
           </button>
         </div>

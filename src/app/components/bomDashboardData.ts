@@ -101,6 +101,10 @@ export interface ExpiringCert {
   serves: string;
   /** The CI whose copy expires soonest — the one the CBOM button opens. */
   endpointId: string;
+  /** And which product scope on it. A CBOM is per scope, so opening the crypto assets without
+   *  this would have to guess the OS one — wrong for any certificate an application declares. */
+  productKey: string;
+  productLabel: string;
   ciId: string;
   cis: number;
   detail: string;
@@ -359,7 +363,7 @@ export const bomDashboard = (): BomDashboard => {
         if (!prev || days < prev.days) {
           certByName.set(a.name, {
             key: a.name, name: a.name, serves: a.serves ?? 'A service on this host',
-            endpointId: ep.id, ciId: bomCiId(ep.id), cis: 0,
+            endpointId: ep.id, productKey: p.key, productLabel: p.name, ciId: bomCiId(ep.id), cis: 0,
             detail: `${a.algorithm} ${a.keyLength}`,
             days, quantumVulnerable: a.compliance === 'Quantum-vulnerable',
           });

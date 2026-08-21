@@ -4,6 +4,9 @@ import { Header } from './Header';
 import { useDrawerStack } from './DrawerStack';
 import { bomDashboard } from './bomDashboardData';
 import type { BomType } from './bomData';
+import { bomVersions } from './bomData';
+import { BomComponentsPanel } from './BomComponentsPanel';
+import type { ExpiringCert } from './bomDashboardData';
 import type { SoftwareComponent } from './softwareComponentsData';
 /* Chrome lives in one place now that a second dashboard draws it too. */
 import type { BomNavigate } from './bomDashboardUi';
@@ -28,6 +31,8 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
   const [licHover, setLicHover] = useState<number | null>(null);
   /** Which exposure row is showing its detail. Hover OR focus, so a keyboard reaches it. */
   const [expHover, setExpHover] = useState<string | null>(null);
+  /** The certificate whose crypto assets are open, over the dashboard. */
+  const [certAssets, setCertAssets] = useState<ExpiringCert | null>(null);
 
   /** One thing -> its detail page. The stack renders it above everything, including the list. */
   const openComponent = (c: SoftwareComponent) =>
@@ -37,6 +42,17 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
   const openBom = (endpointId: string, type: BomType) => {
     const rec = bomPatchRecord(endpointId, type);
     if (rec) openInStack('endpoints', rec.id, rec.name, rec);
+  };
+
+  /* A certificate dot names a THING, so it opens that thing: the crypto assets of the CBOM it
+     was found in, as a panel over the dashboard. It used to open the endpoint's whole BOM tab
+     as a drawer-stack tab, leaving the reader to find the CBOM and press "View crypto assets"
+     — three moves to reach the list the dot had already named. */
+  const currentVersion = (c: ExpiringCert) => {
+    const vs = bomVersions(c.endpointId, c.productKey, 'CBOM');
+    /* The rail runs newest-first, so the head is Current. A scope with no CBOM has no version
+       to open — 0 is what the components panel already treats as "none". */
+    return vs.length ? vs[0].v : 0;
   };
 
   const maxCis = Math.max(1, d.ciCount);
@@ -186,7 +202,7 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
                   total={d.certTotal}
                   onOpen={(key) => {
                     const c = d.certs.find((x) => x.key === key);
-                    if (c) openBom(c.endpointId, 'CBOM');
+                    if (c) setCertAssets(c);
                   }}
                 />
 
@@ -215,6 +231,25 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
           </div>
         </main>
       </div>
+
+      {/* Over the dashboard, not instead of it: closing returns you to the timeline you clicked
+          from, with nothing to navigate back through.
+          `focusComponent` is deliberately NOT passed. It only feeds the dependency tree, which
+          is SBOM-only, so on a CBOM it would do nothing while reading like the panel had been
+          focused on the certificate you clicked. The scope's crypto assets are a short list. */}
+      {certAssets && (
+        <BomComponentsPanel
+          isOpen
+          onClose={() => setCertAssets(null)}
+          endpointId={certAssets.endpointId}
+          hostName={certAssets.ciId}
+          productKey={certAssets.productKey}
+          productLabel={certAssets.productLabel}
+          type="CBOM"
+          version={currentVersion(certAssets)}
+          format="CycloneDX 1.6"
+        />
+      )}
     </div>
   );
 }
