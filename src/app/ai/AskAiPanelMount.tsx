@@ -8,6 +8,7 @@
 import { Suspense, lazy, useEffect } from 'react';
 import { isAskAiEnabled } from './flags';
 import { useAskAiActions, useAskAiState } from './AskAiProvider';
+import { AskAiEdge } from './AskAiEdge';
 
 const AskAiPanel = lazy(() => import('./panel/AskAiPanel'));
 
@@ -20,12 +21,20 @@ export function AskAiPanelMount({ activePage }: { activePage: string }) {
      mechanism a registered screen will use — it will just supply a richer name. */
   useEffect(() => { setScope(activePage); }, [activePage, setScope]);
 
-  /* Flag off → never mounted, so the chunk is never fetched either. */
-  if (!isAskAiEnabled() || !open) return null;
+  /* Flag off → nothing at all, and the panel's chunk is never fetched either. */
+  if (!isAskAiEnabled()) return null;
 
   return (
-    <Suspense fallback={null}>
-      <AskAiPanel />
-    </Suspense>
+    <>
+      {/* The edge strip is app chrome and renders whether or not the panel is open — it hides
+          itself when the assistant is on screen. Mounted here rather than in Sidebar so it is not
+          repeated by each of the ~23 pages that draw their own rail. */}
+      <AskAiEdge />
+      {open && (
+        <Suspense fallback={null}>
+          <AskAiPanel />
+        </Suspense>
+      )}
+    </>
   );
 }
