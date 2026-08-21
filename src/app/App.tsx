@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AskAiProvider } from './ai/AskAiProvider';
+import { AskAiPanelMount } from './ai/AskAiPanelMount';
 import { TicketListPage } from './components/TicketListPage';
 import { ProblemListPage } from './components/ProblemListPage';
 import { ChangeListPage } from './components/ChangeListPage';
@@ -76,6 +77,8 @@ export default function App() {
       {/* Mounted once, inside the drawer host, so search works on every page and can open any
           module's real detail drawer as a tab. */}
       <GlobalSearch activePage={activePage} onNavigate={navigate} />
+      {/* Lazy: the panel's chunk is not requested until it is first opened. */}
+      <AskAiPanelMount activePage={activePage} />
       <Toaster position="top-right" />
     </DrawerStackProvider>
     </AskAiProvider>

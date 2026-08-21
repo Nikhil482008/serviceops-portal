@@ -60,11 +60,13 @@ interface AskAiActions {
   toggle: () => void;
   setWidth: (w: number) => void;
   setScope: (scope: string) => void;
-  /** Replaces the active thread's messages. The panel owns the streaming loop; this is how it
-   *  writes results back. */
-  setMessages: (scope: string, messages: AiMessage[]) => void;
-  newThread: (scope: string) => void;
-  selectThread: (id: string) => void;
+  /** Replaces ONE thread's messages, addressed by id. Addressed rather than searched: the panel
+   *  used to find "its" thread by scanning for the first with a matching scope, which is how a
+   *  stale entry could be picked up and New chat could leave the old conversation on screen. */
+  setMessages: (threadId: string, scope: string, messages: AiMessage[]) => void;
+  /** Mints a thread and RETURNS its id, so the caller can address it immediately rather than
+   *  searching for what it just created. */
+  newThread: (scope: string) => string;
 }
 
 const StateCtx = createContext<AskAiState | null>(null);
@@ -106,11 +108,6 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
     try { window.localStorage.setItem(WIDTH_KEY, String(clamped)); } catch { /* private mode */ }
   }, []);
 
-  const persistThreads = useCallback((next: AiThread[]) => {
-    setThreads(next);
-    try { window.localStorage.setItem(THREADS_KEY, JSON.stringify(next.slice(0, MAX_THREADS))); } catch { /* quota */ }
-  }, []);
-
   const open = useCallback(() => setIsOpen(true), []);
   const close = useCallback(() => {
     setIsOpen(false);
@@ -122,31 +119,25 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
 
   const setScope = useCallback((s: string) => setScopeState(s), []);
 
-  const setMessages = useCallback((s: string, messages: AiMessage[]) => {
+  const setMessages = useCallback((threadId: string, s: string, messages: AiMessage[]) => {
     setThreads((prev) => {
       const now = Date.now();
-      const idx = prev.findIndex((t) => t.scope === s);
+      const idx = prev.findIndex((t) => t.id === threadId);
       const title = messages.find((m) => m.role === 'user')?.text.slice(0, 60) ?? 'New chat';
       const next = [...prev];
       if (idx >= 0) next[idx] = { ...next[idx], messages, title, updatedAt: now };
-      else next.unshift({ id: `t-${now}`, scope: s, title, messages, createdAt: now, updatedAt: now });
-      const trimmed = next.slice(0, MAX_THREADS);
+      else next.unshift({ id: threadId, scope: s, title, messages, createdAt: now, updatedAt: now });
+      /* An empty thread is not history. Without this, every New chat would leave a titleless
+         entry in the dropdown and push a real conversation off the end of the list. */
+      const trimmed = next.filter((t) => t.messages.length > 0).slice(0, MAX_THREADS);
       try { window.localStorage.setItem(THREADS_KEY, JSON.stringify(trimmed)); } catch { /* quota */ }
       return trimmed;
     });
   }, []);
 
-  const newThread = useCallback((s: string) => {
-    persistThreads([
-      { id: `t-${Date.now()}`, scope: s, title: 'New chat', messages: [], createdAt: Date.now(), updatedAt: Date.now() },
-      ...threads.filter((t) => t.scope !== s || t.messages.length > 0),
-    ].slice(0, MAX_THREADS));
-  }, [threads, persistThreads]);
-
-  const selectThread = useCallback((id: string) => {
-    const t = threads.find((x) => x.id === id);
-    if (t) setScopeState(t.scope);
-  }, [threads]);
+  /* Minting an id is all this does. The thread is not stored until it has a message in it, which
+     is what keeps New chat from filling the history with empties. */
+  const newThread = useCallback((_s: string) => `t-${Date.now()}-${Math.round(performance.now())}`, []);
 
   /* ── the global shortcut ──────────────────────────────────────────────
    *
@@ -194,8 +185,8 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
      mount — which is the entire point of the split. `newThread` and `selectThread` close over
      `threads`, so they are excluded from that guarantee and the memo lists them honestly. */
   const actions = useMemo<AskAiActions>(
-    () => ({ open, close, toggle, setWidth, setScope, setMessages, newThread, selectThread }),
-    [open, close, toggle, setWidth, setScope, setMessages, newThread, selectThread],
+    () => ({ open, close, toggle, setWidth, setScope, setMessages, newThread }),
+    [open, close, toggle, setWidth, setScope, setMessages, newThread],
   );
 
   return (
