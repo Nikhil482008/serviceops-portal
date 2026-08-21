@@ -75,7 +75,7 @@ export default function App() {
       {activePage === 'detected-cves' && <DetectedCvesListPage onNavigate={navigate} />}
       {activePage === 'bom-dashboard' && <BomDashboardPage onNavigate={navigate} />}
       {activePage === 'bom-dashboard-2' && <BomDashboard2Page onNavigate={navigate} />}
-      {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} />}
+      {activePage === 'bom' && <BomInventoryListPage onNavigate={navigate} initialFocus={pendingFocus} onInitialFocusConsumed={() => setPendingFocus(null)} />}
       {/* One page, two halves — which half is the ROUTE now, not a tab inside it, so the rail can
           land on either and a link can name one. */}
       {activePage === 'software-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="components" initialFocus={pendingFocus} onInitialFocusConsumed={() => setPendingFocus(null)} />}

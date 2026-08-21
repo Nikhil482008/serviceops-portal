@@ -310,6 +310,25 @@ export function aiLicenceMatcher(licence: string): (r: { license: string }) => b
   return (r) => r.license === licence;
 }
 
+/** FNV-1a over the path's own identity. Module scope, because `pathProductOf` below is exported
+ *  and a helper closed over inside `bomDashboard()` is invisible to it — that mistake built
+ *  clean and threw `pathHash is not defined` on first render. */
+const pathHash = (v: string) => {
+  let h = 2166136261;
+  for (let i = 0; i < v.length; i++) { h ^= v.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+  return h;
+};
+
+/** Which product a declared path is attributed to.
+ *
+ *  Not the BOM product's own name — an invention, but a deterministic one: the same path on the
+ *  same host always lands on the same product, so the ring is identical on every render. It is
+ *  EXPORTED because the Configuration Items list filters by it when a slice is clicked, and a
+ *  second copy of this expression is how a slice reading 15 opens a list of 1. That is not
+ *  hypothetical; it is what happened. */
+export const pathProductOf = (endpointId: string, path: string): string =>
+  PATH_PRODUCTS[pathHash(`${endpointId}:${path}`) % PATH_PRODUCTS.length];
+
 let CACHE: BomDashboard | null = null;
 
 export const bomDashboard = (): BomDashboard => {
@@ -633,11 +652,6 @@ export const bomDashboard = (): BomDashboard => {
      can assert it. A donut that reshuffles itself between two renders is not a reading. */
   const prodCount = new Map<string, number>();
   const prodCis = new Map<string, Set<string>>();
-  const pathHash = (v: string) => {
-    let h = 2166136261;
-    for (let i = 0; i < v.length; i++) { h ^= v.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
-    return h;
-  };
   for (const ep of mockEndpoints) {
     const rec = bomForEndpoint(ep.id);
     if (rec.status === 'Not Generated') continue;
@@ -648,7 +662,7 @@ export const bomDashboard = (): BomDashboard => {
       scopeCis.get(sc)!.add(ep.id);
       pathCiSet.add(ep.id);
 
-      const prod = PATH_PRODUCTS[pathHash(`${ep.id}:${p.path}`) % PATH_PRODUCTS.length];
+      const prod = pathProductOf(ep.id, p.path);
       prodCount.set(prod, (prodCount.get(prod) ?? 0) + 1);
       if (!prodCis.has(prod)) prodCis.set(prod, new Set());
       prodCis.get(prod)!.add(ep.id);

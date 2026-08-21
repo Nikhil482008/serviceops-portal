@@ -10,6 +10,7 @@ import { mockEndpoints } from './EndpointsListPage';
 import type { Endpoint } from './EndpointsListPage';
 import { bomForEndpoint, bomCiId } from './bomData';
 import type { BomRecord } from './bomData';
+import { pathProductOf } from './bomDashboardData';
 import type { HardwareAsset } from './HardwareAssetsListPage';
 import { BomIngestPanel } from './BomIngestPanel';
 import type { IngestResult } from './BomIngestPanel';
@@ -58,8 +59,12 @@ const endpointToAssetShape = (e: Endpoint): HardwareAsset & { bomMode: true; bom
   bomEndpointId: e.id,
 });
 
-function BomToolbar({ searchQuery, setSearchQuery, onIngest }: {
+function BomToolbar({ searchQuery, setSearchQuery, focus, setFocus, onIngest }: {
   searchQuery: string;
+  /** A narrowing chosen on the screen that sent you here, riding inside the search box as a
+   *  removable chip — the same treatment the components register gives one. */
+  focus: string | null;
+  setFocus: (f: string | null) => void;
   setSearchQuery: (q: string) => void;
   onIngest: () => void;
 }) {
@@ -94,15 +99,25 @@ function BomToolbar({ searchQuery, setSearchQuery, onIngest }: {
           Sources columns now carry per row, and a tab that hides two thirds of the estate to make
           a point a column already makes is a filter pretending to be navigation. */}
 
-      {/* Search */}
+      {/* Search. A card's filter rides INSIDE it as a chip: both narrow the same list, so they
+          read as one control rather than as a filter bar and a search box. */}
       <div className="px-6 pb-3 pt-3">
-        <div className="relative">
+        <div className="relative flex items-center gap-2 rounded border border-[#d1d5db] bg-white pl-2 pr-10 focus-within:border-[#3D8BD0] focus-within:ring-1 focus-within:ring-[#3D8BD0]">
+          {focus && (
+            <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-sm bg-[#EBF5FF] px-2 py-0.5 text-[13px] text-[#3D8BD0]">
+              {focusLabel(focus)}
+              <button onClick={() => setFocus(null)} aria-label={`Clear the ${focusLabel(focus)} filter`}
+                      className="text-[#3D8BD0]/70 transition-colors hover:text-[#DC2626]">
+                <X size={13} />
+              </button>
+            </span>
+          )}
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Select field to search..."
-            className="h-[36px] w-full rounded border border-[#d1d5db] bg-white pl-3 pr-10 text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]"
+            placeholder={focus ? 'Search within this\u2026' : 'Select field to search...'}
+            className="h-[36px] min-w-0 flex-1 bg-transparent text-[13px] text-[#364658] placeholder:text-[#9ca3af] focus:outline-none"
           />
           {searchQuery ? (
             <button
@@ -120,16 +135,55 @@ function BomToolbar({ searchQuery, setSearchQuery, onIngest }: {
   );
 }
 
-export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string) => void }) {
+/** The narrowings this list can apply. `product:<name>` is the only one today — handed over by
+ *  the dashboard's Managed paths ring, whose slices are counted from these very products. An
+ *  unrecognised focus narrows NOTHING rather than emptying the table: a filter arriving from
+ *  another screen must never be able to make the list look like it has no rows. */
+const focusPred = (f: string | null): ((r: { endpoint: Endpoint; bom: BomRecord }) => boolean) | null => {
+  if (!f) return null;
+  const i = f.indexOf(':');
+  if (i < 0) return null;
+  const kind = f.slice(0, i), value = f.slice(i + 1);
+  /* `pathProductOf`, not `p.name`. The ring attributes each declared PATH to a product rather
+     than reading the BOM product's own name, and filtering on the name matched almost nothing:
+     a slice reading 15 CIs opened a list of one. Same function, so the two cannot disagree. */
+  if (kind === 'product') {
+    return ({ endpoint, bom }) => bom.products.some((p) => pathProductOf(endpoint.id, p.path) === value);
+  }
+  return null;
+};
+/** The chip's text: the VALUE that was clicked. Prefixing it with "Product:" would only repeat
+ *  the chart it came from. */
+const focusLabel = (f: string | null) => {
+  if (!f) return '';
+  const i = f.indexOf(':');
+  return i < 0 ? f : f.slice(i + 1);
+};
+
+export function BomInventoryListPage({
+  onNavigate, initialFocus = null, onInitialFocusConsumed,
+}: {
+  onNavigate: (page: string, focus?: string | null) => void;
+  initialFocus?: string | null;
+  onInitialFocusConsumed?: () => void;
+}) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
+  /* Validated, not trusted — an unrecognised value never becomes a chip. */
+  const [focus, setFocus] = useState<string | null>(focusPred(initialFocus) ? initialFocus : null);
+  /* Taken once, so returning here later by the rail does not inherit it. */
+  useEffect(() => {
+    if (!initialFocus) return;
+    if (focusPred(initialFocus)) setFocus(initialFocus);
+    onInitialFocusConsumed?.();
+  }, [initialFocus]);
   const [showIngest, setShowIngest] = useState(false);
   /** CIs whose BOM was ingested this session — they join the one listing, marked Manual. */
   const [ingested, setIngested] = useState<{ endpoint: Endpoint; bom: BomRecord; managed: true }[]>([]);
 
-  useEffect(() => { setCurrentPage(1); setSelected(new Set()); }, [searchQuery]);
+  useEffect(() => { setCurrentPage(1); setSelected(new Set()); }, [searchQuery, focus]);
 
   /** Turn an ingest into a listing row. An ingested BOM has no scan history, so its counts come
    *  from the document rather than from the deterministic per-endpoint generator. */
@@ -179,8 +233,12 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
   const agentRows = mockEndpoints.map((e) => ({ endpoint: e, bom: bomForEndpoint(e.id), managed: false }));
   const scoped = [...ingested, ...agentRows];
 
+  /* The card's focus narrows first, then the typed query narrows what is left — one after the
+     other, rather than two filters that can contradict each other. */
+  const fp = focusPred(focus);
+  const focused = fp ? scoped.filter(fp) : scoped;
   const q = searchQuery.trim().toLowerCase();
-  const filtered = !q ? scoped : scoped.filter(({ endpoint: e, bom }) =>
+  const filtered = !q ? focused : focused.filter(({ endpoint: e, bom }) =>
     e.id.toLowerCase().includes(q) ||
     e.hostName.toLowerCase().includes(q) ||
     e.ipAddress.toLowerCase().includes(q) ||
@@ -211,6 +269,8 @@ export function BomInventoryListPage({ onNavigate }: { onNavigate: (page: string
         <Header selectedCount={selected.size} onOpenAdmin={() => onNavigate('admin')} />
         <BomToolbar
           searchQuery={searchQuery}
+          focus={focus}
+          setFocus={setFocus}
           setSearchQuery={setSearchQuery}
           onIngest={() => setShowIngest(true)}
         />

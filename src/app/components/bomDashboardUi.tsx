@@ -748,6 +748,13 @@ export function ManagedPathsCard({ d, onNavigate, layout = 'stack' }: {
      product declared this" rather than "what kind of path is it". */
   const slices = d.pathProducts.map((p) => ({ label: p.product, value: p.paths, color: p.color }));
 
+  /* A slice is a count, and picking one goes to the list it counted — Configuration Items,
+     filtered to that product, which is where this card's own "View all CIs" already goes.
+     The list is one row per CI while the ring counts declared PATHS, so a product with 12 paths
+     across 4 machines opens four rows. Both figures are on the legend row already (the CI count
+     rides its tooltip), and the chip in the search box says which one you are looking at. */
+  const pick = (product: string) => onNavigate('bom', `product:${product}`);
+
   return (
     <Card
       /* The CI count was the one fact in the removed footer that the donut does not already
@@ -759,14 +766,18 @@ export function ManagedPathsCard({ d, onNavigate, layout = 'stack' }: {
         <Donut
           slices={slices} total={d.pathTotal} caption="paths" size={DIST_RING(row)}
           hover={hover} onHover={setHover}
+          onPick={(i) => pick(d.pathProducts[i].product)}
         />
         <div className={DIST_LEGEND(row)}>
           {d.pathProducts.map((p, i) => (
-            <div
+            /* The legend row and the arc are one control in two places — they already shared a
+               hover state, so they share the pick too. */
+            <button
               key={p.product}
               onMouseEnter={() => setHover(i)}
               onMouseLeave={() => setHover(null)}
-              className={`${DIST_ROW} ${hover === i ? 'bg-[#F9FAFB]' : ''}`}
+              onClick={() => pick(p.product)}
+              className={`${DIST_ROW} hover:bg-[#F9FAFB] ${hover === i ? 'bg-[#F9FAFB]' : ''}`}
             >
               <span className="size-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
               {/* The CI count is on the row's tooltip rather than in a fourth column: the paths
@@ -778,7 +789,7 @@ export function ManagedPathsCard({ d, onNavigate, layout = 'stack' }: {
               >{p.product}</span>
               <span className="flex-shrink-0 tabular-nums text-[#7B8FA5]">{p.paths}</span>
               <span className={DIST_PCT}>{pct(p.paths, d.pathTotal)}</span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
