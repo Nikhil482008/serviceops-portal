@@ -430,18 +430,41 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .tchoice.sub{margin:0}
 .tchoice.sub .tpick{background:#fff}
 .tchoice.sub .tpick.on{background:var(--sel-blue)}
-/* What reuse resolves to, on one line: count, source, and the way to look at it. */
-.reuse-x{position:relative;display:flex;align-items:center;gap:8px;margin-top:9px;
-  font-size:13px;color:var(--dim);flex-wrap:wrap}
-.reuse-x b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
-.reuse-x .sep{color:var(--faint)}
+/* The rule, and the two things you can do to it, on one line. */
+.reuse-row{display:flex;align-items:center;gap:8px}
+/* ddGroupHTML's root is .ddwrap.full — it stretches by default, so it is the one that has to be
+   told to share the row rather than own it. */
+.reuse-row .ddwrap{flex:1;min-width:0}
+.reuse-peek{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}
+/* Clear is an icon beside the name now rather than a red word on its own row — at that size the
+   word carried more weight than an action that is trivially undone by picking another rule. */
+.reuse-clr{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border:0;background:transparent;border-radius:6px;cursor:pointer;
+  color:var(--faint);transition:background .12s,color .12s}
+.reuse-clr:hover{background:var(--crit-soft);color:var(--crit)}
+.reuse-clr:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .reuse-note{margin-top:5px;font-size:12px;color:var(--dim)}
 .reuse-empty{margin-top:9px;font-size:12.5px;color:var(--dim)}
 /* Read-only, and deliberately so: editing a shared rule from a screen that merely consumes it
    is how one module quietly changes another. */
-.reuse-pop{position:absolute;left:0;top:calc(100% + 6px);z-index:10060;width:340px;max-width:100%;
-  background:#fff;border:.5px solid var(--line);border-radius:10px;box-shadow:var(--sh-lg);padding:12px 13px}
-.reuse-pop .cond{font-size:12.5px;line-height:1.5;color:var(--ink)}
+/* Revealed by HOVER, and by focus so it is reachable from the keyboard. The wrapper is what
+   hovers, not the button, so the pointer can travel into the sheet to reach "Open in …". */
+.reuse-pop{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:10060;
+  width:300px;max-width:80vw;
+  background:#fff;border:.5px solid var(--line);border-radius:10px;box-shadow:var(--sh-lg);padding:11px 12px}
+.reuse-peek:hover .reuse-pop,
+.reuse-peek:focus-within .reuse-pop{display:block}
+.rp-h{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--neu);margin-bottom:7px}
+.rp-c{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;line-height:1.5;color:var(--ink)}
+.rp-c i{flex:0 0 auto;width:4px;height:4px;border-radius:9999px;background:var(--neu);margin-top:7px}
+/* The join is drawn BETWEEN the rows it joins — a rule with two groups of three is unreadable
+   once the ands and ors are folded into the sentence. */
+.rp-join{display:flex;align-items:center;gap:8px;margin:6px 0;color:var(--neu);
+  font-size:10px;font-weight:700;letter-spacing:.06em}
+.rp-join::before,.rp-join::after{content:"";flex:1;height:1px;background:var(--line-soft)}
+.rp-join span{padding:1px 7px;border:1px solid var(--line);border-radius:9999px;line-height:1.6}
+.rp-none{font-size:12.5px;line-height:1.5;color:var(--dim);font-style:italic}
 .reuse-pop .ro{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft);
   display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dim)}
 
@@ -3294,20 +3317,18 @@ function reuseControlsHTML(groups, sel, owner){
   if(!groups.length)
     return `<div class="reuse-empty">No rules configured in other modules yet.</div>`;
   const label = sel ? sel.rule.name : "";
-  /* Licensing counts the DISCOVERED estate because it is the module handing out seats; the
-     other two count the enrolled set, which is all they can act on. Same control, and the
-     number it shows is the one its own module would act on. */
-  const nn = !sel ? 0 : (owner === LIC_DRAWER ? ruleHits(sel.rule).length : ruleAutoIds(sel.rule).size);
-  return `${ddGroupHTML("cbReuse", label, groups, "Choose a rule…")}
-    ${sel ? `<div class="reuse-x">
-      <span><b>${fmt(nn)}</b> CI${nn===1?"":"s"} match</span>
-      <span class="sep" aria-hidden="true">·</span> <span>from ${esc(sel.mod.label)}</span>
-      <span class="sep" aria-hidden="true">·</span> <button class="lnk" id="cbReuseView" aria-expanded="${!!(owner && owner.view)}">View →</button>
-      <span style="flex:1"></span>
-      <button class="lnk danger" id="cbReuseClear">Clear</button>
-      ${owner && owner.view ? reusePopHTML(sel) : ""}
-    </div>
-    <!-- The one consequence of reuse that is not visible anywhere on this screen. -->
+  /* NO CI COUNT HERE any more. Reuse and Define-conditions are the two branches of one choice,
+     and the count already sits under the conditions card — stating it again in the other branch
+     made the same figure appear twice on one screen depending on which radio was on. */
+  return `<div class="reuse-row">
+    ${ddGroupHTML("cbReuse", label, groups, "Choose a rule…")}
+    ${sel ? `<span class="reuse-peek">
+      <button class="lnk" id="cbReuseView" aria-describedby="cbReusePop">View</button>
+      ${reusePopHTML(sel)}
+    </span>
+    <button class="reuse-clr" id="cbReuseClear" aria-label="Clear the selected rule" title="Clear">${IC_X}</button>` : ""}
+  </div>
+  ${sel ? `<!-- The one consequence of reuse that is not visible anywhere on this screen. -->
     <div class="reuse-note">Changes made in ${esc(sel.mod.label)} apply here too.</div>` : ""}`;
 }
 /* What a rule actually TESTS, in words — following a policy or another rule through to the
@@ -3335,7 +3356,8 @@ function reuseCondText(r, seen){
 function wireReuse(owner, rerender){
   const $ = i => document.getElementById(i);
   if(!owner) return;
-  if($("cbReuseView"))  $("cbReuseView").onclick  = ()=>{ owner.view = !owner.view; rerender(); };
+  /* No handler on View: the peek is opened by hover and by focus, in CSS. A click-to-toggle would
+     be a second way to do the same thing, and the one that needs a re-render to undo itself. */
   if($("cbReuseClear")) $("cbReuseClear").onclick = ()=>{ owner.reuse = null; owner.view = false; rerender(); };
   if($("cbReuseOpen"))  $("cbReuseOpen").onclick  = ()=>{
     const f = reuseFind(owner.reuse); if(!f) return;
@@ -3352,12 +3374,43 @@ function wireReuse(owner, rerender){
    The name, the module and the count are all on the line that opened this, so none of them is
    repeated here: the conditions are the only thing this sheet exists to say. */
 function reusePopHTML(sel){
-  const words = reuseCondText(sel.rule);
-  return `<div class="reuse-pop" role="dialog" aria-label="What this rule matches">
-    <div class="cond">${words ? `When ${words}` : "This rule has no conditions of its own."}</div>
+  const gs = reuseCondGroups(sel.rule);
+  /* Conditions as a LIST, not as a sentence. A rule with two groups of three reads as a wall of
+     "and"s and "or"s once it is flattened; the joins are what the structure is, so they are
+     drawn as separators between the rows they join rather than spelled into the prose. */
+  const body = gs.length ? gs.map((g, gi) => {
+    const rows = (g.conds || []).map(condPhrase).filter(Boolean);
+    if(!rows.length) return "";
+    return `${gi ? `<div class="rp-join"><span>OR</span></div>` : ""}
+      ${rows.map((t, i) => `${i ? `<div class="rp-join"><span>AND</span></div>` : ""}
+        <div class="rp-c"><i></i>${esc(t)}</div>`).join("")}`;
+  }).join("") : "";
+  return `<div class="reuse-pop" id="cbReusePop" role="tooltip">
+    <div class="rp-h">Conditions</div>
+    ${body || `<div class="rp-none">This rule has no conditions of its own.</div>`}
     <div class="ro"><span>Read-only here.</span><span style="flex:1"></span>
       <button class="lnk" id="cbReuseOpen">Open in ${esc(sel.mod.label)} →</button></div>
   </div>`;
+}
+
+/* The groups at the END of the chain, resolved the same way `reuseCondText` resolves the words —
+   through a policy or another rule, with the same cycle guard. Two traversals of one graph is how
+   the sentence and the list would come to disagree, so this mirrors it exactly. */
+function reuseCondGroups(r, seen){
+  if(!r) return [];
+  const own = (r.groups || []).filter(g => (g.conds || []).length);
+  if(own.length) return own;
+  const been = seen || new Set();
+  if(r.policyId){
+    const p = bpOf(r.policyId);
+    if(p && !been.has("bp:" + p.id)){ been.add("bp:" + p.id); return reuseCondGroups(p, been); }
+  }
+  if(r.reuse){
+    const key = r.reuse.mod + ":" + r.reuse.id;
+    const f = reuseFind(r.reuse);
+    if(f && !been.has(key)){ been.add(key); return reuseCondGroups(f.rule, been); }
+  }
+  return [];
 }
 
 /* `tgtChoiceHTML` lived here: two permanent tiles, Automatic beside Add-by-hand, because a
