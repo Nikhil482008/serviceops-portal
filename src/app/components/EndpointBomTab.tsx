@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronRight, Columns3, Download, Layers, Check, Search, X, CalendarDays, Info, ScanLine, ArrowRight, Trash2, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Columns3, Download, Layers, Check, X, CalendarDays, Info, ScanLine, ArrowRight, Trash2, ShieldAlert, CirclePlus, CircleMinus, RefreshCw } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { toast } from 'sonner';
 import { BomComponentsPanel } from './BomComponentsPanel';
@@ -124,7 +124,8 @@ const localDay = (d: string) => {
 };
 
 function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (f: DateFilter) => void }) {
-  // null = closed. {} = picking the field. {field} = picking the operator. {field, op} = value.
+  /* null = closed. {field:'Date'} = picking the operator. {field, op} = picking the value.
+     There is no field-picking step any more: Date was the only option it ever offered. */
   const [step, setStep] = useState<{ field?: 'Date'; op?: DateOperator } | null>(null);
   const [d1, setD1] = useState('');
   const [d2, setD2] = useState('');
@@ -136,62 +137,42 @@ function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (
   const dateInput = 'h-8 w-full rounded border border-[#d1d5db] bg-white px-2 text-[12px] text-[#364658] focus:border-[#3D8BD0] focus:outline-none focus:ring-1 focus:ring-[#3D8BD0]';
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Applied condition stays visible next to the trigger, so the icon is never a mystery */}
-      {active && !step && (
-        <span className="inline-flex items-center gap-1 rounded-sm bg-[#EBF5FF] px-1.5 py-0.5 text-[12px] text-[#3D8BD0]">
-          <CalendarDays size={12} />
-          <span className="font-medium">Date</span>
-          <span className="text-[#7B8FA5]">{dateFilterOp(value)}</span>
-          <span className="font-medium">{dateFilterValue(value)}</span>
-          <button onClick={() => onChange({ kind: 'all' })} className="text-[#3D8BD0]/70 hover:text-[#DC2626]"><X size={12} /></button>
-        </span>
-      )}
-      {step && (
-        <span className="inline-flex items-center gap-1 text-[13px] text-[#364658]">
-          {step.field && <span className="font-medium">{step.field}</span>}
-          {step.field && <ChevronRight size={13} className="text-[#9CA3AF]" />}
-          {step.op && <span className="text-[#7B8FA5]">{step.op}</span>}
-          {step.op && <ChevronRight size={13} className="text-[#9CA3AF]" />}
-        </span>
-      )}
-
+    <div className="flex items-center gap-1.5">
       <div className="relative">
-        {/* Collapsed it is just an icon; clicking expands it into a field and opens the builder. */}
+        {/* The filter itself, stated. It used to be a search icon that expanded into a field,
+            which asked the reader to discover that "search" here meant one date condition. The
+            applied condition reads inside the trigger rather than as a chip beside it, so there
+            is ONE control to look at whether or not anything is set. */}
         <button
-          onClick={() => setStep((s) => (s ? null : {}))}
-          title="Search versions by date"
-          className={`flex h-8 items-center gap-2 rounded border transition-all ${
-            step
-              ? 'w-[220px] justify-between border-[#3D8BD0] bg-white px-2.5 text-[#7B8FA5]'
-              : active
-                ? 'size-8 justify-center border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
-                : 'size-8 justify-center border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
+          onClick={() => setStep((s) => (s ? null : { field: 'Date' }))}
+          aria-haspopup="listbox"
+          aria-expanded={!!step}
+          title={active ? `Date ${dateFilterOp(value)} ${dateFilterValue(value)}` : 'Filter versions by date'}
+          className={`flex h-8 max-w-[280px] items-center gap-1.5 rounded border px-2.5 text-[13px] font-medium transition-colors ${
+            active || step
+              ? 'border-[#3D8BD0] bg-[#EBF5FF] text-[#3D8BD0]'
+              : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
           }`}
         >
-          {step && <span className="truncate text-[13px] text-[#9ca3af]">Search versions by date...</span>}
-          <Search size={16} className="flex-shrink-0" />
+          <CalendarDays size={14} className={`flex-shrink-0 ${active || step ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
+          {/* The gap is a flex GAP, which is not whitespace: the accessible name and anything
+              copied out of it ran together as "Dateis withinLast 30 days". The spaces are
+              explicit so the control reads as a sentence to a screen reader too. */}
+          {active ? (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <span>Date{' '}</span>
+              <span className="font-normal text-[#7B8FA5]">{dateFilterOp(value)}{' '}</span>
+              <span className="truncate">{dateFilterValue(value)}</span>
+            </span>
+          ) : 'Date'}
+          <ChevronDown size={14} className={`flex-shrink-0 transition-transform ${step ? 'rotate-180' : ''} ${active ? 'text-[#3D8BD0]' : 'text-[#7B8FA5]'}`} />
         </button>
 
       {step && (
         <>
           <div className="fixed inset-0 z-40" onClick={close} />
           <div className="absolute right-0 top-full z-50 mt-1 w-[320px] rounded-lg border border-[#DFE5ED] bg-white py-1 shadow-lg">
-            {/* Step 1 — field */}
-            {!step.field && (
-              <>
-                <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Filter by field</div>
-                <button
-                  onClick={() => setStep({ field: 'Date' })}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-[13px] text-[#364658] transition-colors hover:bg-[#F9FAFB]"
-                >
-                  <span className="inline-flex items-center gap-2"><CalendarDays size={14} className="text-[#7B8FA5]" />Date</span>
-                  <ChevronRight size={14} className="text-[#9CA3AF]" />
-                </button>
-              </>
-            )}
-
-            {/* Step 2 — operator */}
+            {/* Operator — the first real choice, and now the first one asked. */}
             {step.field && !step.op && (
               <>
                 <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[#7B8FA5]">Operator</div>
@@ -270,6 +251,14 @@ function VersionDateSearch({ value, onChange }: { value: DateFilter; onChange: (
         </>
       )}
       </div>
+      {active && (
+        <button
+          onClick={() => onChange({ kind: 'all' })}
+          aria-label="Clear the date filter"
+          title="Clear"
+          className="flex size-8 flex-shrink-0 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#9CA3AF] transition-colors hover:border-[#DC2626] hover:text-[#DC2626]"
+        ><X size={14} /></button>
+      )}
     </div>
   );
 }
@@ -677,8 +666,8 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
                     const Label = ({ children }: { children: React.ReactNode }) => (
                       <div className="whitespace-nowrap text-[11px] font-semibold text-[#364658]">{children}</div>
                     );
-                    const Unit = ({ children }: { children: React.ReactNode }) => (
-                      <span className="whitespace-nowrap text-[10px] uppercase tracking-wider text-[#7B8FA5]">{children}</span>
+                    const Unit = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+                      <span className={`whitespace-nowrap text-[10px] uppercase tracking-wider text-[#7B8FA5] ${className}`}>{children}</span>
                     );
                     const Rule = () => <span className="h-9 w-px flex-none self-center bg-[#DCEAF7]" />;
                     /* A zero is grey whatever it counts: colour here means "there is something
@@ -692,18 +681,20 @@ export function EndpointBomTab({ endpointId, hostName, initialType, initialCompo
                             className="font-bold leading-none tabular-nums"
                             style={{ fontSize: `${size}px`, color: n ? tone : '#9CA3AF' }}
                           >{n}</span>
-                          <Unit>{label}</Unit>
+                          {/* The hover underline lands on the LABEL, never on the figure. A rule
+                             drawn under a 20px number reads as part of the number — it looked
+                             struck through or footnoted rather than clickable. The label carries
+                             the same signal and has nothing to be confused with. */}
+                          <Unit className="group-hover/metric:underline">{label}</Unit>
                         </>
                       );
-                      /* Same treatment as Component changes above: underline on hover, and the
-                         product's own tooltip rather than the browser's. */
                       return (
                         <Tooltip delayDuration={0}>
                           <TooltipTrigger asChild>
                             {onClick && n > 0 ? (
                               <button
                                 onClick={onClick}
-                                className="flex items-baseline gap-1.5 rounded transition-colors hover:underline"
+                                className="group/metric flex items-baseline gap-1.5 rounded transition-colors"
                               >{body}</button>
                             ) : (
                               <span className="flex cursor-help items-baseline gap-1.5">{body}</span>

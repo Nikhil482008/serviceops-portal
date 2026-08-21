@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Search, Download, Columns3, Filter, ShieldAlert } from 'lucide-react';
+import { X, Search, Download, Filter, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pagination } from './Pagination';
 import { BomFilterSearch, matches } from './BomFilterSearch';
@@ -403,9 +403,6 @@ export function BomComponentsPanel({
                   : 'border-[#DFE5ED] bg-white text-[#7B8FA5] hover:bg-[#F5F7FA] hover:text-[#364658]'
               }`}
             ><Search size={16} /></button>
-            <button className="flex size-8 items-center justify-center rounded border border-[#DFE5ED] bg-white text-[#7B8FA5] transition-colors hover:bg-[#F5F7FA] hover:text-[#364658]" title="Columns">
-              <Columns3 size={16} />
-            </button>
             {/* Export sits with the controls that decide WHAT gets exported — the tab and the
                 search — rather than up in the title bar away from both. */}
             <button
