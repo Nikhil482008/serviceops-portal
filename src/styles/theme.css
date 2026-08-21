@@ -388,70 +388,75 @@ button:hover .askai-halo { animation-play-state: paused; opacity: 0; }
   .askai-halo { opacity: 0; }
 }
 
-/* ── Ask AI edge strip ──────────────────────────────────────────────────
+/* ── Ask AI edge tabs ────────────────────────────────────────
  *
- * A ribbon of AI gradient down the right edge, 5px at rest and 15px on hover.
+ * Two half-circles on the right edge. The AI one carries a gradient outline that TRAVELS AROUND
+ * the tab; the chat one is deliberately still.
  *
- * The gradient is VERTICAL and flows continuously, unlike the rail glyph's sheen which rests for
- * most of its cycle. Different job: the glyph is an icon among icons and a moving icon in a row
- * of still ones is loud, whereas this is a band of colour with no detail to fight — a slow drift
- * along it reads as alive rather than as flashing. 300% background height gives it somewhere to
- * travel, and the stops repeat so the loop has no visible seam.
+ * The outline is a conic gradient in the border-box layer with a white padding-box layer over it
+ * — the same double-background trick `--ai-border-gradient` uses for the Ask AI bar, except the
+ * gradient is conic so it follows the curve instead of sliding across it. On a 26px shape a
+ * linear sweep reads as a flicker; a rotation reads as an outline being drawn.
+ *
+ * Rotating a conic needs an ANIMATABLE angle, which a plain custom property is not — hence
+ * `@property`. Where that is unsupported the declaration is ignored, the angle stays at its
+ * initial value, and the tab keeps a static gradient outline. Degrading to "still" rather than to
+ * "broken" is the reason this is done with a registered property rather than a JS ticker.
  */
-@keyframes askAiEdgeFlow {
-  from { background-position: 50% 0%; }
-  to   { background-position: 50% 300%; }
+@property --askai-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
-.askai-edge {
-  background-image: linear-gradient(
-    180deg,
-    var(--ai-stop-1) 0%,
-    var(--ai-stop-2) 25%,
-    var(--ai-stop-3) 50%,
-    var(--ai-stop-2) 75%,
-    var(--ai-stop-1) 100%
-  );
-  background-size: 100% 300%;
-  animation: askAiEdgeFlow 9s linear infinite;
+@keyframes askAiTabSpin {
+  to { --askai-angle: 360deg; }
 }
 
-/* Vertical type. `vertical-rl` turns the line box on its side, so what limits the text is the
-   strip's WIDTH, not its height — which is why the size below is 9px: at 15px of strip there is
-   very little room, and anything larger clips rather than wraps. */
-.askai-edge-label {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  writing-mode: vertical-rl;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #fff;
-  /* The gradient runs light-to-dark along its length, so a flat white can drop to ~2:1 over the
-     pale blue stop. The shadow is what keeps the word legible wherever the flow happens to be. */
-  text-shadow: 0 1px 2px rgba(15, 23, 42, 0.45);
-  opacity: 0;
-  transition: opacity 0.15s ease-out;
-  pointer-events: none;
-  white-space: nowrap;
+.askai-tab {
+  /* The flat side is the viewport edge, so the tab is only ever seen from the left. The shadow is
+     cast that way and the right-hand rounding is squared off by `rounded-l-full` in the markup. */
+  box-shadow: -2px 0 8px rgba(15, 23, 42, 0.10);
 }
 
-.askai-edge:hover .askai-edge-label,
-.askai-edge:focus-visible .askai-edge-label { opacity: 1; }
+.askai-tab-ai {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    conic-gradient(
+      from var(--askai-angle),
+      var(--ai-stop-1),
+      var(--ai-stop-2),
+      var(--ai-stop-3),
+      var(--ai-stop-2),
+      var(--ai-stop-1)
+    ) border-box;
+  border: 1.5px solid transparent;
+  animation: askAiTabSpin 4.5s linear infinite;
+}
 
-/* Keyboard users get the same widening, plus a ring that reads against the gradient. */
-.askai-edge:focus-visible {
-  box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px var(--ai-accent);
+.askai-tab-chat {
+  background: #fff;
+  border: 1px solid var(--Ask-AI-tab-border, #dfe5ed);
+}
+
+/* The two letters inside the AI tab. Painted with the gradient rather than a flat purple so the
+   text and its outline are obviously the same object; `background-clip: text` is what allows a
+   gradient to fill glyphs at all. */
+.askai-tab-text {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background-image: var(--ai-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* Safari needs this spelled out or the clipped text renders solid. */
+  -webkit-text-fill-color: transparent;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .askai-edge { animation: none; background-position: 50% 150%; }
-  /* The width change stays: it is a response to the pointer, not ambient movement, and losing it
-     would leave a 5px target with no way to see what it is. */
+  /* The outline stays — it is the tab's identity, not the movement. Only the travel stops. */
+  .askai-tab-ai { animation: none; }
 }
 
 @keyframes shimmer {
