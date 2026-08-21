@@ -276,6 +276,32 @@ const NAMED_VULNS: Record<string, string> = {
   'CVE-2022-42889': 'Text4Shell',
 };
 
+/** Which components a licence SLICE stands for.
+ *
+ *  Derived from the slices themselves, because "Other" is only definable against the list that
+ *  named the others — a second, hand-written copy of that rule is how a wedge and the list
+ *  behind it come apart. It buckets by the same mapping the ring uses, so an undeclared licence
+ *  lands in Undeclared here exactly as it does there. */
+export function licenceMatcher(licence: string): (c: SoftwareComponent) => boolean {
+  const bucket = (c: SoftwareComponent) =>
+    (licencePolicy(c.license) === 'undeclared' ? 'Undeclared' : c.license);
+  if (licence === 'Other') {
+    const named = new Set(bomDashboard().licences.map((l) => l.licence).filter((l) => l !== 'Other'));
+    return (c) => !named.has(bucket(c));
+  }
+  return (c) => bucket(c) === licence;
+}
+
+/** The same, for the AI ring. No population question on this side: `aiLicences` is counted from
+ *  `aiAssets()`, which IS what the AI Components register lists. */
+export function aiLicenceMatcher(licence: string): (r: { license: string }) => boolean {
+  if (licence === 'Other') {
+    const named = new Set(bomDashboard().aiLicences.map((l) => l.licence).filter((l) => l !== 'Other'));
+    return (r) => !named.has(r.license);
+  }
+  return (r) => r.license === licence;
+}
+
 let CACHE: BomDashboard | null = null;
 
 export const bomDashboard = (): BomDashboard => {

@@ -3,6 +3,7 @@ import { TriangleAlert, ExternalLink, ShieldQuestion, Search, X, ChevronDown, Ch
 import { useDrawerStack } from './DrawerStack';
 import { KpiCard, KpiChip, KPI_NUM } from './SoftwareComponentsKpis';
 import { aiAssets, aiSummary, pastEol, eolSoon } from './aiModelsData';
+import { aiLicenceMatcher } from './bomDashboardData';
 import type { AiAssetRow, AiKind, AiRisk } from './aiModelsData';
 
 /* The AI Components tab of BOM Inventory — the AI BOM read fleet-wide.
@@ -39,18 +40,44 @@ const RISK_STYLE: Record<AiRisk, { bg: string; text: string; flag: boolean }> = 
   HIGH: { bg: '#FFFAEB', text: '#B45309', flag: true },
 };
 
-export type AiFocus = 'eol' | 'hosted' | 'unverified' | null;
-const FOCUS_FN: Record<Exclude<AiFocus, null>, (r: AiAssetRow) => boolean> = {
+/** Same shape as the software register's `ComponentFocus`, and for the same reason: three of
+ *  these are this page's own cards, the rest arrive from the dashboard as it navigates. */
+export type AiFocus = string | null;
+const FOCUS_FN: Record<'eol' | 'hosted' | 'unverified', (r: AiAssetRow) => boolean> = {
   eol: pastEol,
   hosted: (r) => r.source === 'Hosted API',
   /* What the removed sub-tab used to select. */
   unverified: (r) => r.provenance === 'Unverified',
 };
-const FOCUS_LABEL: Record<Exclude<AiFocus, null>, string> = {
+const FOCUS_LABEL: Record<'eol' | 'hosted' | 'unverified', string> = {
   eol: 'Past end-of-life',
   hosted: 'Sends data to a hosted API',
   unverified: 'Unverified only',
 };
+
+/* `kind:value`, split on the FIRST colon. Only `licence` today — handed over by the AI half of
+   the dashboard's licence ring, which counts `aiAssets()`, the very rows this page lists. */
+const aiParam = (f: string) => {
+  const i = f.indexOf(':');
+  return i < 0 ? null : { kind: f.slice(0, i), value: f.slice(i + 1) };
+};
+const aiOwn = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+
+function aiFocusFn(f: AiFocus): ((r: AiAssetRow) => boolean) | null {
+  if (!f) return null;
+  if (aiOwn(FOCUS_FN, f)) return FOCUS_FN[f as keyof typeof FOCUS_FN];
+  const p = aiParam(f);
+  if (p && p.kind === 'licence') return aiLicenceMatcher(p.value);
+  return null;
+}
+function aiFocusChip(f: AiFocus): string {
+  if (!f) return '';
+  if (aiOwn(FOCUS_LABEL, f)) return FOCUS_LABEL[f as keyof typeof FOCUS_LABEL];
+  const p = aiParam(f);
+  return p ? p.value : f;
+}
+/** An unrecognised focus is dropped rather than shown as a chip that narrows nothing. */
+const isAiFocus = (f: string | null | undefined): f is string => !!f && aiFocusFn(f) !== null;
 
 const KINDS: AiKind[] = ['hosted-llm', 'local-model-file', 'embedding-model', 'framework',
   'vector-db', 'prompt', 'dataset', 'infra', 'rag-pipeline'];
@@ -72,10 +99,15 @@ const EOL_OPTIONS: { id: EolWindow; label: string; match: (r: AiAssetRow) => boo
   { id: 'none', label: 'No EOL published', match: (r) => r.eolDays === null },
 ];
 
-export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) {
+export function AiModelsTab({ onOpen, initialFocus = null }: {
+  onOpen?: (row: AiAssetRow) => void;
+  /** A narrowing chosen on the screen that sent you here — an AI licence slice arrives as
+   *  `licence:Apache-2.0`. Validated, not trusted. */
+  initialFocus?: string | null;
+}) {
   const rows = useMemo(() => aiAssets(), []);
   const sum = useMemo(() => aiSummary(), []);
-  const [focus, setFocus] = useState<AiFocus>(null);
+  const [focus, setFocus] = useState<AiFocus>(isAiFocus(initialFocus) ? initialFocus : null);
   const [kind, setKind] = useState<AiKind | ''>('');
   const [kindOpen, setKindOpen] = useState(false);
   const [eol, setEol] = useState<EolWindow>('');
@@ -103,7 +135,8 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
     return () => document.removeEventListener('mousedown', onDown);
   }, [kindOpen]);
 
-  const focused = focus ? rows.filter(FOCUS_FN[focus]) : rows;
+  const focusPred = aiFocusFn(focus);
+  const focused = focusPred ? rows.filter(focusPred) : rows;
   const byKind = kind ? focused.filter((r) => r.kind === kind) : focused;
   const kindCount = (k: AiKind) => focused.filter((r) => r.kind === k).length;
   /* Each option reports how many rows it WOULD show, counted against everything narrowed BEFORE
@@ -269,8 +302,8 @@ export function AiModelsTab({ onOpen }: { onOpen?: (row: AiAssetRow) => void }) 
         <div className="relative flex flex-1 items-center gap-2 rounded border border-[#d1d5db] bg-white pl-2 pr-10 focus-within:border-[#3D8BD0] focus-within:ring-1 focus-within:ring-[#3D8BD0]">
           {focus && (
             <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-sm bg-[#EBF5FF] px-2 py-0.5 text-[13px] text-[#3D8BD0]">
-              {FOCUS_LABEL[focus]}
-              <button onClick={() => setFocus(null)} aria-label={`Clear the ${FOCUS_LABEL[focus]} filter`}
+              {aiFocusChip(focus)}
+              <button onClick={() => setFocus(null)} aria-label={`Clear the ${aiFocusChip(focus)} filter`}
                       className="text-[#3D8BD0]/70 transition-colors hover:text-[#DC2626]"><X size={13} /></button>
             </span>
           )}

@@ -807,12 +807,8 @@ const AI_RISK_HINT: Record<AiRisk, string | null> = {
   LOW: null,
 };
 
-export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPickLicence }: {
+export function LicenceDistributionCard({ d, onNavigate, layout = 'stack' }: {
   d: BomDashboard; onNavigate: BomNavigate; layout?: 'stack' | 'row';
-  /** A slice is a count; picking one asks the page to open the components behind it. Absent on
-   *  Dashboard 2, which has no list drawer — there the ring stays hover-only rather than
-   *  pretending to a click it cannot answer. */
-  onPickLicence?: (licence: string) => void;
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const [view, setView] = useState<'sbom' | 'aibom'>('sbom');
@@ -836,6 +832,17 @@ export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPic
           : l.policy === 'restricted' ? 'restricted — worth a legal review' : null,
     }));
   const total = ai ? d.aiLicenceTotal : d.licenceTotal;
+
+  /* A slice is a count, and picking one goes to the list it counted — the register, filtered to
+     that licence, with the licence named in its search box. It used to open a drawer here; the
+     drawer existed because the register listed a 12-row fixture and could not have shown these
+     rows. It lists the reconciled inventory now, so the slice can simply be a link and there is
+     one place a component list lives.
+
+     Both views, and each to its OWN register: the AI ring is counted from `aiAssets()`, which is
+     exactly what the AI Components page lists. */
+  const pick = (key: string) =>
+    onNavigate(ai ? 'ai-components' : 'software-components', `licence:${key}`);
 
   return (
     <Card
@@ -863,34 +870,29 @@ export function LicenceDistributionCard({ d, onNavigate, layout = 'stack', onPic
         <Donut
           total={total} caption={ai ? 'AI components' : 'components'} size={DIST_RING(row)}
           hover={hover} onHover={setHover}
-          /* Only the SBOM view. The drawer behind `onPickLicence` lists SOFTWARE components; an
-             AI slice picked into it would open a list of the wrong population, so the AI ring is
-             hover-only and its View all is the way through to those rows. */
-          onPick={!ai && onPickLicence ? (i) => onPickLicence(rows[i].key) : undefined}
+          onPick={(i) => pick(rows[i].key)}
           slices={rows.map((r) => ({ label: r.label, value: r.count, color: r.color }))}
         />
         <div className={DIST_LEGEND(row)} onMouseLeave={() => setHover(null)}>
           {rows.map((r, i) => {
             /* The legend row and the arc are one control in two places — they already shared a
                hover state, so they share the pick too. */
-            const pick = !ai && onPickLicence ? () => onPickLicence(r.key) : undefined;
-            const Row = pick ? 'button' : ('div' as const);
             return (
-            <Row
+            <button
               key={r.key}
               onMouseEnter={() => setHover(i)}
-              onClick={pick}
+              onClick={() => pick(r.key)}
               /* What a slice's colour cannot carry — the ring is a MIX, and tinting more than
                  half of it one danger red would make it a block rather than a mix. */
               title={r.note ? `${r.label} — ${r.note}` : r.label}
-              className={`${DIST_ROW} ${pick ? 'hover:bg-[#F9FAFB]' : ''}`}
+              className={`${DIST_ROW} hover:bg-[#F9FAFB]`}
               style={{ opacity: hover !== null && hover !== i ? 0.45 : 1 }}
             >
               <span className="size-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: r.color }} />
               <span className="min-w-0 flex-1 truncate text-[#364658]">{r.label}</span>
               <span className="flex-shrink-0 tabular-nums text-[#7B8FA5]">{r.count}</span>
               <span className={DIST_PCT}>{pct(r.count, total)}</span>
-            </Row>
+            </button>
             );
           })}
         </div>

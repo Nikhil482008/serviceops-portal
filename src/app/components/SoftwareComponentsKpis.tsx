@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowUpDown, Flag } from 'lucide-react';
 import { BomKpiCard } from './BomKpiCard';
 import { componentCves } from './softwareComponentDetail';
+import { licenceMatcher } from './bomDashboardData';
 import type { SoftwareComponent } from './softwareComponentsData';
 
 /* The three readings above the Software Components table.
@@ -13,9 +14,18 @@ import type { SoftwareComponent } from './softwareComponentsData';
  * it sits above cannot quote different numbers. Each card's action filters that table
  * instead of navigating away, and says so while it is doing it. */
 
-export type ComponentFocus = 'vulnerable' | 'fixable' | 'license' | null;
+/** A narrowing of the register.
+ *
+ *  Three of these are the KPI cards' own toggles; the rest arrive from ANOTHER screen — a
+ *  dashboard chart hands one over as it navigates. It is a STRING rather than an object because
+ *  it has to survive that navigation, be compared with `===` as the cards' active test, and name
+ *  a VALUE (`licence:Apache-2.0`) without a second equality rule to go with it. */
+export type ComponentFocus = string | null;
 
-export const focusFn: Record<Exclude<ComponentFocus, null>, (c: SoftwareComponent) => boolean> = {
+type Pred = (c: SoftwareComponent) => boolean;
+
+/** The three the cards above the table own. */
+export const focusFn: Record<'vulnerable' | 'fixable' | 'license', Pred> = {
   /* Every component carrying a known vulnerability — the cut the removed "Vulnerable" tab made,
      now reached from the card that counts them. */
   vulnerable: (c) => c.vulnerabilities > 0,
@@ -23,20 +33,46 @@ export const focusFn: Record<Exclude<ComponentFocus, null>, (c: SoftwareComponen
   license: (c) => c.licenseFlag,
 };
 
-export const FOCUS_LABEL: Record<Exclude<ComponentFocus, null>, string> = {
+export const FOCUS_LABEL: Record<'vulnerable' | 'fixable' | 'license', string> = {
   vulnerable: 'Vulnerable only',
   fixable: 'Has a published fix',
   license: 'Flagged licenses',
 };
 
-/** Is this one of the cuts this page can actually make?
+/* Parameterised focuses read `kind:value`. Split on the FIRST colon only — a licence spelled
+   `LicenseRef-Acme:Internal` would otherwise lose half its name. */
+const param = (f: string) => {
+  const i = f.indexOf(':');
+  return i < 0 ? null : { kind: f.slice(0, i), value: f.slice(i + 1) };
+};
+const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+
+/** The predicate a focus stands for, or null when it names nothing this page can do.
  *
- *  A focus can now arrive from ANOTHER screen — the dashboard hands one over as it navigates —
- *  so it is checked before it becomes a chip. An unrecognised one is dropped rather than shown:
- *  a chip is a claim that the table has been narrowed, and one that narrows nothing is a label
- *  for a cut that was never made. */
-export const isComponentFocus = (f: string | null | undefined): f is Exclude<ComponentFocus, null> =>
-  !!f && Object.prototype.hasOwnProperty.call(focusFn, f);
+ *  An unrecognised focus narrows NOTHING rather than emptying the table: a filter arriving from
+ *  another screen must never be able to make the list look like it has no rows. */
+export function focusPredicate(f: ComponentFocus): Pred | null {
+  if (!f) return null;
+  if (own(focusFn, f)) return focusFn[f as keyof typeof focusFn];
+  const p = param(f);
+  /* Built where the buckets are defined, so 'Other' means the same thing here and on the ring. */
+  if (p && p.kind === 'licence') return licenceMatcher(p.value);
+  return null;
+}
+
+/** The chip's text. A parameterised focus shows its VALUE — "Apache-2.0" is what was clicked,
+ *  and prefixing it with "Licence:" would only repeat the chart it came from. */
+export function focusChip(f: ComponentFocus): string {
+  if (!f) return '';
+  if (own(FOCUS_LABEL, f)) return FOCUS_LABEL[f as keyof typeof FOCUS_LABEL];
+  const p = param(f);
+  return p ? p.value : f;
+}
+
+/** Checked before it becomes a chip: a chip is a claim that the table has been narrowed, and one
+ *  that narrows nothing is a label for a cut that was never made. */
+export const isComponentFocus = (f: string | null | undefined): f is string =>
+  !!f && focusPredicate(f) !== null;
 
 /* InfoTip moved into BomKpiCard with the rest of line 1 — it is part of the grammar, not
    of this page. */

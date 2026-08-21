@@ -3,10 +3,8 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useDrawerStack } from './DrawerStack';
 import { bomDashboard } from './bomDashboardData';
-import type { LicencePolicy } from './bomDashboardData';
 import type { BomType } from './bomData';
 import type { SoftwareComponent } from './softwareComponentsData';
-import { BomComponentListDrawer, type ComponentListSpec } from './BomComponentListDrawer';
 /* Chrome lives in one place now that a second dashboard draws it too. */
 import type { BomNavigate } from './bomDashboardUi';
 import {
@@ -30,30 +28,10 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
   const [licHover, setLicHover] = useState<number | null>(null);
   /** Which exposure row is showing its detail. Hover OR focus, so a keyboard reaches it. */
   const [expHover, setExpHover] = useState<string | null>(null);
-  /** The list behind a chart's count, when one has been picked. */
-  const [list, setList] = useState<ComponentListSpec | null>(null);
 
   /** One thing -> its detail page. The stack renders it above everything, including the list. */
   const openComponent = (c: SoftwareComponent) =>
     openInStack('software-components', c.id, `${c.name} ${c.version}`, c);
-
-  /* A count -> the things it counted. The predicate is derived from the slices the donut drew:
-     "Other" means "not one of the named ones", so the bucket here and the wedge on the chart
-     cannot come apart. */
-  const openLicence = (licence: string) => {
-    const named = new Set(d.licences.map((l) => l.licence).filter((l) => l !== 'Other'));
-    const match = (c: SoftwareComponent) =>
-      licence === 'Other' ? !named.has(c.license)
-        : licence === 'Undeclared' ? !c.license || c.license === 'Undeclared'
-          : c.license === licence;
-    setList({
-      title: licence === 'Other' ? 'Other licences' : licence,
-      subtitle: licence === 'Other'
-        ? `outside the ${named.size} largest licences`
-        : `licensed ${licence}`,
-      rows: d.components.filter(match).sort((a, b) => b.cis - a.cis || a.name.localeCompare(b.name)),
-    });
-  };
 
   /** Open an endpoint on its BOM tab, landed on a specific BOM. */
   const openBom = (endpointId: string, type: BomType) => {
@@ -188,7 +166,7 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
                   legend right — which a third of the page holds now that the row branch is
                   measured for it: a 132px ring rather than 180, and no footer paragraph under
                   either chart. */}
-              <LicenceDistributionCard d={d} onNavigate={onNavigate} layout="row" onPickLicence={openLicence} />
+              <LicenceDistributionCard d={d} onNavigate={onNavigate} layout="row" />
               <ManagedPathsCard d={d} onNavigate={onNavigate} layout="row" />
             </div>
 
@@ -237,16 +215,6 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
           </div>
         </main>
       </div>
-
-      {/* The list behind a count. Below the drawer stack's layer, so opening a component from it
-          stacks the detail OVER the list and closing that comes back here. */}
-      {list && (
-        <BomComponentListDrawer
-          spec={list}
-          onClose={() => setList(null)}
-          onOpenComponent={openComponent}
-        />
-      )}
     </div>
   );
 }

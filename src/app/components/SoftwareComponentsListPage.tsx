@@ -8,10 +8,11 @@ import { Header } from './Header';
 import { SoftwareComponentsTable } from './SoftwareComponentsTable';
 import { Pagination } from './Pagination';
 import { useDrawerStack } from './DrawerStack';
-import { SOFTWARE_COMPONENTS, isKev } from './softwareComponentsData';
+import { isKev } from './softwareComponentsData';
+import { bomDashboard } from './bomDashboardData';
 import { AiModelsTab } from './AiModelsTab';
 import { aiAssets } from './aiModelsData';
-import { SoftwareComponentsKpis, focusFn, FOCUS_LABEL, isComponentFocus } from './SoftwareComponentsKpis';
+import { SoftwareComponentsKpis, focusPredicate, focusChip, isComponentFocus } from './SoftwareComponentsKpis';
 import type { ComponentFocus } from './SoftwareComponentsKpis';
 
 /* BOM Inventory — the fleet seen the other way up from Configuration Items.
@@ -206,8 +207,8 @@ function ComponentsControls({
         <div className="relative flex flex-1 items-center gap-2 rounded border border-[#d1d5db] bg-white pl-2 pr-10 focus-within:border-[#3D8BD0] focus-within:ring-1 focus-within:ring-[#3D8BD0]">
           {focus && (
             <span className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-sm bg-[#EBF5FF] px-2 py-0.5 text-[13px] text-[#3D8BD0]">
-              {FOCUS_LABEL[focus]}
-              <button onClick={() => setFocus(null)} aria-label={`Clear the ${FOCUS_LABEL[focus]} filter`}
+              {focusChip(focus)}
+              <button onClick={() => setFocus(null)} aria-label={`Clear the ${focusChip(focus)} filter`}
                       className="text-[#3D8BD0]/70 transition-colors hover:text-[#DC2626]">
                 <X size={13} />
               </button>
@@ -239,6 +240,19 @@ function ComponentsControls({
 /** Counted once: the tab label needs it before the tab is ever opened. */
 const AI_ASSETS = aiAssets();
 
+/** The rows this register lists.
+ *
+ *  `bomDashboard().components` — the RECONCILED inventory, one row per component version across
+ *  the estate — not the `SOFTWARE_COMPONENTS` fixture it used to read. That fixture is still the
+ *  authority on what it AUTHORS (its CVE lists, KEV flags and fix versions win here; only reach
+ *  is recomputed), it just is not the population: it holds 12 rows while the dashboard counts 711,
+ *  which is why a licence slice reading 167 could not open its own components without landing on
+ *  six. One population, so a chart and the page it links to can quote the same number.
+ *
+ *  Module level, like AI_ASSETS above, and `bomDashboard()` memoises — walking every CI on each
+ *  render is a documented way to make this module stop repainting. */
+const REGISTER_ROWS = bomDashboard().components;
+
 export function SoftwareComponentsListPage({
   onNavigate, tab = 'components', initialFocus = null, onInitialFocusConsumed,
 }: {
@@ -254,13 +268,17 @@ export function SoftwareComponentsListPage({
 }) {
   const [kev, setKev] = useState<KevFilter>('');
   const [sev, setSev] = useState<SevFilter>('');
-  const [focus, setFocus] = useState<ComponentFocus>(isComponentFocus(initialFocus) ? initialFocus : null);
+  /* The models tab keeps its own filter vocabulary, so a focus meant for it is handed straight
+     over rather than tested against this page's. */
+  const forComponents = tab !== 'models';
+  const [focus, setFocus] = useState<ComponentFocus>(
+    forComponents && isComponentFocus(initialFocus) ? initialFocus : null);
   /* Taken once. Navigating here fresh remounts the page, so the initial state above is what
      usually applies it; this covers arriving while already on the page, and tells the sender it
      has been used so a later visit does not inherit it. */
   useEffect(() => {
     if (!initialFocus) return;
-    if (isComponentFocus(initialFocus)) setFocus(initialFocus);
+    if (forComponents && isComponentFocus(initialFocus)) setFocus(initialFocus);
     onInitialFocusConsumed?.();
   }, [initialFocus]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -271,10 +289,12 @@ export function SoftwareComponentsListPage({
 
   /* Everything by default. Known-exploited narrows it, and so does whatever a KPI card is
      filtering — one after the other, rather than two states that can contradict each other. */
-  const byScope = kev === 'kev' ? SOFTWARE_COMPONENTS.filter(isKev) : SOFTWARE_COMPONENTS;
+  const byScope = kev === 'kev' ? REGISTER_ROWS.filter(isKev) : REGISTER_ROWS;
   /* A card's focus narrows whatever the tab already chose — one filter, applied after the
-     other, rather than two that can contradict each other. */
-  const focused = focus ? byScope.filter(focusFn[focus]) : byScope;
+     other, rather than two that can contradict each other. An unrecognised focus resolves to
+     null and narrows nothing, rather than emptying the table. */
+  const focusPred = focusPredicate(focus);
+  const focused = focusPred ? byScope.filter(focusPred) : byScope;
   const scoped = sev ? focused.filter((c) => c.topSeverity === sev) : focused;
   /* Each option reports how many rows it WOULD show, counted before the severity filter
      itself is applied — otherwise every option but the active one would read zero. */
@@ -307,13 +327,13 @@ export function SoftwareComponentsListPage({
           {tab === 'models' ? (
             /* The AI tab owns its own readings, controls and table — the two BOMs share a header
                and nothing else, because a severity split says nothing about a model. */
-            <AiModelsTab />
+            <AiModelsTab initialFocus={initialFocus} />
           ) : (
             <>
               <div className="min-h-0 flex-1 overflow-auto bg-white">
                 {/* Read once, on arrival — so they scroll away with the list. */}
                 <div className="px-6 pb-4 pt-4">
-                  <SoftwareComponentsKpis rows={SOFTWARE_COMPONENTS} focus={focus} setFocus={setFocus} />
+                  <SoftwareComponentsKpis rows={REGISTER_ROWS} focus={focus} setFocus={setFocus} />
                 </div>
                 {/* The one thing that stays: you filter at any depth in a list. */}
                 <div className="sticky top-0 z-20 border-b border-[#E5E7EB] bg-white">
@@ -328,7 +348,7 @@ export function SoftwareComponentsListPage({
                     setFocus={setFocus}
                     kev={kev}
                     setKev={setKev}
-                    kevCount={SOFTWARE_COMPONENTS.filter(isKev).length}
+                    kevCount={REGISTER_ROWS.filter(isKev).length}
                   />
                 </div>
                 <SoftwareComponentsTable
