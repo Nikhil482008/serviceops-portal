@@ -541,9 +541,14 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .cb-add:hover{background:var(--row-hover);color:var(--ink)}
 
 /* group joiner — a real toggle, sitting on the rail between two groups */
+/* The connector line and the pill that sits on it.
+   `padding-left` puts the button's left edge on the line at 30px; `translateX(-50%)` then pulls it
+   back by half its OWN width, so the line runs through its centre. Half its own width rather than
+   a measured offset because "And" and "Or" are different widths — a fixed nudge would centre one
+   of them and be wrong for the other every time the toggle is used. */
 .cg-join{position:relative;padding:9px 0 9px 30px}
 .cg-join::before{content:"";position:absolute;left:30px;top:0;bottom:0;width:1px;background:#DFE5ED}
-.joinbtn{position:relative;background:#fff;border:1px solid var(--line);border-radius:4px;
+.joinbtn{position:relative;transform:translateX(-50%);background:#fff;border:1px solid var(--line);border-radius:4px;
   padding:7px 11px;font-size:13px;font-weight:600;color:var(--ink);
   display:inline-flex;align-items:center;gap:7px;transition:border-color .14s,color .14s}
 .joinbtn:hover{border-color:var(--brand);color:var(--brand)}
