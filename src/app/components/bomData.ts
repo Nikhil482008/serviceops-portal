@@ -143,6 +143,25 @@ const CBOM_CATALOG: CryptoAsset[] = [
   { name: 'ldap-directory-tls', serves: 'Directory lookups', primitive: 'Certificate', algorithm: 'RSA', keyLength: '3072 bit', protocol: 'LDAPS', location: 'LocalMachine\My', compliance: 'Quantum-vulnerable', expiry: 'Dec 28, 2026' },
   { name: 'mq-broker-tls', serves: 'Message queues', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'AMQPS', location: '/etc/mq/ssl', compliance: 'Quantum-vulnerable', expiry: 'Jan 30, 2027' },
   { name: 'device-enrolment-ca', serves: 'Enrolling new devices', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'SCEP', location: 'LocalMachine\CA', compliance: 'Quantum-vulnerable', expiry: 'Jun 20, 2027' },
+
+  /* One BATCH, one renewal date. Seven certificates cut together by the internal CA a year ago
+     all come due on 05 Sep 2026 — 19 days out from DASH_TODAY. This is how expiry clusters
+     actually happen, and it is the case the timeline has to survive: seven dots on one pixel
+     would leave six of them unreachable, which is why the strip groups by DAY. */
+  { name: 'ecom-storefront-tls', serves: 'Online storefront', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'TLS 1.2', location: 'LocalMachine\My', compliance: 'Quantum-vulnerable', expiry: 'Sep 05, 2026' },
+  { name: 'checkout-api-tls', serves: 'Checkout API', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '256 bit', protocol: 'TLS 1.3', location: '/etc/ssl/checkout', compliance: 'Quantum-vulnerable', expiry: 'Sep 05, 2026' },
+  { name: 'staff-portal-tls', serves: 'Staff portal', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'TLS 1.2', location: 'LocalMachine\My', compliance: 'Quantum-vulnerable', expiry: 'Sep 05, 2026' },
+  { name: 'warehouse-scanner-mtls', serves: 'Warehouse handheld scanners', primitive: 'Certificate', algorithm: 'EC P-256', keyLength: '256 bit', protocol: 'mTLS', location: 'CurrentUser\My', compliance: 'Quantum-vulnerable', expiry: 'Sep 05, 2026' },
+  { name: 'reporting-db-tls', serves: 'Reporting database', primitive: 'Certificate', algorithm: 'RSA', keyLength: '3072 bit', protocol: 'TLS 1.2', location: '/etc/ssl/reporting', compliance: 'Quantum-vulnerable', expiry: 'Sep 05, 2026' },
+  { name: 'partner-sftp-host', serves: 'Partner file transfers', primitive: 'Certificate', algorithm: 'RSA', keyLength: '2048 bit', protocol: 'SFTP', location: '/etc/ssh', compliance: 'Quantum-vulnerable', expiry: 'Sep 05, 2026' },
+  { name: 'monitoring-agent-tls', serves: 'Monitoring agents', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '256 bit', protocol: 'TLS 1.3', location: '/opt/monitoring/ssl', compliance: 'Quantum-vulnerable', expiry: 'Sep 05, 2026' },
+
+  /* The 30-45 day window was EMPTY. That is a legitimate state and the strip says so honestly,
+     but it left the amber half of the rule with nothing in it on every screen and every
+     screenshot -- so the second colour could never be read against the first. Two certificates
+     land there. */
+  { name: 'backup-vault-tls', serves: 'Backup vault', primitive: 'Certificate', algorithm: 'RSA', keyLength: '3072 bit', protocol: 'TLS 1.2', location: '/etc/ssl/backup', compliance: 'Quantum-vulnerable', expiry: 'Sep 20, 2026' },
+  { name: 'crm-integration-tls', serves: 'CRM integration', primitive: 'Certificate', algorithm: 'ECDSA', keyLength: '384 bit', protocol: 'TLS 1.3', location: 'LocalMachine\My', compliance: 'Quantum-vulnerable', expiry: 'Sep 28, 2026' },
 ];
 
 export interface AiModel {
