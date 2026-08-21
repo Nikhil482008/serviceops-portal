@@ -970,51 +970,29 @@ export function CertTimeline({ certs, total, onOpen }: {
     { key: 'd120', from: 30, to: SPAN },
   ];
 
-  /* What the rule actually SHOWS is two colours, not three: `week` and `d30` share one red fill,
-     so the eye reads red to 30 days and amber to 45. The counts follow the eye rather than the
-     array — labelling three zones where two are visible would be answering a question the strip
-     is not asking. Each carries its own day range, because a bare figure over this strip already
-     means something else: the number above a dot is that day's count. */
-  const zones = [
-    { key: 'd30' as const, from: 0, to: 30, label: '\u2264 30d' },
-    { key: 'd120' as const, from: 30, to: SPAN, label: '30\u201345d' },
-  ].map((z) => ({ ...z, count: plotted.filter((c) => c.days > z.from && c.days <= z.to).length }));
-
   return (
     /* Claims the leftover height and centres in it, so the card is never a timeline with a dead
        band under it — the air goes around the thing being read. */
     <div className="flex flex-1 flex-col justify-center px-4 pb-3 pt-4">
-      <div className="relative h-[96px]">
-        {/* How many each colour holds. Its own row at the top: there was no space above the group
-            counts, and putting these inside the band would have run them under the dots. */}
-        {zones.map((z) => (
-          <span
-            key={z.key}
-            className="absolute top-0 inline-flex items-baseline gap-1 text-[11px] leading-none"
-            style={{ left: `calc(${(z.from / SPAN) * 100}% + 3px)`, color: CERT_BAND_TINT[z.key].ink }}
-            aria-label={`${z.count} certificate${z.count === 1 ? '' : 's'} expiring ${z.label === '\u2264 30d' ? 'within 30 days' : 'between 30 and 45 days'}`}
-          >
-            <b className="text-[13px] font-semibold tabular-nums">{z.count}</b>
-            <span className="opacity-70">{z.label}</span>
-          </span>
-        ))}
-
-        {/* A count above every group that holds more than one — a single dot states itself. */}
+      <div className="relative h-[82px]">
+        {/* A count above every group that holds more than one — a single dot states itself.
+            The per-zone counts that briefly sat above this row are gone: they cost the strip
+            14px for two figures the band chips above the timeline already carry. */}
         {groups.filter((g) => g.list.length > 1).map((g) => (
           <span
             key={`n${g.days}`}
-            className="absolute top-[36px] -translate-x-1/2 text-[12px] font-semibold tabular-nums text-[#364658]"
+            className="absolute top-[22px] -translate-x-1/2 text-[12px] font-semibold tabular-nums text-[#364658]"
             style={{ left: at(g.days) }}
           >{g.list.length}</span>
         ))}
 
         {/* the rule */}
-        <div className="absolute inset-x-0 top-[54px] flex h-8 overflow-hidden rounded-[3px]">
+        <div className="absolute inset-x-0 top-[40px] flex h-8 overflow-hidden rounded-[3px]">
           {bands.map((b) => (
             <span key={b.key} style={{ width: `${((b.to - b.from) / SPAN) * 100}%`, backgroundColor: CERT_BAND_TINT[b.key].fill }} />
           ))}
         </div>
-        <div className="absolute inset-x-0 top-[86px] h-px bg-[#E5E7EB]" />
+        <div className="absolute inset-x-0 top-[72px] h-px bg-[#E5E7EB]" />
 
         {groups.map((g) => {
           const d = size(g.cis);
@@ -1029,7 +1007,7 @@ export function CertTimeline({ certs, total, onOpen }: {
               onMouseLeave={() => setHover(null)}
               onFocus={() => setHover(g.days)}
               onBlur={() => setHover(null)}
-              className="absolute top-[70px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D8BD0]"
+              className="absolute top-[56px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform hover:scale-125 focus-visible:scale-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D8BD0]"
               style={{ left: at(g.days), width: d, height: d, backgroundColor: CERT_BAND_TINT[g.band].dot }}
               aria-label={one
                 ? `${g.list[0].name}, expires in ${g.days} days, on ${g.list[0].cis} CIs`

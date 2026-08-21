@@ -189,7 +189,12 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
             {/* ── the two deadlines: certificates and models ─────────────
                 Both answer "what runs out, and when". Half width each — the lifecycle axis spans
                 630 days and a third of the page would squeeze that chart back into being pills. */}
-            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+            {/* Not an even split. The certificate timeline is the panel with a LENGTH — 45 days
+                of rule with fourteen dots on it, seven of them on one day — so it takes 15% more
+                width, and the lifecycle axis beside it gives up the same. 1.15fr / 0.85fr, so the
+                card is exactly 1.15x what it was rather than the ~1.07x that raising one side
+                alone would give. */}
+            <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               <Card
                 title="Expiring trust material" sub={`${d.certTotal} certificates tracked`}
                 right={<ViewAll onClick={() => onNavigate('bom')} />}
