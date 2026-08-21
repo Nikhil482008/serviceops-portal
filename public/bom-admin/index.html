@@ -428,7 +428,6 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
    from the tinted card behind. */
 .tpick-b .cb{margin:0;background:none;border:0;padding:0}
 .tpick-b .cb-group{border:1px solid var(--line-tbl);box-shadow:none}
-.tpick-b .cb-prev{margin-top:12px}
 .tor{display:flex;align-items:center;gap:10px;margin:10px 2px;font-size:11px;font-weight:600;
   letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
 .tor::before,.tor::after{content:"";flex:1;height:1px;background:var(--line-tbl)}
@@ -557,7 +556,9 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .cb-gadd{margin-top:12px}
 .cb-empty{background:#fff;border-radius:8px;padding:28px 16px;text-align:center;
   font-size:13px;color:var(--faint)}
-.cb-prev{margin-top:16px}
+/* 14 + the covline's own 10 = the 24px Licensing leaves between the radio group and its
+   count (.tchoice margin-bottom 14 + .covline margin-top 10). Same gap, same reading. */
+.cb-prev{margin-top:14px}
 .cb-q{display:inline-flex;align-items:center;color:var(--dim)}
 .cb-q:hover{color:var(--ink)}
 /* The count is a `.covline` now — the same treatment Licensing and both editors use — so it
@@ -4525,7 +4526,12 @@ function wireStack(){
     wireCondCov();
     wireCbGroups(G, renderStack, ()=>{
       const h = document.getElementById("cbPrevH");
-      if(h){ h.innerHTML = cbPrevLine(autoMatches(G)); wireCondCov(); }
+      if(!h) return;
+      /* The same gate the render applies. This runs on every keystroke, including the ones
+         part-way through a first value — an incomplete condition has no count to report, and
+         a zero here would be read as an answer rather than as "not finished". */
+      h.innerHTML = G.some(g=>g.conds.some(condDone)) ? cbPrevLine(autoMatches(G)) : "";
+      wireCondCov();
     });
     /* One question, one answer: applying writes the chosen definition and CLEARS the
        other, so the rule can never carry a policy and conditions that disagree. */
@@ -4748,20 +4754,22 @@ function renderStack(){
                  answer that reveals them, and a second box beside the card said otherwise. -->
             ${cbPol ? "" : `<div class="tpick-b wide">
               ${cbGroupsHTML(COND.groups)}
-            <!-- The COUNT only, and OUTSIDE the conditions box — a sibling of the cb div, not a
-                 row inside it. The list of matching CIs that used to sit here is gone: building a
-                 rule is about whether the shape is right, and a table redrawing under every
-                 keystroke answered a question nobody was asking yet.
-                 The "No CIs match these conditions" line went with it — the count already reads
-                 "Matches 0 of N enrolled CIs", and two ways of saying nothing matched is one more
-                 than needed.
-                 NOTE, and this file has been bitten by it before: no BACKTICKS in a comment that
-                 lives inside a template literal. One closes the string, and what follows is read
-                 as code. -->
-            ${cbDone ? `<div class="cb-prev" id="cbPrevH">${cbPrevLine(hits)}</div>` : ""}
             </div>`}
           </div>
         </div>
+        <!-- The COUNT, outside the card — a sibling of the whole radio group, which is where
+             Licensing puts it (licPrev sits beside licTargetPickHTML, not inside an option).
+             The list of matching CIs that used to sit here is gone: building a rule is about
+             whether the shape is right, and a table redrawing under every keystroke answered a
+             question nobody was asking yet. The "No CIs match these conditions" line went with
+             it — the count already reads "Matches 0 CIs", and two ways of saying nothing
+             matched is one more than needed.
+             The wrapper renders empty rather than not at all, so the live keystroke path has
+             something to write into the moment a first condition completes.
+             NOTE, and this file has been bitten by it before: no BACKTICKS in a comment that
+             lives inside a template literal. One closes the string, and what follows is read
+             as code. -->
+        <div class="cb-prev" id="cbPrevH">${!cbPol && cbDone ? cbPrevLine(hits) : ""}</div>
       </div>
 
       <div class="dw-foot">
