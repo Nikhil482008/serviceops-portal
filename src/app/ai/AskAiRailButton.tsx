@@ -2,22 +2,24 @@
  *
  * Deliberately NOT a NavItem: the rail's items are routes, and this is an action. It borrows
  * NavItem's exact geometry and states so it reads as part of the rail — same 40px block, same
- * hover fill, same selected treatment (brand fill + the 3px darker indicator + white icon) — and
- * differs in exactly one quiet way: at rest its glyph is the AI accent instead of the rail's
- * #364658 ink. One signal, no idle animation, no glow, no gradient at 20px.
+ * hover fill, same selected treatment (brand fill + the 3px darker indicator + white icon).
  *
- * Glyph is lucide's Sparkles rather than the product's gradient `AiSparkle`, for two reasons.
- * The rail's other seventeen icons are flat currentColor, so a multi-colour glyph would be the
- * only one; and `AiSparkle` paints a fixed gradient fill, which would ignore the white the rail
- * paints its selected icon with. Sidebar already imports Sparkles for the AI Components row, so
- * this is the rail's own glyph, not a new one.
+ * WHAT CHANGED, and why the comment used to say the opposite: this button was built to the brief's
+ * "one quiet signal only, no idle animation", and was then asked to grab attention the way
+ * Gemini's does. It now carries the product's gradient sparkle with a slow sheen sweeping across
+ * it and a soft halo behind. Two things keep that from becoming wallpaper an admin resents after
+ * a week: most of the cycle is REST, not movement, and the whole thing stops the moment the panel
+ * is open or the pointer is on it. `prefers-reduced-motion` removes it entirely.
+ *
+ * The glyph is drawn as a masked CSS gradient rather than an SVG fill — see AskAiGlyph for why
+ * that is what makes the animation switchable by a media query at all.
  *
  * Contrast, measured: --ai-accent on the rail's #F9FAFB is 4.72:1 and on white 4.86:1 — both
  * clear AA text and comfortably clear the 3:1 non-text threshold. The selected state paints white
  * on #3D8BD0 and needs no separate argument.
  */
-import { Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
+import { AskAiGlyph } from './AskAiGlyph';
 import { isAskAiEnabled } from './flags';
 import { rememberOpener, useAskAiActionsOptional, useAskAiStateOptional } from './AskAiProvider';
 
@@ -58,13 +60,10 @@ export function AskAiRailButton() {
     >
       {active && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#2d6ca0]" />}
       <div className="flex items-center justify-center size-[20px]">
-        <Sparkles
-          size={20}
-          /* Selected → white, exactly as the rail paints its active icon. Otherwise the accent,
-             which is the one thing marking this as an action rather than a destination. */
-          style={active ? undefined : { color: 'var(--ai-accent)' }}
-          className={active ? 'text-white' : undefined}
-        />
+        {/* Selected → flat white, exactly as the rail paints its active icon, and the animation
+            stops. Otherwise the gradient sparkle with its sheen: the one thing marking this as an
+            action rather than a destination, and now the thing that asks to be noticed. */}
+        <AskAiGlyph size={20} active={active} />
       </div>
     </button>
   );

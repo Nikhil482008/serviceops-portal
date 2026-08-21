@@ -339,6 +339,55 @@
 }
 
 /* AI Shimmer Animation */
+/* ── Ask AI attention ───────────────────────────────────────────────────
+ *
+ * The rail's Ask AI glyph sweeps a highlight across itself every few seconds, with a soft halo
+ * behind it. One cycle, and most of that cycle is REST: the sweep runs for about a fifth of it
+ * and the rest is still. That is what separates an occasional twinkle from a strobe, and it
+ * matters because this button is on screen all day.
+ *
+ * The animation is a plain `background-position` because the glyph is a CSS gradient behind an
+ * SVG mask (see ai/AskAiGlyph.tsx). An SVG <linearGradient> would have needed SMIL, which a media
+ * query cannot switch off.
+ */
+@keyframes askAiSheen {
+  0%, 40%   { background-position: 0% 50%; }
+  72%, 100% { background-position: 100% 50%; }
+}
+
+@keyframes askAiTwinkle {
+  0%, 42%, 100% { transform: scale(1); }
+  54%           { transform: scale(1.16); }
+  66%           { transform: scale(1); }
+}
+
+@keyframes askAiHalo {
+  0%, 38%, 100% { opacity: 0; transform: scale(0.55); }
+  56%           { opacity: 0.5; transform: scale(1); }
+  82%           { opacity: 0; transform: scale(1.3); }
+}
+
+.askai-sheen  { animation: askAiSheen 4.6s ease-in-out infinite; }
+.askai-twinkle{ animation: askAiSheen 4.6s ease-in-out infinite, askAiTwinkle 4.6s ease-in-out infinite; }
+.askai-halo   { animation: askAiHalo 4.6s ease-in-out infinite; }
+
+/* Hovering says "I am about to click this", so the button stops asking. */
+button:hover .askai-halo { animation-play-state: paused; opacity: 0; }
+
+/* The FIRST accessibility rule in this codebase. `prefers-reduced-motion` is not a nicety here:
+   a repeating movement in fixed chrome is exactly what it exists to stop, and vestibular triggers
+   are the reason. The glyph keeps its gradient, and simply holds still. */
+@media (prefers-reduced-motion: reduce) {
+  .askai-sheen,
+  .askai-twinkle,
+  .askai-halo {
+    animation: none;
+  }
+  .askai-sheen,
+  .askai-twinkle { background-position: 22% 50%; }
+  .askai-halo { opacity: 0; }
+}
+
 @keyframes shimmer {
   0% {
     background-position: 200% 0;
