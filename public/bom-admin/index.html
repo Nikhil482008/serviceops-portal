@@ -558,19 +558,13 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .cb-empty{background:#fff;border-radius:8px;padding:28px 16px;text-align:center;
   font-size:13px;color:var(--faint)}
 .cb-prev{margin-top:16px}
-.cb-none{margin-top:9px;font-size:12.5px;color:var(--dim)}
 .cb-q{display:inline-flex;align-items:center;color:var(--dim)}
 .cb-q:hover{color:var(--ink)}
-.cb-prev-h{font-size:12px;color:var(--dim);margin-bottom:9px;background:var(--sel-blue);
+/* The count, on its own below the conditions box. The trailing margin went with the table it
+   used to separate itself from — it is the last thing in the option now. */
+.cb-prev-h{font-size:12px;color:var(--dim);background:var(--sel-blue);
   border-radius:4px;padding:9px 12px}
 .cb-prev-h b{color:var(--ink);font-weight:600}
-.cbt{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line-tbl);border-radius:4px}
-.cbt th{font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--ink);text-align:left;
-  padding:8px 10px;border-bottom:1px solid var(--line-tbl);white-space:nowrap}
-.cbt td{padding:8px 10px;border-bottom:1px solid var(--line-tbl);font-size:12px;color:var(--ink);white-space:nowrap}
-.cbt tr:last-child td{border-bottom:0}
-.cbt .id{font-family:var(--mono);font-weight:600}
-.cbt .ip{font-family:var(--mono);color:var(--dim)}
 .ddwrap.full{display:block}
 .ddwrap.full .ddbtn,.ddwrap.full .ddmenu{width:100%}
 
@@ -4724,19 +4718,17 @@ function renderStack(){
                  answer that reveals them, and a second box beside the card said otherwise. -->
             ${cbPol ? "" : `<div class="tpick-b wide">
               ${cbGroupsHTML(COND.groups)}
-              <div class="cb-prev">
-                ${cbDone ? `<div class="cb-prev-h" id="cbPrevH">${cbPrevLine(hits)}</div>` : ""}
-          ${hits.length ? `<div class="sc-scroll"><table class="cbt">
-            <thead><tr><th>CI ID</th><th>Host Name</th><th>CI Type</th><th>Status</th><th>IP address</th></tr></thead>
-            <tbody>${hits.map(c=>`<tr>
-              <td class="id">${c.id}</td><td>${esc(c.host)}</td>
-              <td><span class="pill ghost">${esc(c.type)}</span></td>
-              <td>${c.status==="Active"
-                    ? `<span class="pill ok"><span class="d"></span>Active</span>`
-                    : `<span class="pill ghost">Inactive</span>`}</td>
-              <td class="ip">${c.ip}</td></tr>`).join("")}</tbody></table></div>`
-            : cbDone ? `<div class="cb-none">No CIs match these conditions.</div>` : ""}
-              </div>
+            <!-- The COUNT only, and OUTSIDE the conditions box — a sibling of the cb div, not a
+                 row inside it. The list of matching CIs that used to sit here is gone: building a
+                 rule is about whether the shape is right, and a table redrawing under every
+                 keystroke answered a question nobody was asking yet.
+                 The "No CIs match these conditions" line went with it — the count already reads
+                 "Matches 0 of N enrolled CIs", and two ways of saying nothing matched is one more
+                 than needed.
+                 NOTE, and this file has been bitten by it before: no BACKTICKS in a comment that
+                 lives inside a template literal. One closes the string, and what follows is read
+                 as code. -->
+            ${cbDone ? `<div class="cb-prev"><div class="cb-prev-h" id="cbPrevH">${cbPrevLine(hits)}</div></div>` : ""}
             </div>`}
           </div>
         </div>
