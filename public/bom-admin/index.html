@@ -1589,11 +1589,6 @@ tbody td{padding:12px 16px;vertical-align:middle;font-size:12px;color:var(--ink)
 .ciadd-q{display:inline-flex;align-items:center;color:var(--dim)}
 .ciadd-q:hover{color:var(--ink)}
 
-/* The back arrow leads the head, so the first thing in a stacked drawer is the way out of it. */
-.dw-head .bk{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
-  margin-right:8px;flex:none;border:1px solid var(--line);border-radius:6px;background:#fff;
-  color:var(--neu);cursor:pointer}
-.dw-head .bk:hover{background:var(--row-hover);color:var(--ink)}
 </style>
 </head>
 <body>
@@ -2235,7 +2230,6 @@ const IC_GRIP   = `<svg width="14" height="14" viewBox="0 0 16 16" fill="current
 const IC_FUNNEL = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 3.5h12L9.5 8.6V13L6.5 11.4V8.6L2 3.5z"/></svg>`;
 /* Back one level, for a drawer stacked over another. Distinct from the ✕: one returns, the
    other closes, and a stack where both look the same is a stack you cannot navigate. */
-const IC_BACK   = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.5 3.5L5 8l4.5 4.5"/></svg>`;
 const IC_CHEV_R = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="flex:0 0 auto"><path d="M6 3.5L10.5 8L6 12.5"/></svg>`;
 const IC_X      = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>`;
 const IC_SHIELD = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 1.6l5 2.2v3.9c0 3-2.1 5.4-5 6.3-2.9-.9-5-3.3-5-6.3V3.8l5-2.2z"/><path d="M8 5.6v2.9M8 10.8h.01"/></svg>`;
@@ -4482,9 +4476,10 @@ function wireStack(){
 
   if(PICK){
     const applyClose = ()=>{ PICK=null; renderStack(); };
+    /* Close, Cancel and the scrim all run `closePick`, which calls the parent's `back`
+       callback — so leaving by any route returns to the editor. The back arrow was a fourth
+       control for that one destination and is gone. */
     $("pkClose").onclick  = closePick;
-    /* Same destination, different sentence: back returns to the editor, the cross closes. */
-    if($("pkBack")) $("pkBack").onclick = closePick;
     $("pkCancel").onclick = closePick;
     $("pkScrim").onclick  = closePick;
     $("pkQ").oninput = e=>{ PICK.q = e.target.value; renderStack();
@@ -4514,7 +4509,6 @@ function wireStack(){
   if(COND){
     const G = COND.groups;
     $("cbClose").onclick  = closeCond;
-    if($("cbBack")) $("cbBack").onclick = closeCond;
     $("cbCancel").onclick = closeCond;
     $("cbScrim").onclick  = closeCond;
     /* The count is a button, and the live path REPLACES it — so the click has to be bound in
@@ -4598,7 +4592,6 @@ function renderStack(){
     <div class="dw-scrim lite${pkIn}" id="pkScrim"></div>
     <aside class="dw stack${pkIn}" style="width:${DW2_W}px;max-width:95vw" role="dialog" aria-modal="true" aria-label="Add CIs">
       <div class="dw-head">
-        ${PICK.back ? `<button class="bk" id="pkBack" aria-label="Back to the editor">${IC_BACK}</button>` : ""}
         <div><h3>${PICK.title || "Add CIs"}</h3></div>
         <button class="x" id="pkClose" aria-label="Close">${IC_X}</button>
       </div>
@@ -4721,7 +4714,6 @@ function renderStack(){
     <div class="dw-scrim lite${cbIn}" id="cbScrim"></div>
     <aside class="dw stack${cbIn}" style="width:${DW2_W}px;max-width:95vw" role="dialog" aria-modal="true" aria-label="Auto-include conditions">
       <div class="dw-head">
-        ${COND.back ? `<button class="bk" id="cbBack" aria-label="Back to the editor">${IC_BACK}</button>` : ""}
         <div><h3>How should CIs be chosen?</h3></div>
         <button class="x" id="cbClose" aria-label="Close">${IC_X}</button>
       </div>
