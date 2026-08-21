@@ -116,6 +116,10 @@ export interface EolModel {
   key: string;
   name: string;
   endpointId: string;
+  /** And which product scope on it — the same reason `ExpiringCert` carries one: an AI BOM is
+   *  per scope, so opening its assets without this would have to guess. */
+  productKey: string;
+  productLabel: string;
   ciId: string;
   cis: number;
   detail: string;
@@ -393,7 +397,8 @@ export const bomDashboard = (): BomDashboard => {
           m.provider,
         ].filter(Boolean) as string[];
         modelByName.set(m.name, {
-          key: m.name, name: m.name, endpointId: ep.id, ciId: bomCiId(ep.id), cis: 0,
+          key: m.name, name: m.name, endpointId: ep.id,
+          productKey: p.key, productLabel: p.name, ciId: bomCiId(ep.id), cis: 0,
           detail: bits.join(' · '), eol: m.eol, provider: m.provider, sourceLabel,
           days, past: days < 0,
         });

@@ -6,13 +6,13 @@ import { bomDashboard } from './bomDashboardData';
 import type { BomType } from './bomData';
 import { bomVersions } from './bomData';
 import { BomComponentsPanel } from './BomComponentsPanel';
-import type { ExpiringCert } from './bomDashboardData';
+import type { ExpiringCert, EolModel } from './bomDashboardData';
 import type { SoftwareComponent } from './softwareComponentsData';
 /* Chrome lives in one place now that a second dashboard draws it too. */
 import type { BomNavigate } from './bomDashboardUi';
 import {
   Card, HeadPill, ViewAll,
-  sevColor, bomPatchRecord, EstateKpis, LicenceDistributionCard, CertTimeline, CertBands, ExposureRing,
+  sevColor, EstateKpis, LicenceDistributionCard, CertTimeline, CertBands, ExposureRing,
   ManagedPathsCard, EolTimeline, Empty,
 } from './bomDashboardUi';
 
@@ -31,27 +31,28 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
   const [licHover, setLicHover] = useState<number | null>(null);
   /** Which exposure row is showing its detail. Hover OR focus, so a keyboard reaches it. */
   const [expHover, setExpHover] = useState<string | null>(null);
-  /** The certificate whose crypto assets are open, over the dashboard. */
-  const [certAssets, setCertAssets] = useState<ExpiringCert | null>(null);
+  /** The BOM scope whose contents are open, over the dashboard. One descriptor for both
+   *  timelines: a certificate dot and a model bar are the same gesture on two BOM types, and
+   *  two pieces of state is how they would end up behaving differently. */
+  const [openScope, setOpenScope] = useState<
+    { endpointId: string; ciId: string; productKey: string; productLabel: string; type: BomType } | null
+  >(null);
+  const scopeOf = (x: ExpiringCert | EolModel, type: BomType) => ({
+    endpointId: x.endpointId, ciId: x.ciId, productKey: x.productKey, productLabel: x.productLabel, type,
+  });
 
   /** One thing -> its detail page. The stack renders it above everything, including the list. */
   const openComponent = (c: SoftwareComponent) =>
     openInStack('software-components', c.id, `${c.name} ${c.version}`, c);
 
-  /** Open an endpoint on its BOM tab, landed on a specific BOM. */
-  const openBom = (endpointId: string, type: BomType) => {
-    const rec = bomPatchRecord(endpointId, type);
-    if (rec) openInStack('endpoints', rec.id, rec.name, rec);
-  };
-
-  /* A certificate dot names a THING, so it opens that thing: the crypto assets of the CBOM it
-     was found in, as a panel over the dashboard. It used to open the endpoint's whole BOM tab
-     as a drawer-stack tab, leaving the reader to find the CBOM and press "View crypto assets"
-     — three moves to reach the list the dot had already named. */
-  const currentVersion = (c: ExpiringCert) => {
-    const vs = bomVersions(c.endpointId, c.productKey, 'CBOM');
-    /* The rail runs newest-first, so the head is Current. A scope with no CBOM has no version
-       to open — 0 is what the components panel already treats as "none". */
+  /* A dot on either timeline names a THING, so it opens that thing: the contents of the BOM it
+     was found in, as a panel over the dashboard. Both used to open the endpoint's whole BOM tab
+     as a drawer-stack tab, leaving the reader to find the right BOM and press "View …" — three
+     moves to reach the list the dot had already named. */
+  const currentVersion = (s: { endpointId: string; productKey: string; type: BomType }) => {
+    const vs = bomVersions(s.endpointId, s.productKey, s.type);
+    /* The rail runs newest-first, so the head is Current. A scope with no BOM of that type has
+       no version to open — 0 is what the components panel already treats as "none". */
     return vs.length ? vs[0].v : 0;
   };
 
@@ -207,7 +208,7 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
                   total={d.certTotal}
                   onOpen={(key) => {
                     const c = d.certs.find((x) => x.key === key);
-                    if (c) setCertAssets(c);
+                    if (c) setOpenScope(scopeOf(c, 'CBOM'));
                   }}
                 />
 
@@ -229,7 +230,7 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
                 {d.models.length === 0 ? (
                   <Empty>No models with a published end-of-life</Empty>
                 ) : (
-                  <EolTimeline models={d.models} onOpen={(m) => openBom(m.endpointId, 'AI BOM')} />
+                  <EolTimeline models={d.models} onOpen={(m) => setOpenScope(scopeOf(m, 'AI BOM'))} />
                 )}
               </Card>
             </div>
@@ -242,16 +243,16 @@ export function BomDashboardPage({ onNavigate }: { onNavigate: BomNavigate }) {
           `focusComponent` is deliberately NOT passed. It only feeds the dependency tree, which
           is SBOM-only, so on a CBOM it would do nothing while reading like the panel had been
           focused on the certificate you clicked. The scope's crypto assets are a short list. */}
-      {certAssets && (
+      {openScope && (
         <BomComponentsPanel
           isOpen
-          onClose={() => setCertAssets(null)}
-          endpointId={certAssets.endpointId}
-          hostName={certAssets.ciId}
-          productKey={certAssets.productKey}
-          productLabel={certAssets.productLabel}
-          type="CBOM"
-          version={currentVersion(certAssets)}
+          onClose={() => setOpenScope(null)}
+          endpointId={openScope.endpointId}
+          hostName={openScope.ciId}
+          productKey={openScope.productKey}
+          productLabel={openScope.productLabel}
+          type={openScope.type}
+          version={currentVersion(openScope)}
           format="CycloneDX 1.6"
         />
       )}
