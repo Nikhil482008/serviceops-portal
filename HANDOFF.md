@@ -1,100 +1,118 @@
-# Handoff — 2026-08-20 18:00
+# Handoff — 2026-08-22 04:05
 
 ## Read first
 
-`CLAUDE.md` → the **Ask AI** bullet (its provider placement, the rail-pinning constraint and the
-two hazards in the ticket chat), then the **AI accent tokens** bullet and the **Licence
-distribution** one. The Ask AI work is 2 of 7 phases against an approved plan at
-`C:\Users\Nikhil Khemaria\.claude\plans\linked-crunching-milner.md` — **read that plan before
-continuing**; it records the four decisions the work is built on and six known deviations.
+In `CLAUDE.md`, three bullets carry almost everything that changed:
+
+- **"Dashboard click-through — THREE rules, and one population"** — the biggest change of the
+  session. The BOM Inventory register no longer lists the 12-row `SOFTWARE_COMPONENTS` fixture.
+- **"Navigation can carry the thing you clicked"** — the `navigate(page, focus?)` mechanism, its
+  `kind:value` grammar, and where a predicate is allowed to live.
+- **"Four ways a jsdom check passes while proving nothing"** — new, and worth reading before
+  writing any verification here.
+
+Everything below is committed, built and deployed. Every item was driven in jsdom before shipping.
 
 ## What we worked on this session
 
-Two unrelated pieces. The BOM dashboard's "Licence distribution" card had its second view changed
-from CBOM to **AI BOM**. Then the first two phases of a new **Ask AI** feature: a persistent entry
-point at the bottom of the left icon rail, and the extraction of the ticket panel's chat
-primitives into a shared `src/app/ai/` module so both surfaces draw from one set.
+Making the BOM dashboard's charts and timelines *lead somewhere* — a click now arrives at the
+thing it named, filtered — plus a run of smaller UI corrections across the BOM surfaces and the
+`bom-admin` prototype.
 
 ## Completed
 
-**Licence distribution → AI BOM.** `aiLicences` / `aiLicenceTotal` / `aiLicenceCounts` derived in
-`bomDashboardData.ts` from `aiAssets()` — the AI Components register's own accessor — in the same
-top-5-then-Other shape as the SBOM half. Worst-risk-wins per slice, including `Other`. View-all
-follows the view to `ai-components`. 47 checks (`aibomcheck.mjs`).
+**The population fix (the one that unblocked everything else).** The licence ring counted 711
+reconciled components while the register listed a 12-row fixture, so a slice reading
+"Apache-2.0 167" would have opened six rows. The register now lists `bomDashboard().components`,
+which already merged the fixture's authored facts (CVE lists / KEV / `fixVersion` win; only reach
+is recomputed). `BomComponentListDrawer.tsx` is **deleted** — its only reason to exist was that the
+register could not show these rows.
 
-**`cb4d106` — tokens + extraction.** `src/app/ai/` created: `types.ts`, `flags.ts`, `timing.ts`,
-and `components/` (`AiMessageBubble`, `AiSuggestionChip`, `AskAiBar`, `AiMarkdown`). Five AI tokens
-added to `theme.css`. ~28,000 characters of dead code deleted from `TicketPropertiesPanel` — the
-295-line `{false && …}` block, `suggestedActions`/`handleSuggestedAction`, `previousGroup`, a
-dangling `data-onboarding` hook and five debug `console.log`s.
+**Click-through, wired.** Vulnerabilities "Review" → `vulnerable`; both licence rings →
+`licence:X`; Managed paths → `product:X`; Dashboard-2 exposure rows → the component's own drawer.
+Links that genuinely mean "all of it" deliberately carry nothing.
 
-**`2f57ebb` — the rail entry point.** `AskAiRailButton` pinned to the rail's bottom behind
-`ai_assistant_enabled`, plus `AskAiProvider` (split contexts) wrapping `DrawerStackProvider` in
-`App.tsx`. Ctrl/⌘+J. 41 checks (`airail.mjs`).
+**Both dashboard timelines** open their BOM's contents as a panel **over** the dashboard. Was:
+the endpoint's whole BOM tab as a drawer-stack tab — three moves from what the dot named.
+
+**Expiring trust material** — a real seven-on-one-day batch seeded (05 Sep 2026), hover cap 4→8 so
+it lists all seven; two certificates seeded into the previously empty 30–45d window; the card takes
+15% more width than the lifecycle axis beside it.
+
+**Component detail** — version count in fold 1, the Version column, its filter dropdown and the
+rail's Version row all removed, with the state, the Escape handler, the `Layers` icon and `version`
+as a search field.
+
+**AI component drawer** — its "All Endpoints" picker listed CI TYPES while the software one listed
+REMOTE OFFICES. Now offices from the same catalogue, real ones off `mockEndpoints.remoteOffice`.
+
+**Smaller, all shipped:** add-product default-excludes became a card that expands onto its paths ·
+"Added manually" / "Found by the agent" aligned (one held a 14px phantom spacer where the other had
+a chevron) · view-components Columns icon removed · the Versions rail shows its date filter
+directly · metric hover underline moved off the number onto the label · the Fixes-published bar got
+its width back · Flagged licenses caps at two chips + a hoverable `+N`.
+
+**`bom-admin` prototype:** the conditions count moved outside the Define-conditions card entirely
+(sibling of the radio group, where Licensing puts its own); the back arrow came out of both stacked
+enrol-CI drawers.
 
 ## In progress
 
-Nothing mid-flight — both commits are complete and green. **Phase 3 (the docked panel) has not
-been started.** It is the next thing to build: `ai/panel/AskAiPanel.tsx`, lazy-loaded and mounted
-in `App.tsx` beside `GlobalSearch`, consuming `AskAiProvider`'s state.
+Nothing mid-flight — every change is committed and deployed.
+
+**Not started, and the only substantial thing outstanding:** Ask AI phases 4–7 — page context
+registry, typed action registry with preview-before-apply, `aiClient` wiring, `ai/README.md`. Plan:
+`C:\Users\Nikhil Khemaria\.claude\plans\linked-crunching-milner.md`. ⚠️ The panel's context chip
+currently sends a **placeholder carrying only the scope, no row data**, so the assistant does not
+yet know about the user's rows. `filterList` / `sortList` need filter and sort state added to
+`VulnerabilitiesListPage` first; `insertText` has no target on that page.
 
 ## Next steps
 
-1. **Phase 3 — the docked panel.** `fixed right-0`, no scrim, `z-[10020]`, 420px default,
-   resizable 360–720, width persisted. Header → thread → sticky composer. **Answer the markdown
-   question first** (below) — it blocks the message renderer.
-2. **Phase 4 — context registry** (`registerAIContext`, snapshot at send time, cap 100 rows,
-   deterministic truncation, redaction) wired to the Vulnerabilities list only.
-3. **Phase 5 — action registry** with preview-before-apply. Note `filterList` and `sortList` need
-   filter/sort state ADDED to `VulnerabilitiesListPage` first; the page has only a search string.
-4. **Phase 6 — `aiClient`** with the mock adapter shipping and the SSE adapter stubbed.
-5. **Phase 7 — `ai/README.md`.**
-6. **Replace the Alt+I DOM scrape** in `DrawerShortcuts` with a real call, in the panel commit.
+1. Ask AI phase 4 — the page context registry, wired to Vulnerabilities (cap 100 rows,
+   deterministic truncation, redaction, snapshot at send time).
+2. Phase 5 — typed action registry, preview before apply.
+3. Phase 7 — `ai/README.md`.
+4. One devtools pass by eye on the certificate timeline: jsdom has no layout engine, so its new
+   geometry and the widened card are asserted as construction, never as pixels.
+5. Carried over from earlier: replace the `Alt+I` DOM scrape in `DrawerShortcuts`; ~24 drawer files
+   still carry literal AI hex; the icon rail clips below a ~680px viewport (needs its four flyouts
+   portaled); detail drawers hardcode `window.innerWidth - 54` and paint over the Ask AI panel.
 
 ## Decisions made
 
-- **Ask AI transport is mock-only, contract stubbed.** There is no backend anywhere in this repo —
-  zero `fetch`, zero env, zero streaming — so the endpoint shape is not invented. `aiClient` gets
-  an SSE-shaped interface and only the mock adapter ships.
-- **The panel overlays; content does not shrink.** Shrinking is structurally possible (the shell is
-  flex) but the shell is copy-pasted across ~23 pages and 14 drawers hardcode
-  `window.innerWidth - 54`. Recorded as a known deviation rather than silently chosen.
-- **Verification uses the repo's jsdom + esbuild harness**, not a new test runner. There is no test
-  framework here and TypeScript is not even installed.
-- **Accent tokenised for `ai/` + the ticket panel only.** ~24 drawer files keep literal hex; a full
-  ~170-site sweep in a repo with no type-checker was not worth bundling in.
-- **Glyph is lucide `Sparkles`, not the gradient `AiSparkle`.** The rail's other 17 icons are flat
-  `currentColor`, and `AiSparkle`'s fixed gradient would ignore the white the rail paints its
-  selected icon with.
-- **No shared `useTypewriter` hook**, though the plan listed one. The ticket panel animates a
-  prefix of text it already has; the panel renders deltas with no known ending. One hook over both
-  would mean the streaming side pretending to know an ending it has not been told.
+- **Remove the mismatch, not the request.** The licence slice was asked for, objected to on data
+  grounds, then asked for again. Rather than refuse, the register was pointed at the reconciled
+  population — which made the slice honest *and* let every other slice link land truthfully.
+- **A predicate lives where its buckets are defined.** `licenceMatcher` beside the slices it
+  mirrors; `pathProductOf` exported rather than re-expressed. A second copy of a bucketing rule is
+  exactly how a wedge and the list behind it come apart.
+- **One descriptor, not two.** `openScope` serves both timelines; a second piece of state is how
+  two dots drift into two behaviours.
+- **Do not pass `focusComponent` to a CBOM/AI panel.** It feeds only the dependency tree, which is
+  SBOM-only — it would read as focus without being focus.
+- **Zone counts on the timeline were built and then removed** at request: `CertBands` above already
+  states all five windows, and the row they needed cost the strip 14px to repeat two of them.
 
 ## Gotchas & notes
 
-- ⚠️ **The rail cannot use `overflow-y-auto` to pin its footer.** Any non-`visible` axis makes a
-  scroll container on **both**, which clips the four `absolute left-full` hover flyouts. The footer
-  is absolutely positioned and the list carries `pb-[41px]`.
-- ⚠️ **Pre-existing, unfixed:** 17 rail items × 40px = 680px, so below that viewport height the
-  tail of the rail is unreachable. Not new, not made worse — fixing it needs those flyouts portaled.
-- ⚠️ **A latent freeze in the ticket chat.** Follow-up pills are scheduled off a GUESS at the
-  typewriter's duration; appending that message changes `chatMessages.length`, the typing effect's
-  only dependency, and the restarted effect fails its own `!displayedText` guard. Typing stops one
-  character in. Only harmless because the guess runs long.
-- ⚠️ **jsdom cannot diff the gradient border.** Its CSS parser drops the double-background
-  shorthand entirely, so the pre-refactor element has no background at all, while the same property
-  written as `var(...)` survives. The token's value is proved equal to the literal textually instead.
-- ⚠️ **A snapshot that does not contain the markup under test passes for the wrong reason.**
-  `aiextract.mjs` did exactly that on its first run — it snapshotted only the thread while the pills
-  it was meant to verify were in the welcome state. It now captures two states and asserts its own
-  coverage before comparing.
-- **Harnesses** (session scratchpad, all self-contained): `aiextract.mjs` 23 — byte-identical
-  comparison against a baseline recorded from the pre-refactor tree, so re-running it after a
-  future edit still means something; `airail.mjs` 41; `aibomcheck.mjs` 47.
-- **Open question for phase 3:** the panel needs headings, lists, **tables** and code blocks.
-  `react-markdown` + `remark-gfm` is the recommendation (React elements, no
-  `dangerouslySetInnerHTML`, and a hand-rolled GFM table parser is where the bugs live) — but the
-  dependency-free option was chosen twice already this session, so it was **not** assumed. Decide
-  before building the message renderer.
-- `npm run build` proves only that the code parses — esbuild strips types without checking them,
-  and there is no type-checker in this repo.
+- **`pathHash` was a LOCAL of `bomDashboard()`.** Exporting `pathProductOf` without hoisting it
+  built clean and threw `pathHash is not defined` at first render — the exact failure mode this
+  repo has no typecheck to catch.
+- **A flex item does not grow unless told to.** The Fixes-published bar was in the markup the whole
+  time, sized to ZERO: its row settled on the width of its text and the bar's own content is an
+  empty span, so `flex-1` had no slack to claim. `w-full` on the row is the fix. Any zero-content
+  `flex-1` inside a `flex 0 1 auto` wrapper collapses the same way.
+- **A flex GAP is not whitespace.** The date filter's accessible name read
+  "Dateis withinLast 30 days" until the spaces were made explicit.
+- **jsdom proves construction, never pixels** — and `getComputedStyle` there ignores specificity.
+  Say so rather than implying a visual claim was verified.
+- The four vacuous-check patterns are now written up in `CLAUDE.md`; three of them cost real time
+  this session.
+- Harnesses in the session scratchpad: `dashfilter.mjs` 55 · `bomui.mjs` 97 · `noback.mjs` 38 ·
+  `condui.mjs` 68 · `reusectl.mjs` 72 · `seatbar.mjs` 35, plus `certcount.mjs` (a measurement, not
+  assertions). They are not committed — re-create from the patterns in `CLAUDE.md` if needed.
+- Deploy is still manual: `npm run build`, then push `dist/` to `gh-pages` as a throwaway repo. The
+  throwaway repo needs `user.name`/`user.email` set or the commit fails. Pages serves the previous
+  build for ~20–30s, so grep the fetched bundle for a marker from your change — and pick a marker
+  that survives minification (a string literal, not a local variable name).

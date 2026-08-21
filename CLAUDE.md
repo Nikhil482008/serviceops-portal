@@ -68,6 +68,25 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   nothing about identifiers: a deleted constant or an unbound prop compiles clean and explodes at
   render as a blank screen. Verify behaviour by bundling the component and driving it in **jsdom**
   (react-dom is available; suites live in the session scratchpad).
+- **Four ways a jsdom check passes while proving nothing.** All four have happened here, more than
+  once, and each produced a green suite over a broken screen:
+  1. **`document.body.textContent` contains the injected bundle's SOURCE.** The script tag lives
+     inside `<body>`, so every string literal in the app is "on the page". Read `#root` instead.
+  2. **A text check where the surface BEHIND shares the words.** "AI models" is the panel's title
+     *and* part of the card behind it; "Showing this" is a literal in the bundle. Identify a
+     surface by structure it OWNS — its labelled close button, its `aria-pressed`, its own row.
+  3. **`closest()` starts at the element itself.** `button.closest('[class*=rounded]')` returns the
+     button, not the card, whenever the button is rounded too.
+  4. **A predicate that cannot fail.** `rows <= expected` when `expected` is the total; "at most two
+     chips" when zero also passes. Pick a case that is a real subset and assert equality.
+  Two more mechanical ones: React synthesises `onMouseEnter` from the **mouseover/mouseout** pair,
+  so dispatching `mouseenter` never reaches the handler; and a `<tr>` is usually not the control —
+  the id pill inside it is. **When a change is a REMOVAL, drive it**: a leftover identifier builds
+  clean and throws at render, which is the one thing grep cannot see.
+- **Vite supplies `import.meta.env`; esbuild does not.** `AdminBomModule` reads `BASE_URL` to build
+  its iframe src, so a harness that mounts `<App/>` must `define` it or the whole tree throws at
+  mount. Also `import.meta.env` and `import.meta.env.BASE_URL` cannot both be defined — define the
+  object.
 - **Detail pages are clones.** `ChangeDrawer`, `ReleaseDrawer`, and `HardwareAssetDrawer` are all clones of `TicketDrawer`, adapted to their data type. They reuse the shared panels (`TicketPropertiesPanel`, `TicketFieldsAccordion`, `PinnedFieldsAccordion`).
 - **`HardwareAssetDrawer` uses an adapter** (`assetToTicket`) to map a `HardwareAsset` onto the `Ticket` shape so the cloned body compiles unchanged. Asset-specific UI is toggled with an `assetMode` prop threaded through the shared panels — keep asset changes gated on `assetMode` so tickets/changes/releases are unaffected.
 - **Asset drawer tabs** (in `HardwareAssetDrawer`): Overview (default — dashboard cards), Properties, Hardware (category sub-nav of computer-system/OS/BIOS/RAM/…), Software (inventory — defaults to **card view**, toggle to list/table w/ column toggle), Baseline, Relationship, Approvals, Financials (dashboard: hero cost cards + depreciation chart + cost timeline; Add Cost / Configure Depreciation side drawers), History (renamed from Audit Trails; category dropdown + date-range/filter/download toolbar; timeline + table histories incl. Baseline/Variance). Tab order/overflow ("More" dropdown) is computed in the `calculateTabOverflow` effect — `allTabs` is built there, so when adding/removing tabs update both the base arrays AND the approvals/relations insert anchors.
@@ -194,16 +213,57 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   two rings cannot drift; `layout` is a **prop, not a breakpoint**, because the two dashboards put
   these cards in columns of different widths at the same viewport. `EolTimeline` is the AI
   lifecycle axis (fixed −450→+180 domain, clamped outliers, one rule at zero). `BomKpiCard` is the
-  KPI grammar (see `BOM/CLAUDE.md` §4). **New files:** `BomComponentListDrawer.tsx` (the list
-  behind a chart's count), `BomFilterSearch.tsx` (shared field→operator→value builder),
-  `BomKpiCard.tsx`.
-- **Dashboard click-through, two rules:** a **row** is one thing and opens its detail page; a
-  **slice** is a count and opens the list behind it, whose rows open details. The list drawer sits
-  at `z-[9000]` — below the drawer stack — so a component detail stacks OVER it and closing that
-  returns to the list. ⚠️ Its rows come from **`bomDashboard().components`**, derived from the same
-  `uniqueComponents` map the charts are counted from, NOT from `SOFTWARE_COMPONENTS` — that is a
-  12-row fixture with six Apache-2.0 rows while the donut counts 167, and a slice labelled 167 that
-  opens six things is this module's own north-star failure.
+  KPI grammar (see `BOM/CLAUDE.md` §4). **New files:** `BomFilterSearch.tsx` (shared
+  field→operator→value builder), `BomKpiCard.tsx`. (`BomComponentListDrawer.tsx` is **deleted** —
+  see the click-through rules below.)
+- **Dashboard click-through — THREE rules, and one population.**
+  1. A **row** is one thing and opens that thing (`openInStack`, or a panel).
+  2. A **slice** is a count and NAVIGATES to the list it counted, filtered, with the pick named as
+     a chip in the destination's search box.
+  3. A **dot on a timeline** is one thing inside a BOM, and opens that BOM's contents as a panel
+     **over** the dashboard — not the endpoint's whole BOM tab as a drawer-stack tab.
+
+  ⚠️ **`SOFTWARE_COMPONENTS` is not the population.** It is a 12-row fixture; the estate is the
+  **711 reconciled rows** in `bomDashboard().components`, which MERGES the fixture's authored facts
+  (its CVE lists, KEV flags and fix versions win; only reach is recomputed). The BOM Inventory
+  register lists the reconciled set for exactly this reason — a slice labelled "Apache-2.0 167"
+  opening six rows was this module's own north-star failure, and it is why
+  `BomComponentListDrawer` existed and is now deleted. `softwareComponentDetail.ts` derives every
+  detail from the row it is handed, so the extra rows open a real detail page.
+- **Navigation can carry the thing you clicked.** `navigate(page, focus?)` in `App.tsx`; `App`
+  holds `pendingFocus` and the destination **consumes it once** (returning by the rail later must
+  not inherit a filter nobody asked for). The focus string is in the DESTINATION's own vocabulary
+  (`ComponentFocus`, `AiFocus`, the CI list's own), never a new one invented at the source.
+  Parameterised forms read **`kind:value`, split on the FIRST colon** so `LicenseRef-Acme:Internal`
+  survives. An **unrecognised focus narrows NOTHING** rather than emptying the table, and never
+  becomes a chip — a chip is a claim that the table has been cut. Wired today: Vulnerabilities
+  "Review" → `vulnerable`; both licence rings → `licence:X` (SBOM → register, AI → AI register,
+  which is counted from `aiAssets()` and so needed no data change); Managed paths → `product:X`.
+
+  ⚠️ **A predicate must live where its buckets are DEFINED.** `licenceMatcher` sits beside the
+  slices it mirrors, because "Other" is only definable against the list that named the others. And
+  **`pathProductOf` is exported**, because the Managed-paths ring does NOT group by the BOM
+  product's name — it ATTRIBUTES each declared path to one of four products by hashing
+  `${endpointId}:${path}`. Filtering on `p.name` instead made a slice reading 15 CIs open a list of
+  1. (Its `pathHash` had to move to module scope: a helper closed over inside `bomDashboard()` is
+  invisible to an export — clean build, throws at first render.)
+
+  ⚠️ A slice's number and the destination's must be the SAME quantity. Managed paths counts
+  declared **paths** while the CI list is one row per **CI**, so the honest match is `cis`, not
+  `paths` — both figures are already on the legend row.
+- **`ExpiringCert` and `EolModel` carry `productKey`/`productLabel`.** A CBOM and an AI BOM are
+  per SCOPE, so a dot that remembers only its endpoint can only be opened by guessing the OS one —
+  wrong for anything an application declares, and the fixture has certificates on more than one
+  scope. One `openScope` descriptor in `BomDashboardPage` serves both timelines so they cannot
+  drift into two behaviours; nothing on that page routes an endpoint into the drawer stack any
+  more. `focusComponent` is deliberately NOT passed to the panel: it feeds only the dependency
+  tree, which is SBOM-only, so it would read as focus without being focus.
+- **`CertTimeline` groups by DAY, not by certificate.** Seven certificates expiring together are
+  ONE dot (seven on one pixel leaves six unreachable): a count above it, and a hover card listing
+  the day, capped at 8. The fixture carries a real seven-on-one-day batch (05 Sep 2026) and two
+  certificates in the 30–45d window, because both cases were previously empty and could only be
+  reasoned about. The certificates card takes 15% more width than the lifecycle axis beside it via
+  `grid-cols-[1.15fr_0.85fr]` — `1.15fr` against a bare `1fr` is only ~1.07×.
 - **Two data rules in `bomData.ts` that are easy to undo.** (1) A generated version variant must
   NOT inherit the catalogue entry's `cves` — the spread used to carry them, so one library reported
   the same advisory at nine versions including the ones that would be the fix. (2) Anything walking
