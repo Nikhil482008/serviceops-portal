@@ -432,18 +432,21 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .tchoice.sub .tpick.on{background:var(--sel-blue)}
 /* The rule, and the two things you can do to it, on one line. */
 .reuse-row{display:flex;align-items:center;gap:8px}
-/* ddGroupHTML's root is .ddwrap.full — it stretches by default, so it is the one that has to be
-   told to share the row rather than own it. */
-.reuse-row .ddwrap{flex:1;min-width:0}
+/* The field takes the row; View rule sits beside it. */
+.reuse-field{position:relative;flex:1;min-width:0;display:block}
+.reuse-field .ddwrap{display:block}
 .reuse-peek{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}
-/* Clear is an icon beside the name now rather than a red word on its own row — at that size the
-   word carried more weight than an action that is trivially undone by picking another rule. */
-.reuse-clr{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
-  width:26px;height:26px;border:0;background:transparent;border-radius:6px;cursor:pointer;
-  color:var(--faint);transition:background .12s,color .12s}
+.reuse-peek .lnk{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+/* Clear sits OVER the field, just inside it, left of the chevron. Positioned rather than nested:
+   a button inside the dropdown's button is invalid and is not announced as its own control. The
+   field reserves room for both, so a long rule name ellipsises before it reaches them. */
+.reuse-field.has-clr .ddbtn{padding-right:52px}
+.reuse-clr{position:absolute;right:28px;top:50%;transform:translateY(-50%);
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border:0;background:transparent;border-radius:5px;cursor:pointer;
+  color:var(--faint);transition:background .12s,color .12s;z-index:2}
 .reuse-clr:hover{background:var(--crit-soft);color:var(--crit)}
 .reuse-clr:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
-.reuse-note{margin-top:5px;font-size:12px;color:var(--dim)}
 .reuse-empty{margin-top:9px;font-size:12.5px;color:var(--dim)}
 /* Read-only, and deliberately so: editing a shared rule from a screen that merely consumes it
    is how one module quietly changes another. */
@@ -465,8 +468,6 @@ h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:0;line-height:1.
 .rp-join::before,.rp-join::after{content:"";flex:1;height:1px;background:var(--line-soft)}
 .rp-join span{padding:1px 7px;border:1px solid var(--line);border-radius:9999px;line-height:1.6}
 .rp-none{font-size:12.5px;line-height:1.5;color:var(--dim);font-style:italic}
-.reuse-pop .ro{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-soft);
-  display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dim)}
 
 /* The grouped dropdown — the module a rule comes from is the group it sits in. */
 .ddgrp{display:block;padding:8px 11px 3px;font-size:11px;font-weight:700;letter-spacing:.08em;
@@ -2225,6 +2226,7 @@ const IC_FUNNEL = `<svg width="14" height="14" viewBox="0 0 16 16" fill="none" s
 /* Back one level, for a drawer stacked over another. Distinct from the ✕: one returns, the
    other closes, and a stack where both look the same is a stack you cannot navigate. */
 const IC_BACK   = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9.5 3.5L5 8l4.5 4.5"/></svg>`;
+const IC_CHEV_R = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" style="flex:0 0 auto"><path d="M6 3.5L10.5 8L6 12.5"/></svg>`;
 const IC_X      = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4l8 8M12 4l-8 8"/></svg>`;
 const IC_SHIELD = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M8 1.6l5 2.2v3.9c0 3-2.1 5.4-5 6.3-2.9-.9-5-3.3-5-6.3V3.8l5-2.2z"/><path d="M8 5.6v2.9M8 10.8h.01"/></svg>`;
 const IC_GLOBE  = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.9"/><path d="M2.1 8h11.8M8 2.1c1.5 1.6 2.3 3.7 2.3 5.9S9.5 12.3 8 13.9C6.5 12.3 5.7 10.2 5.7 8S6.5 3.7 8 2.1z"/></svg>`;
@@ -3320,16 +3322,20 @@ function reuseControlsHTML(groups, sel, owner){
   /* NO CI COUNT HERE any more. Reuse and Define-conditions are the two branches of one choice,
      and the count already sits under the conditions card — stating it again in the other branch
      made the same figure appear twice on one screen depending on which radio was on. */
+  /* Clear lives INSIDE the field, over the dropdown rather than in it: a <button> nested in the
+     dropdown's own <button> is invalid markup and is not announced as its own control.
+     The "changes made in X apply here too" line was removed — the ⓘ on this option already
+     says "Changes made where it lives apply everywhere it is used", so it now reads once. */
   return `<div class="reuse-row">
-    ${ddGroupHTML("cbReuse", label, groups, "Choose a rule…")}
-    ${sel ? `<span class="reuse-peek">
-      <button class="lnk" id="cbReuseView" aria-describedby="cbReusePop">View</button>
-      ${reusePopHTML(sel)}
+    <span class="reuse-field${sel ? " has-clr" : ""}">
+      ${ddGroupHTML("cbReuse", label, groups, "Choose a rule…")}
+      ${sel ? `<button class="reuse-clr" id="cbReuseClear" aria-label="Clear the selected rule" title="Clear">${IC_X}</button>` : ""}
     </span>
-    <button class="reuse-clr" id="cbReuseClear" aria-label="Clear the selected rule" title="Clear">${IC_X}</button>` : ""}
-  </div>
-  ${sel ? `<!-- The one consequence of reuse that is not visible anywhere on this screen. -->
-    <div class="reuse-note">Changes made in ${esc(sel.mod.label)} apply here too.</div>` : ""}`;
+    ${sel ? `<span class="reuse-peek">
+      <button class="lnk" id="cbReuseView" aria-describedby="cbReusePop">View rule ${IC_CHEV_R}</button>
+      ${reusePopHTML(sel)}
+    </span>` : ""}
+  </div>`;
 }
 /* What a rule actually TESTS, in words — following a policy or another rule through to the
    conditions at the end of the chain. "Follows BOM Policy X" names a pointer; the reader opened
@@ -3359,14 +3365,6 @@ function wireReuse(owner, rerender){
   /* No handler on View: the peek is opened by hover and by focus, in CSS. A click-to-toggle would
      be a second way to do the same thing, and the one that needs a re-render to undo itself. */
   if($("cbReuseClear")) $("cbReuseClear").onclick = ()=>{ owner.reuse = null; owner.view = false; rerender(); };
-  if($("cbReuseOpen"))  $("cbReuseOpen").onclick  = ()=>{
-    const f = reuseFind(owner.reuse); if(!f) return;
-    /* Leaving for the owner closes what is stacked here — arriving at the other module from
-       behind two drawers is how you lose track of which rule you are looking at. */
-    COND = null; PICK = null; LIC_DRAWER = null;
-    renderStack();
-    location.hash = f.mod.route;
-  };
 }
 
 /* Read-only on purpose. Editing a shared rule from a screen that merely consumes it is how
@@ -3385,11 +3383,11 @@ function reusePopHTML(sel){
       ${rows.map((t, i) => `${i ? `<div class="rp-join"><span>AND</span></div>` : ""}
         <div class="rp-c"><i></i>${esc(t)}</div>`).join("")}`;
   }).join("") : "";
+  /* Nothing interactive in here any more — which is what lets it be a plain hover tooltip
+     rather than something the pointer has to be able to travel into. */
   return `<div class="reuse-pop" id="cbReusePop" role="tooltip">
-    <div class="rp-h">Conditions</div>
+    <div class="rp-h">Rule overview</div>
     ${body || `<div class="rp-none">This rule has no conditions of its own.</div>`}
-    <div class="ro"><span>Read-only here.</span><span style="flex:1"></span>
-      <button class="lnk" id="cbReuseOpen">Open in ${esc(sel.mod.label)} →</button></div>
   </div>`;
 }
 
