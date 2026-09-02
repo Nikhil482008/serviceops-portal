@@ -17,7 +17,7 @@ import {
   IconMyTeam,
   IconBom,
 } from './SidebarIcons';
-import { Sparkles, Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings, LayoutDashboard, ListChecks } from 'lucide-react';
+import { Sparkles, Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings, LayoutDashboard, ListChecks, Orbit } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { AskAiRailButton } from '../ai/AskAiRailButton';
 
@@ -334,6 +334,14 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           active={activePage === 'ask-ai-cases'}
           title="Ask AI — Use Cases"
           onClick={() => onNavigate?.('ask-ai-cases')}
+        />
+        {/* The Nova shell's demo. Scaffolding, and reachable only because this app has no other
+            way to navigate — it goes when the shell lands in the real drawer. */}
+        <NavItem
+          icon={<Orbit size={20} />}
+          active={activePage === 'nova-demo'}
+          title="Ask AI — Nova shell"
+          onClick={() => onNavigate?.('nova-demo')}
         />
         <NavItem icon={<IconDashboard size={20} />} title="Dashboard" />
         <NavItem

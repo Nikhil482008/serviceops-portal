@@ -80,6 +80,31 @@
      surface, `border-box` the gradient, and the element supplies a transparent
      border for it to show through. */
   --ai-border-gradient: linear-gradient(#fff, #fff) padding-box, linear-gradient(90deg, rgba(76, 177, 254, 0.8) 0%, rgba(115, 30, 251, 0.8) 41.49%, rgba(249, 17, 227, 0.8) 100%) border-box;
+
+  /* ── MOTION SCALE ────────────────────────────────────────────
+     The first duration and easing tokens in this codebase. Everything before them stated its
+     timing inline, which is why nothing could be said to move "at the same speed" as anything
+     else without going to look.
+
+     `mirror` these in ai/nova/novaMotion.ts for the JS-driven parts — the FLIP is scheduled in
+     JS and the CSS cannot reach it, so the two have to be told the same numbers once. */
+  --ai-dur-fast: 120ms;    /* state feedback, and the whole reduced-motion budget */
+  --ai-dur-base: 220ms;    /* a thing settling into place */
+  --ai-dur-enter: 280ms;   /* the drawer arriving, and the orb's flight into it */
+  --ai-dur-slow: 420ms;    /* a transition that carries meaning and wants reading */
+  /* EXIT IS NOT THE ENTRY REVERSED. Arriving is an event and can take its time; leaving is an
+     instruction already given, and matching the entry makes a closed drawer feel reluctant. */
+  --ai-dur-exit: 180ms;
+
+  --ai-ease-enter: cubic-bezier(0.32, 0.72, 0, 1);  /* fast out of the gate, long gentle stop */
+  --ai-ease-exit: cubic-bezier(0.7, 0, 0.84, 0);    /* gentle start, quick departure */
+  --ai-ease-move: cubic-bezier(0.65, 0, 0.35, 1);   /* between two on-screen positions */
+
+  /* Orb defaults. A state overrides these three and nothing else — scale, drift speed, hue. */
+  --orb-scale: 1;
+  --orb-speed: 7.5s;
+  --orb-hue: 0deg;
+  --orb-opacity: 1;
 }
 
 .dark {
@@ -523,4 +548,189 @@ button:not(:disabled),
 [data-sonner-toast][data-type='error'] [data-icon],
 [data-sonner-toast][data-type='error'] [data-icon] svg {
   color: #dc2626;
+}
+
+
+/* ══ Ask AI · Nova — orb, drawer, grid ════════════════════════════════════
+ *
+ * Everything here animates TRANSFORM and OPACITY only. Not one rule touches width, height, top,
+ * left or margin — a drawer that reflows the page while it moves is what makes an assistant feel
+ * heavy, and it is also what drops the frame rate.
+ */
+
+/* ── the orb ────────────────────────────────────────────────────
+   Three stacked radial gradients, blurred, each drifting on its own clock. The blur is what makes
+   three hard-edged circles read as one soft body; the different periods (6s / 7.5s / 9s) are what
+   stop them ever returning to the same arrangement, which is what would make it read as a loop. */
+.orb {
+  position: relative;
+  isolation: isolate;
+  transform: scale(var(--orb-scale));
+  opacity: var(--orb-opacity);
+  transition:
+    transform var(--ai-dur-base) var(--ai-ease-move),
+    opacity var(--ai-dur-base) var(--ai-ease-move);
+}
+.orb-blob {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  /* One filter declaration for both: `hue-rotate` is what a state changes, and putting it in a
+     second declaration would overwrite the blur. Neither triggers layout. */
+  filter: blur(28px) hue-rotate(var(--orb-hue));
+  transition: filter var(--ai-dur-slow) var(--ai-ease-move);
+  will-change: transform;
+}
+/* Offsets are baked into each blob's own keyframes rather than set here, so a blob's rest
+   position and its drift are one description instead of two that can disagree. */
+.orb-blob-1 {
+  background: radial-gradient(circle at 50% 50%, var(--ai-stop-1) 0%, rgba(76, 177, 254, 0) 70%);
+  animation: orbDrift1 var(--orb-speed) ease-in-out infinite;
+}
+.orb-blob-2 {
+  background: radial-gradient(circle at 50% 50%, var(--ai-stop-2) 0%, rgba(115, 30, 251, 0) 70%);
+  animation: orbDrift2 calc(var(--orb-speed) * 1.25) ease-in-out infinite;
+}
+.orb-blob-3 {
+  background: radial-gradient(circle at 50% 50%, var(--ai-stop-3) 0%, rgba(249, 17, 227, 0) 70%);
+  animation: orbDrift3 calc(var(--orb-speed) * 0.8) ease-in-out infinite;
+}
+
+@keyframes orbDrift1 {
+  0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1); }
+  33%      { transform: translate3d(5%, 6%, 0) scale(1.08); }
+  66%      { transform: translate3d(-3%, 7%, 0) scale(0.94); }
+}
+@keyframes orbDrift2 {
+  0%, 100% { transform: translate3d(7%, 5%, 0) scale(1.04); }
+  40%      { transform: translate3d(-5%, -6%, 0) scale(0.92); }
+  70%      { transform: translate3d(2%, -3%, 0) scale(1.1); }
+}
+@keyframes orbDrift3 {
+  0%, 100% { transform: translate3d(2%, 8%, 0) scale(0.96); }
+  50%      { transform: translate3d(-7%, -5%, 0) scale(1.12); }
+}
+
+/* ── the seven states ──────────────────────────────────────────
+   Scale, drift speed, hue. Nothing else — a state that also moved the orb or changed its shape
+   would be a second language for the same thing. */
+.orb[data-orb-state='dormant']       { --orb-scale: 0.92; --orb-speed: 9s;   --orb-hue: -18deg; --orb-opacity: 0.75; }
+.orb[data-orb-state='arriving']      { --orb-scale: 1.06; --orb-speed: 6s;   --orb-hue: 0deg; }
+.orb[data-orb-state='idle']          { --orb-scale: 1;    --orb-speed: 7.5s; --orb-hue: 0deg; }
+.orb[data-orb-state='listening']     { --orb-scale: 1.04; --orb-speed: 6s;   --orb-hue: 22deg; }
+.orb[data-orb-state='investigating'] { --orb-scale: 1.1;  --orb-speed: 6s;   --orb-hue: -30deg; }
+.orb[data-orb-state='discovery']     { --orb-scale: 1.14; --orb-speed: 6.5s; --orb-hue: 48deg; }
+.orb[data-orb-state='settled']       { --orb-scale: 0.98; --orb-speed: 9s;   --orb-hue: -8deg; }
+
+/* ── the drawer ──────────────────────────────────────────────
+   `translate3d(100%)`, never `right`. The panel is laid out where it belongs and moved from
+   there, so opening it costs one composited frame and no layout at all. */
+.nova-scrim {
+  opacity: 0;
+  transition: opacity var(--ai-dur-enter) var(--ai-ease-enter);
+}
+.nova-scrim[data-open='true'] { opacity: 1; }
+.nova-scrim[data-closing='true'] {
+  opacity: 0;
+  transition-duration: var(--ai-dur-exit);
+  transition-timing-function: var(--ai-ease-exit);
+}
+
+.nova-drawer {
+  transform: translate3d(100%, 0, 0);
+  transition: transform var(--ai-dur-enter) var(--ai-ease-enter);
+  will-change: transform;
+}
+.nova-drawer[data-open='true']    { transform: translate3d(0, 0, 0); }
+.nova-drawer[data-closing='true'] {
+  transform: translate3d(100%, 0, 0);
+  transition-duration: var(--ai-dur-exit);
+  transition-timing-function: var(--ai-ease-exit);
+}
+
+/* The FAB gives way rather than vanishing — the orb is about to leave it, and something that
+   disappeared would take the continuity with it. */
+.nova-fab {
+  transition: transform var(--ai-dur-enter) var(--ai-ease-enter);
+}
+.nova-fab[data-shrunk='true'] { transform: scale(0.9); }
+
+/* The orb in flight. Its transform is written by JS (the FLIP), so the only thing CSS owns is how
+   long the flight takes and how it eases. */
+.nova-orb-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  transform-origin: top left;
+}
+.nova-orb-layer[data-flying='true'] {
+  transition: transform var(--ai-dur-enter) var(--ai-ease-enter);
+}
+.nova-orb-layer[data-flying='exit'] {
+  transition: transform var(--ai-dur-exit) var(--ai-ease-exit);
+}
+
+/* ── dotted grid ────────────────────────────────────────────
+   A background-image, so settling it is a scale on the layer rather than anything that reflows. */
+.nova-grid {
+  background-image: radial-gradient(circle, #DFE5ED 1px, transparent 1px);
+  background-size: 22px 22px;
+  opacity: 0;
+  transform: scale(1.03);
+  transition:
+    opacity var(--ai-dur-enter) var(--ai-ease-enter),
+    transform var(--ai-dur-enter) var(--ai-ease-enter);
+}
+.nova-grid[data-in='true'] { opacity: 1; transform: scale(1); }
+
+/* ── the staged content ───────────────────────────────────────
+   One class for everything that fades up, with the distance as a variable, because greeting,
+   cards and input differ only in how far they travel and when they start. */
+.nova-rise {
+  opacity: 0;
+  transform: translate3d(0, var(--rise, 8px), 0);
+  transition:
+    opacity var(--ai-dur-base) var(--ai-ease-enter),
+    transform var(--ai-dur-base) var(--ai-ease-enter);
+}
+.nova-rise[data-in='true'] { opacity: 1; transform: translate3d(0, 0, 0); }
+
+/* ══ REDUCED MOTION ═════════════════════════════════════════════
+ *
+ * Every motion above becomes ONE 120ms opacity fade, and the orb holds still as a static
+ * gradient. Not a reduction — a replacement. The choreography's whole purpose is continuity, and
+ * a continuity effect at half speed is still the effect this query exists to switch off.
+ *
+ * The JS honours the same query (see novaMotion.ts) so the FLIP is skipped rather than raced. */
+@media (prefers-reduced-motion: reduce) {
+  .orb-blob-1,
+  .orb-blob-2,
+  .orb-blob-3 { animation: none; }
+
+  .orb,
+  .orb-blob,
+  .nova-scrim,
+  .nova-drawer,
+  .nova-fab,
+  .nova-orb-layer,
+  .nova-grid,
+  .nova-rise {
+    transition: opacity var(--ai-dur-fast) linear !important;
+  }
+
+  /* No travel, no growth, no settle-in. Only presence. */
+  .nova-drawer,
+  .nova-drawer[data-open='true'],
+  .nova-drawer[data-closing='true'] { transform: none; }
+  .nova-fab[data-shrunk='true'] { transform: none; }
+  .nova-grid,
+  .nova-grid[data-in='true'] { transform: none; }
+  .nova-rise,
+  .nova-rise[data-in='true'] { transform: none; }
+  .orb { transform: none; }
+
+  .nova-drawer { opacity: 0; }
+  .nova-drawer[data-open='true'] { opacity: 1; }
+  .nova-drawer[data-closing='true'] { opacity: 0; }
 }
