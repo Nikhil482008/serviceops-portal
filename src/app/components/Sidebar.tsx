@@ -17,7 +17,7 @@ import {
   IconMyTeam,
   IconBom,
 } from './SidebarIcons';
-import { Sparkles, Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings, LayoutDashboard } from 'lucide-react';
+import { Sparkles, Cpu, AppWindow, Boxes, Recycle, KeyRound, Gauge, FileText, ShoppingCart, Rocket, Monitor, ClipboardCheck, Settings, LayoutDashboard, ListChecks } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from './ui/tooltip';
 import { AskAiRailButton } from '../ai/AskAiRailButton';
 
@@ -278,6 +278,10 @@ function NavItem({ icon, active, onClick, title, disableTooltip }: NavItemProps)
   const button = (
     <button
       onClick={onClick}
+      /* The rail is seventeen icon-only buttons. Without this every one of them announces as
+         "button" and nothing else — the tooltip carries the name for a sighted mouse user and
+         for nobody else. The name it already has is the one to use. */
+      aria-label={title}
       className={`flex h-[40px] w-full items-center justify-center transition-colors relative ${
         active
           ? 'bg-[#3D8BD0]'
@@ -322,6 +326,15 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           space — but fixing it properly means portaling those four flyouts, which is a bigger
           change than this commit should carry. */}
       <div className="flex flex-col pb-[41px]">
+        {/* First, because it is an index of what Ask AI is FOR — it reads before the modules
+            rather than among them. The assistant's own button stays pinned at the foot of the
+            rail: this is the list of questions, that is the thing that answers them. */}
+        <NavItem
+          icon={<ListChecks size={20} />}
+          active={activePage === 'ask-ai-cases'}
+          title="Ask AI — Use Cases"
+          onClick={() => onNavigate?.('ask-ai-cases')}
+        />
         <NavItem icon={<IconDashboard size={20} />} title="Dashboard" />
         <NavItem
           icon={<IconRequest size={20} />}

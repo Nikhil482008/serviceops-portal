@@ -18,6 +18,7 @@ import { PatchDeploymentsListPage } from './components/PatchDeploymentsListPage'
 import { EndpointsListPage } from './components/EndpointsListPage';
 import { VulnerabilitiesListPage } from './components/VulnerabilitiesListPage';
 import { DetectedCvesListPage } from './components/DetectedCvesListPage';
+import { AskAiUseCasesPage } from './components/AskAiUseCasesPage';
 import { BomDashboardPage } from './components/BomDashboardPage';
 import { BomDashboard2Page } from './components/BomDashboard2Page';
 import { BomInventoryListPage } from './components/BomInventoryListPage';
@@ -29,7 +30,7 @@ import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
 
-type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom-dashboard' | 'bom-dashboard-2' | 'bom' | 'software-components' | 'ai-components' | 'compliance-reports' | 'compliance-reports-2' | 'admin';
+type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom-dashboard' | 'bom-dashboard-2' | 'bom' | 'software-components' | 'ai-components' | 'compliance-reports' | 'compliance-reports-2' | 'ask-ai-cases' | 'admin';
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>('request');
@@ -82,6 +83,7 @@ export default function App() {
       {activePage === 'ai-components' && <SoftwareComponentsListPage onNavigate={navigate} tab="models" initialFocus={pendingFocus} onInitialFocusConsumed={() => setPendingFocus(null)} />}
       {activePage === 'compliance-reports' && <ComplianceReportsModule onNavigate={navigate} />}
       {activePage === 'compliance-reports-2' && <ComplianceReports2Module onNavigate={navigate} />}
+      {activePage === 'ask-ai-cases' && <AskAiUseCasesPage onNavigate={navigate} />}
       {activePage === 'admin' && <AdminPage onNavigate={navigate} />}
       {/* Mounted once, inside the drawer host, so search works on every page and can open any
           module's real detail drawer as a tab. */}

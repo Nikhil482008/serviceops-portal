@@ -103,6 +103,11 @@ interface AskAiState {
   /** The scope whose thread is showing, e.g. `vulnerabilities.list`. */
   scope: string;
   threads: AiThread[];
+  /** A question handed in from OUTSIDE the panel — the Use Cases page clicks a row and the panel
+   *  asks it. Held here rather than passed as a prop because the panel is lazy and may not be
+   *  mounted yet at the moment of the click. The panel clears it once it has taken it, so the
+   *  same question can be asked twice. */
+  pendingAsk: string | null;
 }
 
 interface AskAiActions {
@@ -121,6 +126,11 @@ interface AskAiActions {
   /** Mints a thread and RETURNS its id, so the caller can address it immediately rather than
    *  searching for what it just created. */
   newThread: (scope: string) => string;
+  /** Open the panel and ask this. The ONE way another screen puts a question to Ask AI — what the
+   *  panel then does with it is the panel's business, which is what keeps the two separable. */
+  askQuestion: (text: string) => void;
+  /** Taken by the panel once it has the question. */
+  clearPendingAsk: () => void;
 }
 
 const StateCtx = createContext<AskAiState | null>(null);
@@ -211,6 +221,9 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
   /* Minting an id is all this does. The thread is not stored until it has a message in it, which
      is what keeps New chat from filling the history with empties. */
   const newThread = useCallback((_s: string) => `t-${Date.now()}-${Math.round(performance.now())}`, []);
+  const [pendingAsk, setPendingAsk] = useState<string | null>(null);
+  const askQuestion = useCallback((text: string) => { setPendingAsk(text); open(); }, [open]);
+  const clearPendingAsk = useCallback(() => setPendingAsk(null), []);
 
   /* ── the global shortcut ──────────────────────────────────────────────
    *
@@ -250,7 +263,7 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const state = useMemo<AskAiState>(
-    () => ({ open: isOpen, width, mode, minimized, floatPos, scope, threads }),
+    () => ({ open: isOpen, width, mode, minimized, floatPos, scope, threads, pendingAsk }),
     [isOpen, width, mode, minimized, floatPos, scope, threads],
   );
 
@@ -258,8 +271,8 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
      mount — which is the entire point of the split. `newThread` and `selectThread` close over
      `threads`, so they are excluded from that guarantee and the memo lists them honestly. */
   const actions = useMemo<AskAiActions>(
-    () => ({ open, close, toggle, setWidth, setMode, setMinimized, setFloatPos, setScope, setMessages, newThread }),
-    [open, close, toggle, setWidth, setMode, setMinimized, setFloatPos, setScope, setMessages, newThread],
+    () => ({ open, close, toggle, setWidth, setMode, setMinimized, setFloatPos, setScope, setMessages, newThread, askQuestion, clearPendingAsk }),
+    [open, close, toggle, setWidth, setMode, setMinimized, setFloatPos, setScope, setMessages, newThread, askQuestion, clearPendingAsk],
   );
 
   return (

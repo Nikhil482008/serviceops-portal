@@ -39,8 +39,8 @@ let idSeq = 0;
 const nextId = () => `m${Date.now().toString(36)}-${idSeq++}`;
 
 export default function AskAiPanel() {
-  const { open, width, mode, minimized, floatPos, scope, threads } = useAskAiState();
-  const { close, setWidth, setMode, setMinimized, setFloatPos, setMessages, newThread } = useAskAiActions();
+  const { open, width, mode, minimized, floatPos, scope, threads, pendingAsk } = useAskAiState();
+  const { close, setWidth, setMode, setMinimized, setFloatPos, setMessages, newThread, clearPendingAsk } = useAskAiActions();
   const [showModes, setShowModes] = useState(false);
 
   /* The thread this panel is showing, by ID. It used to be found by scanning `threads` for the
@@ -163,6 +163,16 @@ export default function AskAiPanel() {
     setLocal(upto);
     void runSend(lastUser.text, upto);
   }, [messages, runSend]);
+
+  /* A question put to the panel from ANOTHER screen — the Use Cases page clicks a row. Taken
+     once and cleared, so the same case can be asked again; and deliberately NOT taken while a
+     response is streaming, because `submit` drops a question in that state and clearing it here
+     would swallow it silently. It waits for the stream to finish instead. */
+  useEffect(() => {
+    if (!pendingAsk || streaming) return;
+    submit(pendingAsk);
+    clearPendingAsk();
+  }, [pendingAsk, streaming, submit, clearPendingAsk]);
 
   /* ── drag, floating mode only ─────────────────────────────────────
    *
