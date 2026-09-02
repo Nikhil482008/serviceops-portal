@@ -264,7 +264,12 @@ export function AskAiProvider({ children }: { children: ReactNode }) {
 
   const state = useMemo<AskAiState>(
     () => ({ open: isOpen, width, mode, minimized, floatPos, scope, threads, pendingAsk }),
-    [isOpen, width, mode, minimized, floatPos, scope, threads],
+    /* `pendingAsk` MUST be here. Reading it in the object without listing it meant the memo never
+       recomputed for it alone, so a question only reached the panel when something else in this
+       list happened to change at the same moment — which the first two asks did (the panel
+       opening, then a thread persisting) and the third did not. It looked like "asking works,
+       except after you close and reopen". */
+    [isOpen, width, mode, minimized, floatPos, scope, threads, pendingAsk],
   );
 
   /* Every function here is `useCallback`-stable, so this object's identity never changes after

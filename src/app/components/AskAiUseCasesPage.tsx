@@ -46,11 +46,11 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
 
   const shown = persona ? ASK_AI_USE_CASES.filter((c) => c.persona === persona) : ASK_AI_USE_CASES;
 
-  const ask = (question: string) => {
-    if (!ai) return;
-    ai.setScope('askai.usecases');
-    ai.askQuestion(question);
-  };
+  /* NO scope of its own. The panel's thread is keyed by scope and `AskAiPanelMount` already sets
+     it to the active PAGE, so setting a second one here gave this screen two threads: the rail
+     button opened one conversation and a row click started another. Same button, same drawer,
+     same conversation — a row just puts a question into it. */
+  const ask = (question: string) => ai?.askQuestion(question);
 
   const TH = 'whitespace-nowrap px-6 py-3 text-left text-[13px] font-semibold text-[#364658]';
 
