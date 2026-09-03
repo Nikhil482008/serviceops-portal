@@ -42,7 +42,7 @@ export function ActionGroup({ answer: a, onAsk, onDiscard }: {
   if (phase === 'done') {
     return (
       <section style={{ marginTop: 'var(--nova-gap-block)' }}>
-        <p className="flex items-center gap-1.5 text-[13px] font-medium text-[#0F6E4F]">
+        <p className="flex items-center gap-1.5 ask-text-base ask-w-500 text-[#0F6E4F]">
           <Check size={14} aria-hidden="true" />
           {f.run}
         </p>
@@ -72,12 +72,12 @@ export function ActionGroup({ answer: a, onAsk, onDiscard }: {
                 setPhase('busy');
                 window.setTimeout(() => setPhase('done'), ACK_MS);
               }}
-              className="nova-btn nova-btn-primary inline-flex h-9 items-center rounded px-4 text-[14px] font-medium"
+              className="nova-btn nova-btn-primary inline-flex h-9 items-center rounded px-4 ask-text-base ask-w-500"
             >Confirm</button>
             <button
               type="button"
               onClick={() => setPhase('idle')}
-              className="nova-btn nova-btn-ghost inline-flex h-9 items-center rounded px-3 text-[14px]"
+              className="nova-btn nova-btn-ghost inline-flex h-9 items-center rounded px-3 ask-text-base"
             >Back</button>
           </div>
         </div>
@@ -93,14 +93,14 @@ export function ActionGroup({ answer: a, onAsk, onDiscard }: {
             /* §14 — the ONE action that commits gets a real primary: 36px, 14px label. The
                suggestion pills below are the same height but never fill, so the two read as
                different kinds of thing rather than as a loud one and a quiet one. */
-            className="nova-btn nova-btn-primary inline-flex h-9 items-center rounded px-4 text-[14px] font-medium"
+            className="nova-btn nova-btn-primary inline-flex h-9 items-center rounded px-4 ask-text-base ask-w-500"
           >{phase === 'busy' ? 'Working…' : f.run}</button>
 
           <button
             type="button"
             disabled={phase === 'busy'}
             onClick={() => { if (f.cancelAsks) onAsk(f.cancel); else onDiscard(); }}
-            className="nova-btn nova-btn-ghost inline-flex h-9 items-center rounded px-3 text-[14px]"
+            className="nova-btn nova-btn-ghost inline-flex h-9 items-center rounded px-3 ask-text-base"
           >{f.cancel}</button>
 
           {commits && (
@@ -121,7 +121,7 @@ export function DiscardedNotice({ onUndo }: { onUndo: () => void }) {
       <button
         type="button"
         onClick={onUndo}
-        className="nova-btn nova-btn-ghost inline-flex h-7 items-center gap-1 rounded px-2 text-[12px] font-medium"
+        className="nova-btn nova-btn-ghost inline-flex h-7 items-center gap-1 rounded px-2 ask-text-sm ask-w-500"
       ><RotateCcw size={12} aria-hidden="true" /> Undo</button>
     </div>
   );

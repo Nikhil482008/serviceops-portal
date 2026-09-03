@@ -73,7 +73,7 @@ export function NovaWorkspace({ turn, onRetry }: { turn: Turn; onRetry?: () => v
         type="button"
         aria-expanded={false}
         onClick={() => { setUserToggled(true); setOpen(true); }}
-        className="nova-fold flex items-center gap-2 rounded px-1 py-1 text-[12px] text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
+        className="nova-fold flex items-center gap-2 rounded px-1 py-1 ask-text-sm text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
       >
         <span className="text-[#12805C]" aria-hidden="true">✓</span>
         {counts.checks} check{counts.checks === 1 ? '' : 's'} across {passes.length} pass{passes.length === 1 ? '' : 'es'}
@@ -88,7 +88,7 @@ export function NovaWorkspace({ turn, onRetry }: { turn: Turn; onRetry?: () => v
       {/* ── the header: what this is working across ─────────────────── */}
       <div className="border-b border-[#EEF2F6] px-3.5 py-2.5">
         <div className="flex items-baseline gap-2">
-          <p className="text-[13px] font-semibold text-[#364658]">
+          <p className="ask-text-base ask-w-600 text-[#364658]">
             Investigating {turn.topic || 'your question'}
           </p>
           {hasAnswer && (
@@ -96,7 +96,7 @@ export function NovaWorkspace({ turn, onRetry }: { turn: Turn; onRetry?: () => v
               type="button"
               aria-expanded
               onClick={() => { setUserToggled(true); setOpen(false); }}
-              className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
+              className="ml-auto rounded px-1.5 py-0.5 ask-text-sm text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
             >
               Hide
             </button>
@@ -105,8 +105,8 @@ export function NovaWorkspace({ turn, onRetry }: { turn: Turn; onRetry?: () => v
         {!!turn.scope?.length && (
           <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
             {turn.scope.map((s) => (
-              <span key={s.label} className="text-[11px] text-[#9CA3AF]">
-                <b className="font-semibold text-[#364658]">{s.value}</b> {s.label}
+              <span key={s.label} className="ask-text-sm text-[#9CA3AF]">
+                <b className="ask-w-600 text-[#364658]">{s.value}</b> {s.label}
               </span>
             ))}
           </div>
@@ -116,13 +116,13 @@ export function NovaWorkspace({ turn, onRetry }: { turn: Turn; onRetry?: () => v
       <div className="space-y-3 px-3.5 py-3">
         {passes.filter((p) => p.started).map((p, pi) => (
           <section key={p.phase} className={pi > 0 ? 'nova-feed-in' : undefined}>
-            <h3 className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#B6C1CE]">
+            <h3 className="ask-text-xs ask-w-600 uppercase tracking-[0.08em] text-[#B6C1CE]">
               {p.phase}
             </h3>
             <div className="mt-1.5 space-y-2">
               {p.lanes.map((l) => (
                 <div key={l.name} className="grid grid-cols-[68px_1fr] gap-2">
-                  <span className="pt-[3px] text-[11px] font-medium text-[#9CA3AF]">{l.name}</span>
+                  <span className="pt-[3px] ask-text-sm ask-w-500 text-[#9CA3AF]">{l.name}</span>
                   <div className="space-y-0.5">
                     {l.steps.map((s) => (
                       <Row key={s.id} step={s} isLive={turn.steps.indexOf(s) === live} />
@@ -154,10 +154,10 @@ function Row({ step, isLive }: { step: FeedStep; isLive: boolean }) {
   return (
     <p
       {...(isLive ? { role: 'status' as const, 'aria-live': 'off' as const } : {})}
-      className={`flex items-baseline gap-1.5 text-[12px] ${
+      className={`flex items-baseline gap-1.5 ask-text-sm ${
         complete ? 'text-[#7B8FA5]' : isLive ? 'text-[#364658]' : 'text-[#C6CFDA]'}`}
     >
-      <span aria-hidden="true" className="w-2.5 flex-shrink-0 text-[10px]">
+      <span aria-hidden="true" className="w-2.5 flex-shrink-0 ask-text-sm">
         {complete ? <span className="text-[#12805C]">✓</span>
           : isLive ? <span className="nova-pulse inline-block size-[6px] rounded-full bg-[#3D8BD0] align-middle" />
             : '·'}
@@ -195,18 +195,18 @@ function CountUp({ value }: { value: string }) {
     return () => cancelAnimationFrame(raf.current);
   }, [numeric, target]);
 
-  if (!numeric) return <b className="font-semibold text-[#364658]">{value}</b>;
-  return <b className="font-semibold tabular-nums text-[#364658]">{n.toLocaleString()}</b>;
+  if (!numeric) return <b className="ask-w-500 text-[#364658]">{value}</b>;
+  return <b className="ask-w-500 tabular-nums text-[#364658]">{n.toLocaleString()}</b>;
 }
 
 function Found({ d }: { d: FeedDiscovery }) {
   return (
     <div className="nova-disc mt-2.5 rounded border border-[#E7DEF9] bg-[#FAF7FF] px-2.5 py-2" aria-live="polite">
-      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#7B5BD6]">
+      <p className="flex items-center gap-1.5 ask-text-xs ask-w-600 uppercase tracking-wider text-[#7B5BD6]">
         <Sparkles size={11} /> Nova found something
       </p>
-      <p className="mt-1 text-[12px] font-semibold leading-[1.45] text-[#364658]">{d.headline}</p>
-      <p className="mt-0.5 text-[11px] leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
+      <p className="mt-1 ask-text-sm ask-w-600 leading-[1.45] text-[#364658]">{d.headline}</p>
+      <p className="mt-0.5 ask-text-sm leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
     </div>
   );
 }

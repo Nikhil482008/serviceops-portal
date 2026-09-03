@@ -163,6 +163,27 @@ export interface StepSource {
   kind: 'ticket' | 'kb' | 'doc' | 'data';
 }
 
+/** One option on a clarifying question.
+ *
+ * `detail` is the second line under the label — what picking it would MEAN, not a restatement
+ * of it. A choice a reader cannot tell apart from its neighbour is a choice that costs time
+ * without buying anything. */
+export interface AskChoice { id: string; label: string; detail?: string }
+
+/** A question Nova asks BEFORE it answers.
+ *
+ * ⚠️ EVERY QUESTION MUST CARRY AN ESCAPE, and it is authored rather than injected — the last
+ * choice on each of TEC-03's three is "I don't know yet". Law 13 says preselect the safest
+ * option, and it also says never let a default create a commitment nobody made: preselecting an
+ * answer to a DIAGNOSTIC question does exactly that, because Nova would then be told something
+ * the technician never said. So nothing is preselected, and the way out is a real answer the
+ * reader picks on purpose. */
+export interface AskQuestion {
+  id: string;
+  question: string;
+  choices: AskChoice[];
+}
+
 export type Beat =
   /** `sources` is what the step actually READ. Optional, and only the thinking view surfaces it —
    *  a technician auditing an answer wants to know where it came from; a requester does not.
@@ -176,6 +197,11 @@ export type Beat =
    *  it, and a finding with none still renders. */
   | { kind: 'discovery'; id: string; role: DiscoveryRole; headline: string; detail: string;
       tease?: string }
+  /* ASK THE READER, then wait. The emitter STOPS here until the answers come back — see
+   *  `novaStream.ts`. That is the honest shape: a real backend emits a tool call, the client
+   *  posts the result, and the stream resumes. A beat that fired and carried on would be a
+   *  question nobody had to answer, which is a form nobody would trust. */
+  | { kind: 'ask'; id: string; questions: AskQuestion[] }
   | { kind: 'answer'; payload: AnswerObject }
   | { kind: 'error'; message: string; recoverable: boolean };
 
@@ -275,7 +301,12 @@ const REQ_01: Script = {
            incident" — the label of the object, not the answer to the question — and the reader had
            to read the card to find out that Nova had already worked out where it goes. */
         headline: 'I can raise this for you — the draft is ready',
-        text: 'It matches **6 similar tickets**, so the category and priority are already filled in. Review and create it.',
+        /* ⚠️ NO "6 similar tickets" HERE. The evidence footer already carries that
+           finding, derived from the discovery the reader watched arrive during the wait.
+           Repeating it in the body is one fact in two places with two chances to disagree
+           — and it pushed the thing the reader must actually DO into the second half of
+           the sentence. The body says only the next action. */
+        text: 'Review the draft and create it.',
         /* `inferred` marks what NOVA decided rather than what the reader said. Type, Subject and
            Requester come from their own words; category, subcategory and priority are Nova's
            call — and this card is a thing they are about to approve. */
@@ -597,6 +628,117 @@ const TEC_02: Script = {
   ],
 };
 
+/* ── TEC-03 ──────────────────────────────────────────────────
+   "User in Bengaluru says VPN drops every 30 minutes on the dot and reconnects fine. Ring any
+   bells?"
+
+   THE ONLY SCRIPT THAT ASKS BEFORE IT ANSWERS, and the reason it is this one: "ring any bells?"
+   is a question about a pattern, and a pattern cannot be matched from a single sentence. Blast
+   radius, network and recent change are the three facts a technician would ask for out loud
+   before saying yes — so Nova asks for them too, rather than guessing and being confidently
+   wrong.
+
+   ⚠️ THE ASK IS EARLY, ON PURPOSE. Two cheap checks establish that the question is worth asking
+   at all, and then it asks — before eight more checks have been spent on an investigation that
+   the answers might have pointed somewhere else. Asking at the END would be a survey.
+
+   ⚠️ WHAT THE ANSWERS DO NOT DO. The beats after the ask are fixed, so the conclusion is the
+   same whichever choices are picked. That is a limit of an authored script, not a claim about
+   the product: the card echoes the real selections back, and the conclusion is written to hold
+   under every combination — a gateway-wide rekey fault reads the same whether one person or
+   forty have noticed it yet. Nothing here pretends the choices steered the investigation. */
+const TEC_03: Script = {
+  topic: 'the Bengaluru VPN drops',
+  view: 'steps',
+  match: /vpn.*(drop|disconnect).*(30|thirty)|every 30 minutes.*vpn|ring any bells/i,
+  beats: [
+    step('t3s1', 'Reading what you have described'),
+    step('t3s2', 'Checking VPN tickets raised from Bengaluru',
+      [tk('INC-4402'), tk('INC-4417'), dat('Bengaluru site · last 30 days')]),
+
+    {
+      kind: 'ask',
+      id: 't3a1',
+      questions: [
+        {
+          id: 't3q1',
+          question: 'How many people are seeing this?',
+          choices: [
+            { id: 'one', label: 'Just this one user', detail: 'Nobody else has reported it yet.' },
+            { id: 'few', label: 'A few people in the same office' },
+            { id: 'site', label: 'The whole Bengaluru site', detail: 'Widespread — treat as an incident.' },
+            { id: 'unknown', label: "I don't know yet" },
+          ],
+        },
+        {
+          id: 't3q2',
+          question: 'What are they connected to?',
+          choices: [
+            { id: 'wifi', label: 'Office Wi-Fi' },
+            { id: 'wired', label: 'Office wired network' },
+            { id: 'home', label: 'Home or mobile broadband' },
+            { id: 'unknown', label: "I don't know yet" },
+          ],
+        },
+        {
+          id: 't3q3',
+          question: 'Has anything changed for them recently?',
+          choices: [
+            { id: 'device', label: 'New laptop or dock' },
+            { id: 'account', label: 'Password or account change' },
+            { id: 'nothing', label: 'Nothing they know of' },
+            { id: 'unknown', label: "I don't know yet" },
+          ],
+        },
+      ],
+    },
+
+    step('t3s3', 'Matching the 30-minute pattern against known faults',
+      [kb('KB-3320 · IPsec rekey timeout'), doc('VPN gateway runbook')]),
+    {
+      kind: 'discovery', id: 't3d1', role: 'evidence',
+      headline: '9 Bengaluru VPN drops this month, all on the half hour',
+      detail: 'Every one of them reconnected without help, exactly as yours does.',
+    },
+    step('t3s4', 'Checking the Bengaluru gateway configuration',
+      [dat('VPN gateway · BLR-01')]),
+    {
+      kind: 'discovery', id: 't3d2', role: 'routing',
+      headline: 'BLR-01 rekeys every 1800 seconds',
+      detail: 'The clients are set to 3600. The mismatch drops the tunnel on the gateway\u2019s clock.',
+    },
+    step('t3s5', 'Checking whether a fix is already scheduled', [tk('CHG-1102')]),
+    {
+      kind: 'discovery', id: 't3d3', role: 'gap',
+      headline: 'I could not confirm their VPN client version',
+      detail: 'The endpoint has not checked in since Friday, so the profile it holds is unverified.',
+    },
+    {
+      kind: 'answer',
+      payload: {
+        form: 'text',
+        title: 'Bengaluru VPN drops',
+        headline: 'Yes — this is the BLR-01 rekey mismatch, and it is already known',
+        kv: [
+          { label: 'Cause', value: 'Gateway rekeys at **1800s**, the client profile expects **3600s**' },
+          { label: 'Seen before', value: '**9 times** this month from Bengaluru, all self-recovering' },
+          { label: 'Fix', value: '**CHG-1102** aligns the gateway timer — scheduled **Thursday 22:00**' },
+          { label: 'Careful', value: 'Their **client version is unconfirmed** since Friday', tone: 'risk' as const },
+        ],
+        text: 'The drop every 30 minutes on the dot is the giveaway: BLR-01 renegotiates its keys at 1800 seconds while the client profile expects 3600, so the tunnel is torn down on the gateway\u2019s clock and rebuilt immediately. It is harmless but it will keep happening until CHG-1102 lands on Thursday.',
+        insight: 'Nothing is wrong with their laptop — tell them that first, or they will spend the week reinstalling things.',
+        recommendation: 'Link this to CHG-1102 rather than raising a new incident, and let them know it self-recovers so they stop reporting each drop.',
+        footer: { run: 'Link to CHG-1102', cancel: 'Draft a reply to the user', cancelAsks: true },
+        followUps: [
+          'Draft a reply to the user',
+          'Who else has hit this in Bengaluru?',
+          'What does CHG-1102 change?',
+        ],
+      },
+    },
+  ],
+};
+
 /* ── CXO-02 ──────────────────────────────────────────────────────────
    "Are we meeting our SLAs? Where do we breach most?"
 
@@ -762,6 +904,7 @@ export const SCRIPTS: Record<string, Script> = {
   'REQ-04': REQ_04,
   'TEC-01': TEC_01,
   'TEC-02': TEC_02,
+  'TEC-03': TEC_03,
   'CXO-02': CXO_02,
   'CXO-07': CXO_07,
 };

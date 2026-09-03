@@ -12,8 +12,8 @@
  */
 import {
   scriptFor, scriptForQuestion,
-  type AnswerObject, type Beat, type DiscoveryRole, type Script, type ScriptView,
-  type StepMetric, type StepSource,
+  type AnswerObject, type AskQuestion, type Beat, type DiscoveryRole, type Script,
+  type ScriptView, type StepMetric, type StepSource,
 } from './scripts/registry';
 import { fallbackScript, intentOf } from './scripts/fallbacks';
 
@@ -41,6 +41,13 @@ export type NovaEvent =
   | { type: 'step_complete'; id: string; label: string; sources?: StepSource[] }
   | { type: 'discovery'; id: string; role: DiscoveryRole; headline: string; detail: string;
       tease?: string }
+  /** Nova needs something from the reader before it can carry on.
+   *
+   *  ⚠️ THE STREAM IS NOW BLOCKED. Nothing further arrives until `respond` is called with the
+   *  answers (or the turn is aborted). Modelled on a real tool call — the server emits it, the
+   *  client posts the result back, the stream resumes — rather than on a modal, because a
+   *  question that does not actually gate the work is a question nobody needs to answer. */
+  | { type: 'ask'; id: string; questions: AskQuestion[] }
   | { type: 'answer'; payload: AnswerObject }
   | { type: 'error'; message: string; recoverable: boolean };
 
@@ -55,6 +62,15 @@ export interface NovaInvestigation {
   /** What this investigation is working ACROSS. The workspace header reads it. */
   scope?: StepMetric[];
   run(signal: AbortSignal): AsyncIterable<NovaEvent>;
+  /** Send the reader's answers back, releasing a stream parked on an `ask`.
+   *
+   *  THE SECOND SEAM, and the only other one. `run` is how events come out; this is how the one
+   *  kind of input goes in. A real transport implements it as a POST carrying the tool result;
+   *  the mock resolves a promise. Callers know neither.
+   *
+   *  Safe to call with an unknown id, twice, or after the turn ended — it is a no-op every
+   *  time. A UI cannot be made to guarantee exactly-once delivery of a click. */
+  respond?(askId: string, answers: Record<string, string>): void;
 }
 
 // ══ pacing ══════════════════════════════════════════════════════════════════════════════════
@@ -123,11 +139,20 @@ export function mockInvestigation(
   instant = false,
 ): NovaInvestigation {
   const script = pickScript(question, caseId);
+  /* Streams parked on an ask, by ask id. A Map rather than a single slot because nothing in the
+     contract says a script may only ever have one question set outstanding. */
+  const parked = new Map<string, (answers: Record<string, string>) => void>();
 
   return {
     topic: script.topic,
     view: script.view ?? 'steps',
     scope: script.scope,
+    respond(askId, answers) {
+      const release = parked.get(askId);
+      if (!release) return;          // unknown, already released, or the turn is over
+      parked.delete(askId);
+      release(answers);
+    },
     async *run(signal: AbortSignal) {
       const gaps = pacing();
       const pause = async () => { if (!instant) await sleep(gaps.next().value as number, signal); };
@@ -166,6 +191,26 @@ export function mockInvestigation(
           continue;
         }
 
+        if (b.kind === 'ask') {
+          yield { type: 'ask', id: b.id, questions: b.questions };
+          /* AND STOP. Note this ignores `instant`: the dev skip toggle removes the time spent
+             waiting on NOVA, and none of it is Nova's. Racing the abort signal is what lets a
+             stopped or closed turn collect the parked generator instead of leaking it. */
+          const answers = await new Promise<Record<string, string>>((resolve, reject) => {
+            if (signal.aborted) return reject(new DOMException('aborted', 'AbortError'));
+            parked.set(b.id, resolve);
+            signal.addEventListener('abort', () => {
+              parked.delete(b.id);
+              reject(new DOMException('aborted', 'AbortError'));
+            }, { once: true });
+          });
+          /* The mock does not branch on them — see TEC-03's note. They are threaded through
+             anyway so the seam a real backend uses is exercised rather than imagined. */
+          void answers;
+          await pause();
+          continue;
+        }
+
         if (b.kind === 'answer') { yield { type: 'answer', payload: b.payload }; continue; }
         if (b.kind === 'error') {
           yield { type: 'error', message: b.message, recoverable: b.recoverable };
@@ -178,4 +223,4 @@ export function mockInvestigation(
   };
 }
 
-export type { AnswerObject, DiscoveryRole, ScriptView, StepSource };
+export type { AnswerObject, AskChoice, AskQuestion, DiscoveryRole, ScriptView, StepSource } from './scripts/registry';

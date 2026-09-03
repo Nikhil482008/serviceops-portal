@@ -9,7 +9,7 @@
  * against cases the authored scripts never produce.
  */
 import type { AnswerObject, DiscoveryRole, NovaEvent, NovaStep, ScriptView } from './novaStream';
-import type { StepMetric, StepSource } from './scripts/registry';
+import type { AskQuestion, StepMetric, StepSource } from './scripts/registry';
 
 export type StepStatus = 'pending' | 'active' | 'complete';
 export interface FeedStep {
@@ -24,6 +24,22 @@ export interface FeedDiscovery {
    *  trail can interleave findings with the checks that produced them, rather than listing all
    *  the steps and then all the findings as two unrelated columns. */
   afterStepId?: string;
+}
+
+/** A set of clarifying questions, and what came back.
+ *
+ * `answers` is questionId → choiceId, and a question MISSING from it was skipped rather than
+ * answered — which is why the row badge is derived from this map instead of being stored per
+ * question. Two places holding "was this answered" is two places that can disagree, and the map
+ * is the one the stream was actually given.
+ *
+ * `status` is only ever pending or resolved. Whether the reader answered everything, some of it
+ * or none of it is a property of `answers`, not a third state. */
+export interface FeedAsk {
+  id: string;
+  questions: AskQuestion[];
+  answers: Record<string, string>;
+  status: 'pending' | 'resolved';
 }
 
 /**  idle → investigating → answering → settled
@@ -46,6 +62,9 @@ export interface Turn {
   scope?: StepMetric[];
   steps: FeedStep[];
   discoveries: FeedDiscovery[];
+  /** Clarifying questions this turn raised. Almost always empty — only a script that authored
+   *  an `ask` beat produces one. */
+  asks: FeedAsk[];
   answer: AnswerObject | null;
   error: { message: string; recoverable: boolean } | null;
   /** Wall-clock, for the minimum-visible-investigation floor. */
@@ -70,6 +89,7 @@ export const newTurn = (
   view: 'steps',
   steps: [],
   discoveries: [],
+  asks: [],
   answer: null,
   error: null,
   startedAt: Date.now(),
@@ -141,6 +161,18 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
       };
     }
 
+    case 'ask': {
+      if (t.asks.some((a) => a.id === e.id)) return t;   // a reconnecting stream repeats
+      return {
+        ...t,
+        /* Whatever was running is finished FIRST. The stream has genuinely stopped to ask, so a
+           row left pulsing underneath the question would be claiming work that is not happening
+           — and it is the reader, not Nova, that everything is now waiting on. */
+        steps: t.steps.map((x) => (x.status === 'active' ? { ...x, status: 'complete' as StepStatus } : x)),
+        asks: [...t.asks, { id: e.id, questions: e.questions, answers: {}, status: 'pending' }],
+      };
+    }
+
     case 'answer':
       /* An answer ends the work, so nothing is left mid-flight behind it. The STATE is not set
          here — the controller sets `answering` once the minimum investigation time has passed,
@@ -160,6 +192,44 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
       return t;
   }
 }
+
+/** Record what the reader chose, and close the set when they are done with it.
+ *
+ * NOT an event, and deliberately so: every other change to a turn arrives from the stream, but
+ * this one originates in the UI and the reader must see it land immediately (law 6). It is
+ * applied optimistically and the stream is released in the same breath, so no round trip sits
+ * between a click and its acknowledgement.
+ *
+ * `answers` MERGES rather than replaces, so one pick at a time is a legal call — which is what
+ * lets every pick be written to the turn as it happens instead of being held in the card. Close
+ * the drawer half way through and the choices are still there, because a turn outlives the view
+ * of it.
+ *
+ * Only a PENDING ask changes. A second click, a replayed event, or a click on a turn that has
+ * already moved on is a no-op rather than a rewrite of settled history. */
+export function recordAsk(
+  t: Turn, askId: string, answers: Record<string, string>, done: boolean,
+): Turn {
+  const target = t.asks.find((a) => a.id === askId);
+  if (!target || target.status !== 'pending') return t;
+  return {
+    ...t,
+    asks: t.asks.map((a) => (a.id === askId ? {
+      ...a,
+      answers: { ...a.answers, ...answers },
+      status: done ? 'resolved' as const : 'pending' as const,
+    } : a)),
+  };
+}
+
+/** Has every question in this set been answered? The card asks before it closes the set, so the
+ *  rule lives here rather than being re-derived at each call site. */
+export const askComplete = (a: FeedAsk): boolean =>
+  a.questions.every((q) => !!a.answers[q.id]);
+
+/** The question set the turn is parked on, if any. */
+export const pendingAsk = (t: Turn): FeedAsk | null =>
+  t.asks.find((a) => a.status === 'pending') ?? null;
 
 /** Set a turn's state, refusing the one transition that would break the machine.
  *
@@ -188,6 +258,10 @@ export function activeIndex(t: Turn): number {
   /* Terminal FIRST. A stop ends the turn exactly as an answer or an error does, and without
      this the row the reader stopped on would keep pulsing forever. */
   if (t.answer || t.error || t.stopped || !t.steps.length) return -1;
+  /* PARKED ON A QUESTION. Nothing is running, and the always-something-pulsing rule above must
+     not paint over that: a row ticking away while Nova waits on the reader tells them their
+     answer is optional, and it is the only thing the turn is blocked on. */
+  if (pendingAsk(t)) return -1;
   const live = t.steps.findIndex((x) => x.status === 'active');
   if (live >= 0) return live;
   for (let i = t.steps.length - 1; i >= 0; i--) if (t.steps[i].status === 'complete') return i;

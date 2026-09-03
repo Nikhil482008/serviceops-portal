@@ -128,9 +128,12 @@
   /* EIGHT-POINT. Every gap in the drawer is 4 · 8 · 12 · 16 · 24 · 32 and nothing else — the
      old scale was 24 / 14 / 6, three values off the grid, which is why the vertical rhythm read
      as arbitrary even where the sizes were right. */
-  --nova-gap-turn:  32px;   /* user turn → Nova turn */
-  --nova-gap-block: 24px;   /* question → checks, checks → answer */
-  --nova-gap-para:   8px;   /* paragraph → paragraph inside one block */
+  /* ⚠️ RE-TUNED WITH THE TYPE. Gaps were set against a 16/24 body; at 14/1.55 the same
+     numbers leave the column sparse rather than dense — whitespace reads as proportion, not as
+     an absolute. Each step came down one notch on the 4px grid. */
+  --nova-gap-turn:  24px;   /* user turn → Nova turn      (was 32) */
+  --nova-gap-block: 16px;   /* question → checks → answer  (was 24) */
+  --nova-gap-para:   8px;   /* paragraph → paragraph       (unchanged — already tight) */
 
   /* The speaker gutter. Wide enough for a 24px avatar with air, narrow enough that the content
      column keeps almost all of the drawer. */
@@ -138,9 +141,9 @@
      The reader's own words get the only filled message surface in the drawer, and Nova's content
      hangs beneath a named identity row indented to the name. Those two facts are the whole
      sender-identity system — there is no third treatment to remember. */
-  --nova-said-bg: #EEF2F7;   /* the reader's bubble. Nova never uses a fill. */
   --nova-indent: 28px;       /* Nova's content, aligned under her name */
   --nova-surface: #FAFBFC;   /* the ONE info block per answer */
+  --nova-said-bg: #F1F5F9;   /* the reader's own words, bounded */
   --nova-found: #8A6D1F;     /* "Found something", while the work is still running */
 
   /* Three type levels and no more. */
@@ -153,10 +156,27 @@
      headline gives the same ordering at a comfortable reading size, and nothing in a
      conversational response now exceeds 22px. Hierarchy is carried by weight, spacing and
      grouping; size only orders what those have already separated. */
-  --nova-fs-head: 16px;    /* Nova's own name */
-  --nova-fs-body: 16px;    /* body, and the reader's question */
-  --nova-fs-label: 14px;   /* row labels, step labels, the checks summary */
-  --nova-fs-meta: 12px;    /* timestamps, counts, provenance */
+  /* ── THE SCALE ────────────────────────────────────────────────────
+     FOUR SIZES. Not five, not "four plus one for the metric". The previous scale ran 12/14/16/22
+     with a 24px metric on top, and in a 400px column five competing sizes do not read as five
+     levels of importance — they read as loud.
+
+     ⚠️ THE GOVERNING RULE: exactly ONE element may exceed body size, and it is the answer
+     headline. Everything that wants to feel important gets WEIGHT or COLOUR instead. If a fifth
+     size ever looks necessary, that is the signal that something else is wrong. */
+  /* ── EACH ONE 2px SMALLER THAN IT WAS (13 Sep), on request. Still four tokens and still the
+     same four jobs — the ladder moved down as a unit, so every relationship the scale encodes
+     survives unchanged.
+
+     ⚠️ 9px is the one to watch. It is uppercase, tracked, and carries no sentences — table
+     heads, the kv labels, "Checks performed" — so it is scanned rather than read, and its ink
+     (`--nova-ink-muted`, 4.76:1) still clears AA. It is nonetheless below where I would set a
+     floor. Holding this one token at 10px while the other three keep the −2 is a one-line
+     change if it reads too small on a real screen. */
+  --ask-fs-xs:    9px;   /* uppercase labels only — table heads, eyebrows */
+  --ask-fs-sm:   10px;   /* metadata, timestamps, the checks row, chips, dev copy */
+  --ask-fs-base: 12px;   /* body, the question, table values, buttons */
+  --ask-fs-lg:   15px;   /* THE ANSWER HEADLINE, and nothing else */
 
   --ai-dur-ripple: 600ms;
   --ai-dur-card: 380ms;
@@ -1425,19 +1445,72 @@ button:not(:disabled),
  * arbitrary values so the scale is a THING that can be changed in one place — and so a reviewer
  * can see there are exactly three of them.
  */
-.nova-t-head { font-size: var(--nova-fs-head); line-height: 20px; font-weight: 600; color: var(--nova-ink); }
-.nova-t-body { font-size: var(--nova-fs-body); line-height: 24px; color: var(--nova-ink); }
-.nova-t-meta { font-size: var(--nova-fs-meta); line-height: 16px; color: var(--nova-ink-muted); }
+/* ══ THE FOUR ═══════════════════════════════════════════════════════
+ *
+ * ⚠️ theme.css is imported AFTER tailwind.css, so these beat a Tailwind utility of the same
+ * specificity. `ask-text-base font-medium` therefore does NOT work — the class would win. Weight
+ * is expressed with the three modifiers below instead, which also makes 700 unreachable rather
+ * than merely discouraged. */
+.ask-text-xs {
+  font-size: var(--ask-fs-xs);
+  line-height: 1.3;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  /* ⚠️ NOT `--nova-ink-faint`. At 2.56:1 that is under AA, which was tolerable while this tier
+     was decoration and is not now that it is 11px text a reader has to read. */
+  color: var(--nova-ink-muted);
+}
+.ask-text-sm   { font-size: var(--ask-fs-sm);   line-height: 1.4;  font-weight: 400; }
+.ask-text-base { font-size: var(--ask-fs-base); line-height: 1.55; font-weight: 400; }
+.ask-text-lg   { font-size: var(--ask-fs-lg);   line-height: 1.35; font-weight: 600; }
+
+/* The ONLY three weights in this module. Declared after the sizes so they win, and named so a
+   fourth cannot be added without adding a class nobody defined. */
+/* ══ TARGET SIZE ═════════════════════════════════════════════════
+ *
+ * SMALLER TEXT MUST NOT MEAN A SMALLER TARGET. Type came down across the module; the pressable
+ * areas did not. This extends the hit box to 44×44 with a pseudo-element, centred on the
+ * control, so the visible chrome stays as dense as the type while the thing a finger or an
+ * imprecise cursor has to land on stays full size.
+ *
+ * ⚠️ Requires a positioning context, which every consumer gets from `position: relative`
+ * below. The pseudo-element is `pointer-events: auto` on an element that already accepts them,
+ * so it enlarges the target rather than creating a second one. */
+.nova-hit { position: relative; }
+.nova-hit::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  /* Never wider than the control itself when the control is already bigger — a 44px box centred
+     on a full-width row would otherwise shrink its target. */
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.ask-w-400 { font-weight: 400; }
+.ask-w-500 { font-weight: 500; }
+.ask-w-600 { font-weight: 600; }
+
+/* Semantic aliases kept so components read as what they mean rather than as sizes. Every one
+   composes from the four above and NONE declares a size of its own. */
+.nova-t-head { font-size: var(--ask-fs-sm); line-height: 1.4; font-weight: 500; color: var(--nova-ink); }
+.nova-t-body { font-size: var(--ask-fs-base); line-height: 1.55; color: var(--nova-ink); }
+.nova-t-meta { font-size: var(--ask-fs-sm); line-height: 1.4; color: var(--nova-ink-muted); }
 /* The scaffolding level. Muted by CASE and TRACKING, not by contrast — it still passes AA. */
 .nova-t-label {
-  /* The section eyebrow. Present so a layer can be named, quiet so it never competes with what
-     it names — "YOUR ANSWER" must not be the second-loudest thing in the answer. */
-  font-size: var(--nova-fs-meta);
-  line-height: 16px;
-  font-weight: 600;
-  letter-spacing: 0.07em;
+  /* The eyebrow tier. Same declaration as `.ask-text-xs` — kept as a name so components say
+     "label" rather than "extra small". */
+  font-size: var(--ask-fs-xs);
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--nova-ink-faint);
+  color: var(--nova-ink-muted);
 }
 
 /* ── buttons ─────────────────────────────────────────────────────
@@ -1521,34 +1594,51 @@ button:not(:disabled),
  *   step     12.5px       compact, because it is a list read at a glance.
  *   proc     11px tracked metadata ABOUT work, quieter than anything it sits beside.
  */
-.nova-t-answer {
-  font-size: 14px;
-  line-height: 1.55;
-  font-weight: 500;
-  color: var(--nova-ink);
-}
+/* `.nova-t-answer` was DELETED. Nothing rendered it — it was a leftover of the register
+   table above, and its hardcoded 14px became a fifth size the moment the ladder moved.
+   The answer body is `.nova-t-body`. */
 .nova-t-said {
-  /* The question is CONTEXT, not the primary content — same size as Nova's body, never larger,
-     and regular weight against the answer's 600. */
-  font-size: var(--nova-fs-body);
-  line-height: 24px;
+  /* Body size, and now body WEIGHT. It was 500 while the question had no container to
+     distinguish it; it has one now, and leaving the weight on would have made the reader's own
+     words heavier than the answer they produced — an inversion this module has corrected once
+     already. */
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   font-weight: 400;
   color: var(--nova-ink);
 }
+
+/* THE READER'S SIDE — a bounded area, and nothing else in it.
+   No initials mark, no name, no timestamp. Those three answered "who said this", and a surface
+   on one side of the column answers it before any of them can be read. One signal instead of
+   three, which is the simpler reading Prägnanz asks for. */
+.nova-said-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.nova-said-box {
+  /* Never full width. A question that runs the whole column is indistinguishable from an answer
+     that does, and the ragged left edge is what makes the alternation legible while scrolling. */
+  max-width: 86%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--nova-said-bg);
+}
 .nova-t-step {
-  font-size: var(--nova-fs-label);
-  line-height: 20px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
 }
 .nova-t-proc {
-  font-size: var(--nova-fs-label);
-  line-height: 20px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
   color: var(--nova-ink-muted);
 }
 
 /* Scaffolding that is not product content, and must never be mistaken for it. */
 .nova-devnote {
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
   color: var(--nova-ink-muted);
   border-left: 2px solid #E4D7A9;
   background: #FDFBF3;
@@ -1564,36 +1654,39 @@ button:not(:disabled),
    "SERVICEOPS AI" — which is a masthead, and a masthead outranked the greeting. One line, 10px,
    quiet enough to be recognised without being read. */
 .nova-eyebrow {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  font-size: var(--ask-fs-xs);
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #A9B6C6;
+  color: var(--nova-ink-muted);
 }
 .nova-eyebrow-sub { font-weight: 500; color: #C2CDDA; }
 
 /* THE HERO. The largest text on the screen is now about the reader. */
 .nova-hello {
-  margin-top: 16px;
-  font-size: 22px;
-  line-height: 1.25;
+  /* The empty state's hero. Same tier as the answer headline — they are the same KIND of
+     element (the one thing on the screen), and they never appear together. */
+  margin-top: 12px;
+  font-size: var(--ask-fs-lg);
+  line-height: 1.35;
   font-weight: 600;
-  letter-spacing: -0.011em;
+  letter-spacing: -0.006em;
   color: var(--nova-ink);
 }
 .nova-hello-sub {
   margin-top: 4px;
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   color: var(--nova-ink-muted);
 }
 /* One true sentence about this person's estate, when there is one. Deliberately small: context
    is orientation, not the offer. */
 .nova-hello-ctx {
   margin-top: 8px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--nova-ink-faint);
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
 }
 
 /* ── a suggestion ─────────────────────────────────────────────────────
@@ -1606,7 +1699,7 @@ button:not(:disabled),
   align-items: center;
   gap: 12px;
   width: 100%;
-  height: 40px;
+  min-height: 44px;
   padding: 0 12px;
   border-radius: 10px;
   border: 1px solid transparent;
@@ -1637,7 +1730,8 @@ button:not(:disabled),
 
 .nova-sugg-title {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   font-weight: 500;
   color: var(--nova-ink);
 }
@@ -1649,8 +1743,9 @@ button:not(:disabled),
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
-  color: var(--nova-ink-faint);
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
 }
 
 /* ══ the response system ═════════════════════════════════════════════
@@ -1670,57 +1765,25 @@ button:not(:disabled),
 /* ── what I said ──────────────────────────────────────────────────────
    The ONLY filled message surface in the drawer. Nova never gets one, so fill alone answers
    "whose line is this" before a word is read. */
-.nova-said {
-  /* Tighter, and a smaller radius: the container is a quiet tint marking whose words these are,
-     not a card. */
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: var(--nova-said-bg);
-}
-.nova-said-avatar {
-  /* 24px. At 36 it was the loudest thing in the turn — a two-letter placeholder outweighing the
-     question it belonged to, and outweighing Nova's own 20px mark on the reply beneath it. An
-     avatar here is a speaker tag, not a profile picture: it only has to say "this one is mine". */
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #fff;
-}
-.nova-said-foot {
-  /* Attribution stays WITH the message. It sat under a 24px action row that reserved its height
-     whether or not it was visible, which pushed "You · Just now" far enough from the bubble to
-     read as a separate element. The row is now driven by the timestamp's own line box and the
-     actions sit inside it. */
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-height: 20px;
-  margin-top: 8px;
-  padding-right: 4px;
-}
+
+/* `.nova-said-avatar` was DELETED with the initials mark it drew. The box says who is
+   speaking, so a second signal saying the same thing was one to remove rather than to keep
+   as dead CSS for something to re-adopt by accident. `.nova-said` / `.nova-said-foot` went
+   earlier, with an older version of this same idea. The live rules are `.nova-said-wrap`
+   and `.nova-said-box`. */
 
 /* ── LEVEL 1 · the conclusion ───────────────────────────────────────────
    18px against the question's 13px. The single largest thing in a turn, and the only line a
    reader has to see. Everything below it is why. */
 .nova-headline {
-  /* 22/32 — a conversational answer, not a page heading. It reads as the conclusion because it
-     is the only 600-weight line at this size in the turn, not because it is big. */
-  margin-top: 8px;
-  font-size: 22px;
-  line-height: 32px;
+  /* THE ONE ELEMENT ALLOWED ABOVE BODY SIZE. 17px against a 14px body is a step you can see
+     without it becoming a page heading in a 400px column — the previous 22px was 1.6× body and
+     took two lines for a short sentence. */
+  margin-top: 4px;
+  font-size: var(--ask-fs-lg);
+  line-height: 1.35;
   font-weight: 600;
-  letter-spacing: -0.011em;
+  letter-spacing: -0.006em;
   color: var(--nova-ink);
   text-wrap: pretty;
 }
@@ -1729,11 +1792,11 @@ button:not(:disabled),
    Sits ABOVE the table it interprets. A table handed over with no reading is a query result,
    not an answer. */
 .nova-insight {
-  /* Body size, medium weight. It outranks the prose beneath it by WEIGHT, which is what stops
-     the response acquiring a sixth type size for one sentence. */
+  /* Body size, weight 500. It outranks the prose beneath it without a size step — which is the
+     whole argument for having only four. */
   margin-top: 8px;
-  font-size: var(--nova-fs-body);
-  line-height: 24px;
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   font-weight: 500;
   color: var(--nova-ink);
 }
@@ -1751,21 +1814,602 @@ button:not(:disabled),
 .nova-kv-row + .nova-kv-row { border-top: 1px solid var(--nova-rule); }
 .nova-kv-label {
   flex-shrink: 0;
-  width: 104px;
-  font-size: var(--nova-fs-meta);
-  line-height: 24px;
-  font-weight: 600;
+  width: 92px;
+  font-size: var(--ask-fs-xs);
+  line-height: 1.55;
+  font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--nova-ink-faint);
+  color: var(--nova-ink-muted);
 }
 .nova-kv-value {
   min-width: 0;
   flex: 1;
-  font-size: var(--nova-fs-body);
-  line-height: 24px;
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   font-weight: 400;
   color: var(--nova-ink);
+}
+
+/* ══ TEC-8 · the action plan ═══════════════════════════════════════════
+ *
+ * NO NEW TYPE SIZES AND NO NEW COLOURS. Everything below draws on the four `--ask-fs-*` tokens,
+ * the existing ink ramp and the existing hairline, so a plan sits inside a Nova thread as one
+ * more thing Nova said rather than as a widget that arrived from somewhere else.
+ *
+ * Spacing is 4 and 8 throughout — the only values used are 2, 4, 6, 8, 10, 12, 14, 16 and 20.
+ *
+ * ⚠️ The brief's §21 quotes a larger scale (24px headings, 16px body). That describes this
+ * module BEFORE the two typography passes that preceded this one, the second of which took every
+ * token down 2px on request. Matching §21's numbers would have put TEC-8 at 1.3× the size of
+ * every other answer in the same drawer, so the CURRENT scale wins and §21's principles —
+ * hierarchy from weight and spacing, never from giant type — are what is honoured here.
+ */
+
+/* ── the thread ── */
+.tec8-thread { display: grid; row-gap: var(--nova-gap-turn); }
+.tec8-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 32px 0;
+}
+.tec8-start { max-width: 380px; margin-top: 20px; }
+
+/* ── the ticket, compactly ── */
+.tec8-ctx {
+  border: 1px solid var(--nova-rule);
+  border-radius: 8px;
+  background: var(--nova-surface);
+  padding: 12px 12px;
+}
+.tec8-ctx-id {
+  font-size: var(--ask-fs-base);
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--nova-ink);
+}
+.tec8-ctx-title {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--nova-ink-muted);
+}
+.tec8-ctx-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+.tec8-ctx-value {
+  margin-top: 2px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+/* Amber AND a glyph. The SLA is the reason this is urgent, so it must not depend on colour. */
+.tec8-warn { color: #8A6D1F; }
+.tec8-ctx-tried { margin-top: 12px; }
+.tec8-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.tec8-chip {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #EEF3F8;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+
+/* ── the plan ── */
+.tec8-plan { margin-top: var(--nova-gap-block); }
+.tec8-diff { margin-top: 12px; }
+.tec8-steps { margin-top: 12px; }
+
+/* A numbered proposal, not a form: no boxes, no field labels, one hairline between steps. */
+.tec8-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  position: relative;
+}
+.tec8-step + .tec8-step { border-top: 1px solid var(--nova-rule); }
+.tec8-step-n {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: #EEF3F8;
+  font-size: var(--ask-fs-xs);
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--nova-ink-muted);
+}
+.tec8-step-title {
+  font-size: var(--ask-fs-base);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+/* A WORD, not a colour. This is the basis on which approval is given. */
+.tec8-step-mut,
+.tec8-step-upd {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: var(--ask-fs-xs);
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+.tec8-step-mut { background: #FDF4E3; color: #8A6D1F; }
+.tec8-step-upd { background: #EAF1F8; color: var(--nova-primary); }
+.tec8-step-change {
+  margin-top: 2px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+.tec8-step-detail {
+  margin-top: 2px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+
+/* The affordance is quiet but always PRESENT — one that appears only on hover does not exist
+   for the keyboard. It fades in on hover and on focus, and it is 44px either way. */
+.tec8-step-tools { position: relative; flex-shrink: 0; }
+.tec8-dots {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 120ms var(--ai-ease-move);
+}
+.tec8-step:hover .tec8-dots,
+.tec8-dots:focus-visible,
+.tec8-dots[aria-expanded='true'] { opacity: 1; }
+@media (hover: none) { .tec8-dots { opacity: 1; } }
+
+.tec8-menu {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  z-index: 30;
+  min-width: 148px;
+  padding: 4px;
+  border: 1px solid var(--nova-rule);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.10);
+}
+.tec8-menu-up { top: auto; bottom: 32px; right: auto; left: 0; }
+.tec8-menu-item {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 4px;
+  text-align: left;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink);
+  background: transparent;
+}
+.tec8-menu-item:hover:not(:disabled) { background: #F1F5F9; }
+.tec8-menu-item:disabled { color: var(--nova-ink-faint); cursor: default; }
+.tec8-menu-item:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: -2px; }
+.tec8-menu-danger { color: #B42318; }
+
+/* Editing reveals ONE control — the setting the step is the expression of. */
+.tec8-step-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--nova-surface);
+}
+.tec8-select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid #C7D6E4;
+  border-radius: 4px;
+  background: #fff;
+  font-size: var(--ask-fs-sm);
+  color: var(--nova-ink);
+}
+.tec8-select:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: 1px; }
+
+/* ── impact ── */
+.tec8-impact { margin-top: 16px; }
+/* A row that changes nothing still appears, and is quiet. Removing it would hide the fact that
+   the question was considered — and "No change" is the most important line in a revised plan. */
+.tec8-nochange { color: var(--nova-ink-muted); }
+
+/* ── why ── */
+.tec8-why { margin-top: 8px; }
+.tec8-why-list { margin: 4px 0 0 24px; }
+.tec8-why-item {
+  position: relative;
+  padding: 3px 0;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+.tec8-why-item::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 9px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #C7D6E4;
+}
+
+/* ── the decision ── */
+.tec8-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nova-rule);
+}
+/* ONE dominant action. The pair is deliberately unequal — they are not equally likely and not
+   equally consequential. */
+.tec8-btn-primary {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: var(--ask-fs-base);
+  font-weight: 500;
+}
+.tec8-btn-secondary {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--nova-rule);
+  border-radius: 6px;
+  font-size: var(--ask-fs-base);
+}
+.tec8-btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: var(--ask-fs-sm);
+}
+
+/* ── modifying ── */
+.tec8-editor { margin-top: 12px; }
+.tec8-input-row { display: flex; align-items: flex-end; gap: 8px; margin-top: 6px; }
+.tec8-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid #C7D6E4;
+  border-radius: 6px;
+  background: #fff;
+  font-size: var(--ask-fs-base);
+  line-height: 1.5;
+  color: var(--nova-ink);
+  resize: vertical;
+}
+.tec8-input:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: 1px; }
+.tec8-send {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: var(--ask-fs-sm);
+  font-weight: 500;
+}
+.tec8-rejected {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-left: 2px solid #B42318;
+  border-radius: 0 4px 4px 0;
+  background: #FEF3F2;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink);
+}
+.tec8-editor-foot { margin-top: 8px; }
+/* The example is a CHIP, so it can be read, edited or sent — a placeholder disappears the
+   moment it becomes useful. It wraps, because the sentence is the point. */
+.tec8-example {
+  height: auto;
+  padding: 8px 12px;
+  text-align: left;
+  white-space: normal;
+}
+.tec8-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+.tec8-add { position: relative; }
+
+/* ── execution ── */
+.tec8-exec-lead {
+  margin-top: 4px;
+  font-size: var(--ask-fs-base);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+.tec8-exec-list { margin-top: 12px; }
+.tec8-exec-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-faint);
+}
+.tec8-exec-row[data-status='done'] { color: var(--nova-ink-muted); }
+.tec8-exec-row[data-status='running'] { color: var(--nova-ink); font-weight: 500; }
+.tec8-exec-row[data-status='failed'] { color: var(--nova-ink); }
+.tec8-exec-n {
+  flex-shrink: 0;
+  width: 34px;
+  font-size: var(--ask-fs-xs);
+  letter-spacing: 0;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--nova-ink-muted);
+}
+.tec8-exec-glyph {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+}
+.tec8-exec-row[data-status='done'] .tec8-exec-glyph { color: #12805C; }
+.tec8-exec-row[data-status='failed'] .tec8-exec-glyph { color: #B42318; }
+.tec8-exec-dot { width: 6px; height: 6px; border-radius: 50%; background: #3D8BD0; }
+.tec8-exec-ring {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid #D7DEE7;
+}
+.tec8-exec-label { min-width: 0; }
+
+/* ── the outcome ── */
+.tec8-done-eyebrow { color: #0F6E4F; }
+.tec8-done-sub { margin-top: 12px; }
+.tec8-done-list { margin-top: 6px; }
+.tec8-done-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink);
+}
+.tec8-done-tick { flex-shrink: 0; color: #12805C; }
+.tec8-done-warn { flex-shrink: 0; color: #B42318; }
+/* The word, beside the glyph. A failed line must not rely on a red mark to be read as failed. */
+.tec8-done-failed {
+  margin-left: 6px;
+  font-size: var(--ask-fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #B42318;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tec8-dots { transition: none; }
+}
+
+/* ── asking the reader ───────────────────────────────────────
+   THE ONE BORDERED OBJECT IN A TURN, and it earns the border by being the only thing in the
+   drawer the reader has to act on. Everything else Nova produces is unboxed prose, so a card
+   here reads as "this is different" without a colour or a size having to say it (law 17).
+
+   No new tokens. Four type sizes, the existing ink ramp, the existing hairline, the existing
+   primary. A question set that introduced its own palette would be the loudest thing on screen
+   for the least durable reason. */
+.nova-ask {
+  border: 1px solid var(--nova-rule);
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.nova-ask-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.nova-ask-glyph { flex-shrink: 0; margin-top: 1px; color: var(--nova-ink-muted); }
+.nova-ask-title {
+  font-size: var(--ask-fs-base);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+.nova-ask-sub {
+  margin-top: 2px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+
+.nova-ask-list { border-top: 1px solid var(--nova-rule); }
+.nova-ask-row + .nova-ask-row { border-top: 1px solid var(--nova-rule); }
+/* The open row is the only tinted one. Proximity and a wash carry "you are here" between two
+   otherwise identical rows, so nothing has to be moved or resized to say it (law 4, law 17). */
+.nova-ask-row[data-open='true'] { background: var(--nova-surface); }
+
+/* CLOSED — the reference's row: question, a badge, a chevron. 44px because it is a real target
+   and the rows sit directly on top of one another (law 2). */
+.nova-ask-closed {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 14px;
+  text-align: left;
+  background: transparent;
+  transition: background 120ms var(--ai-ease-move);
+}
+.nova-ask-closed:hover:not(:disabled) { background: #F7F9FB; }
+.nova-ask-closed:disabled { cursor: default; }
+.nova-ask-closed:focus-visible {
+  outline: 2px solid var(--nova-primary);
+  outline-offset: -2px;
+}
+.nova-ask-q {
+  min-width: 0;
+  flex: 1;
+  font-size: var(--ask-fs-base);
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--nova-ink);
+}
+/* Not yet reached. Quiet, but still legible — it is there to show what is left, and a row the
+   reader cannot read does not do that. */
+.nova-ask-q[data-ahead='true'] { color: var(--nova-ink-muted); }
+.nova-ask-tail {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--nova-ink-muted);
+}
+.nova-ask-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #EEF3F8;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--nova-ink-muted);
+  white-space: nowrap;
+}
+/* Skipped is a FACT, not a failure. Same shape, one step quieter — colouring it as a warning
+   would tell someone their own decision went wrong. */
+.nova-ask-badge[data-skipped='true'] { background: #F1F5F9; }
+/* The answer, under its question. Indented to the question's own text so the pair reads as one
+   thing rather than as two rows that happen to be adjacent. */
+.nova-ask-chosen {
+  padding: 0 14px 10px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+
+/* OPEN — the question, then its choices. */
+.nova-ask-open { padding: 12px 14px 14px; }
+.nova-ask-open .nova-ask-q { display: block; padding: 0; }
+.nova-ask-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+.nova-ask-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 10px;
+  border: 1px solid var(--nova-rule);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 120ms var(--ai-ease-move), background 120ms var(--ai-ease-move);
+}
+.nova-ask-choice:hover { border-color: #C7D6E4; background: #FCFDFE; }
+/* The radio is visually hidden, so the FOCUS RING has to be put back by hand — without it the
+   group is keyboard-operable and invisibly so. On the dot, which is where a radio's ring lives
+   anyway (law 3), and via a sibling selector so it does not depend on `:has`. */
+.nova-ask-choice input:focus-visible ~ .nova-ask-dot {
+  outline: 2px solid var(--nova-primary);
+  outline-offset: 2px;
+}
+.nova-ask-choice[data-picked='true'] {
+  border-color: var(--nova-primary);
+  background: #F5F9FC;
+}
+.nova-ask-choice:has(input:disabled) { cursor: default; opacity: 0.7; }
+.nova-ask-dot {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1px solid #C7D6E4;
+  border-radius: 50%;
+  color: #fff;
+}
+.nova-ask-choice[data-picked='true'] .nova-ask-dot {
+  border-color: var(--nova-primary);
+  background: var(--nova-primary);
+}
+.nova-ask-choice-label {
+  display: block;
+  font-size: var(--ask-fs-base);
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--nova-ink);
+}
+.nova-ask-choice-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+
+.nova-ask-foot {
+  border-top: 1px solid var(--nova-rule);
+  padding: 4px 8px;
+}
+.nova-ask-skip {
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-ask-closed, .nova-ask-choice { transition: none; }
 }
 
 /* ── the table ───────────────────────────────────────────────────────
@@ -1784,12 +2428,12 @@ button:not(:disabled),
 .nova-th {
   padding: 8px;
   text-align: left;
-  font-size: var(--nova-fs-meta);
-  line-height: 16px;
-  font-weight: 600;
+  font-size: var(--ask-fs-xs);
+  line-height: 1.3;
+  font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--nova-ink-faint);
+  color: var(--nova-ink-muted);
   white-space: nowrap;
   border-bottom: 1px solid var(--nova-rule);
 }
@@ -1797,13 +2441,13 @@ button:not(:disabled),
 .nova-td {
   position: relative;
   padding: 8px;
-  font-size: var(--nova-fs-label);
-  line-height: 20px;
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   color: var(--nova-ink);
   vertical-align: baseline;
 }
 tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
-.nova-td-rank { font-size: var(--nova-fs-meta); color: var(--nova-ink-faint); }
+.nova-td-rank { font-size: var(--ask-fs-sm); color: var(--nova-ink-muted); }
 .nova-th.nova-num, .nova-td.nova-num { text-align: right; font-variant-numeric: tabular-nums; }
 /* Behind the value, never over it. Low alpha so it reads as weight rather than as a control. */
 .nova-td-bar {
@@ -1835,17 +2479,21 @@ tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
   background: var(--nova-surface);
 }
 .nova-metric-label {
-  font-size: var(--nova-fs-meta);
-  line-height: 16px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: var(--ask-fs-xs);
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--nova-ink-faint);
+  color: var(--nova-ink-muted);
 }
 .nova-metric-value {
+  /* ⚠️ DID NOT MAP CLEANLY. This was 24px — a headline number, and the one place the four-size
+     scale genuinely costs something. The governing rule says only the answer headline may exceed
+     body, so it is body size at weight 600: still the strongest thing in its card, no longer a
+     fifth size. Reported rather than quietly excepted. */
   margin-top: 4px;
-  font-size: 24px;
-  line-height: 32px;
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--nova-ink);
@@ -1853,8 +2501,8 @@ tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
 /* ⚠️ COLOUR IS SENTIMENT, NOT DIRECTION. Fewer open tickets is good and more breaches is not;
    the arrow cannot tell them apart, so the script says which and this only paints it. */
 .nova-metric-delta {
-  font-size: var(--nova-fs-meta);
-  line-height: 16px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
   font-variant-numeric: tabular-nums;
   color: var(--nova-ink-muted);
 }
@@ -1882,8 +2530,8 @@ tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 1px 2px rgba(54, 70, 88, 0.04);
-  font-size: var(--nova-fs-label);
-  line-height: 20px;
+  font-size: var(--ask-fs-base);
+  line-height: 1.55;
   color: var(--nova-ink);
   text-align: left;
   transition:
@@ -1923,7 +2571,11 @@ tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
   border-radius: 0 6px 6px 0;
   background: #FDFAF2;
 }
-.nova-caveat-body { font-size: var(--nova-fs-label); line-height: 20px; color: var(--nova-ink-muted); }
+.nova-caveat-body {
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
 
 /* ── LEVEL 4 · sources ────────────────────────────────────────────
    Trustworthy, not loud. Chips rather than a list: they are references, and a reference the
@@ -1932,12 +2584,12 @@ tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 12px;
+  padding: 4px 8px;
   border: 1px solid var(--nova-rule);
   border-radius: 999px;
   background: #fff;
-  font-size: var(--nova-fs-meta);
-  line-height: 16px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
   color: var(--nova-ink-muted);
 }
 .nova-src-kind { color: var(--nova-ink-faint); }

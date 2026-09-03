@@ -33,7 +33,7 @@ export function NovaFailure({ turn, onRetry }: { turn: Turn; onRetry?: () => voi
       className={`nova-disc mt-4 rounded-lg border px-3.5 py-3 ${
         stopped ? 'border-[var(--nova-rule)] bg-[#FAFBFC]' : 'border-[#F3D2D2] bg-[#FDF6F6]'}`}
     >
-      <p className={`flex items-start gap-2 text-[13px] font-medium ${
+      <p className={`flex items-start gap-2 ask-text-base ask-w-500 ${
         stopped ? 'text-[var(--nova-ink)]' : 'text-[#B42318]'}`}
       >
         {stopped
@@ -44,7 +44,7 @@ export function NovaFailure({ turn, onRetry }: { turn: Turn; onRetry?: () => voi
 
       {/* Plain language, and it names what SURVIVED — law 15 is "preserve the user's work", and
           the checks already run are the work. Silence here reads as "start over". */}
-      <p className="mt-1 pl-[23px] text-[12px] leading-[1.55] text-[var(--nova-ink-muted)]">
+      <p className="mt-1 pl-[23px] ask-text-sm leading-[1.55] text-[var(--nova-ink-muted)]">
         {stopped
           ? (checks > 0
             ? `${checks} check${checks === 1 ? '' : 's'}${found ? ` and ${found} finding${found === 1 ? '' : 's'}` : ''} `
@@ -58,7 +58,7 @@ export function NovaFailure({ turn, onRetry }: { turn: Turn; onRetry?: () => voi
           <button
             type="button"
             onClick={onRetry}
-            className="nova-btn inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3 text-[12px] font-medium text-[var(--nova-ink)] hover:border-[var(--nova-primary)]"
+            className="nova-btn inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3 ask-text-sm ask-w-500 text-[var(--nova-ink)] hover:border-[var(--nova-primary)]"
           >
             <RotateCcw size={13} aria-hidden="true" /> Try again
           </button>

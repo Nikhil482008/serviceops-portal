@@ -37,7 +37,7 @@ export function FollowUpSuggestions({ questions, live, onAsk }: {
             disabled={!live}
             onClick={() => onAsk(q)}
             data-followup
-            className="nova-btn nova-pill"
+            className="nova-btn nova-pill nova-hit"
           >
             <MessageSquare size={14} className="nova-pill-icon" aria-hidden="true" />
             {q}

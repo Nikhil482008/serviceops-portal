@@ -343,6 +343,14 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
           title="Ask AI — Nova shell"
           onClick={() => onNavigate?.('nova-demo')}
         />
+        {/* TEC-8. Also scaffolding — the flow itself belongs in the drawer; this page exists so
+            each of its nine states can be opened directly for review. */}
+        <NavItem
+          icon={<ClipboardCheck size={20} />}
+          active={activePage === 'tec8'}
+          title="Ask AI — TEC-8 action plan"
+          onClick={() => onNavigate?.('tec8')}
+        />
         <NavItem icon={<IconDashboard size={20} />} title="Dashboard" />
         <NavItem
           icon={<IconRequest size={20} />}

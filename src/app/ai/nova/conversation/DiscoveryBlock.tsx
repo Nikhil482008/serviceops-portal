@@ -19,13 +19,15 @@ export function DiscoveryBlock({ discoveries }: { discoveries: FeedDiscovery[] }
       <h4 className="nova-t-label text-[var(--nova-found)]">
         Found something
       </h4>
-      {/* The ONLY live region in the drawer. Steps tick several times a minute and announcing
-          each one makes this unusable with a screen reader; a discovery is the thing worth
-          interrupting for. */}
+      {/* One of only TWO live regions in the drawer, and the rule for both is the same: announce
+          what is worth interrupting for, and nothing else. Steps tick several times a minute, so
+          announcing each one makes this unusable with a screen reader. A finding qualifies; so
+          does a clarifying question, which is the other one — see `AskUserQuestion`, where the
+          stream is actually blocked until the reader deals with it. */}
       <div className="mt-1.5 space-y-2" aria-live="polite">
         {discoveries.map((d) => (
           <div key={d.id} className="nova-disc">
-            <p className="nova-t-body font-medium">{d.headline}</p>
+            <p className="nova-t-body ask-w-500">{d.headline}</p>
             <p className="nova-t-meta mt-0.5">{d.detail}</p>
           </div>
         ))}

@@ -80,10 +80,11 @@ export function InvestigationState({ turn, onRetry }: { turn: Turn; onRetry?: ()
       onClick={() => { setUserToggled(true); setCollapsed((v) => !v); }}
       /* 40px collapsed. It is the SUMMARY of the work, not the work — it must be reachable
          without being a section of its own. */
-      className="nova-btn nova-btn-ghost -ml-2 flex w-[calc(100%+16px)] items-center gap-2 rounded px-2 py-2.5 text-left"
+      className="nova-btn nova-btn-ghost -ml-2 flex min-h-[44px] w-[calc(100%+16px)] items-center gap-2 rounded px-2 text-left"
     >
-      {/* CHEVRON FIRST: the expand affordance is what a scanning eye should hit first, and it is
-          the only part of this row that does anything. */}
+      {/* ONE CONTROL. This row briefly carried three affordances for one action — the chevron,
+          the label, and a redundant expand link on the right. The chevron plus the label IS the
+          button; a second affordance for one action reads as two actions. */}
       <ChevronDown
         size={12}
         className="nova-chev flex-shrink-0 text-[var(--nova-ink-muted)]"
@@ -91,7 +92,7 @@ export function InvestigationState({ turn, onRetry }: { turn: Turn; onRetry?: ()
         aria-hidden="true"
       />
       {!running && (
-        <span className="flex-shrink-0 text-[11px] text-[#0F6E4F]" aria-hidden="true">✓</span>
+        <span className="flex-shrink-0 ask-text-sm text-[#0F6E4F]" aria-hidden="true">✓</span>
       )}
       <span className={`nova-t-proc min-w-0 truncate ${running ? 'nova-shimmer' : ''}`}>{label}</span>
       {/* Law 11 — progress stays visible even when the reader has folded the trail away mid-run.
@@ -99,9 +100,6 @@ export function InvestigationState({ turn, onRetry }: { turn: Turn; onRetry?: ()
           unknown until the stream ends. "4 checks done" is true; "4 of 9" would be invented. */}
       {running && collapsed && counts.checks > 0 && (
         <span className="nova-t-meta ml-auto flex-shrink-0">{counts.checks} done</span>
-      )}
-      {!running && collapsed && (
-        <span className="nova-t-meta ml-auto flex-shrink-0">Show checks</span>
       )}
     </button>
   );
@@ -188,7 +186,7 @@ function StepRow({ step, isLive }: { step: FeedStep; isLive: boolean }) {
           <span className="block size-[6px] rounded-full border border-[#D7DEE7]" />
         )}
       </span>
-      <span className={isLive ? 'font-medium' : ''}>{step.label}</span>
+      <span className={isLive ? 'ask-w-500' : ''}>{step.label}</span>
       {isLive && <span className="sr-only"> — in progress</span>}
     </li>
   );

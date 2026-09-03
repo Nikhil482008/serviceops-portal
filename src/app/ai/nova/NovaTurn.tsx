@@ -27,7 +27,8 @@ import type { Turn } from './turnModel';
  * heading and the reading order stays "You asked … / Nova replied …" rather than an
  * undifferentiated run of text. The avatar and the orb are decoration and are `aria-hidden`.
  */
-export function NovaTurn({ turn, live, onFollowUp, onEditQuery, onRetry }: {
+export function NovaTurn(
+  { turn, live, onFollowUp, onEditQuery, onRetry, onAnswerAsk }: {
   turn: Turn;
   /** This is the newest turn. Older turns keep their suggestions visible but inert. */
   live: boolean;
@@ -37,7 +38,11 @@ export function NovaTurn({ turn, live, onFollowUp, onEditQuery, onRetry }: {
   /** Run this same question again, in place. Every turn gets one — a failure two turns back is
    *  still a question that never got answered. */
   onRetry: () => void;
-}) {
+  /** What the reader chose on a clarifying question set. `done` closes the set and releases the
+   *  parked stream; until then each pick is just recorded. */
+  onAnswerAsk: (askId: string, answers: Record<string, string>, done: boolean) => void;
+  },
+) {
   const working = turn.state === 'investigating' || turn.state === 'answering';
 
   return (
@@ -46,7 +51,7 @@ export function NovaTurn({ turn, live, onFollowUp, onEditQuery, onRetry }: {
 
       <div style={{ marginTop: 'var(--nova-gap-turn)' }}>
         <NovaMessage startedAt={turn.startedAt} working={working}>
-          <NovaFeed turn={turn} onRetry={onRetry} />
+          <NovaFeed turn={turn} onRetry={onRetry} onAnswerAsk={onAnswerAsk} />
           <NovaAnswer turn={turn} live={live} onFollowUp={(q) => onFollowUp(q, turn.id)} />
         </NovaMessage>
       </div>

@@ -65,7 +65,7 @@ export function EvidenceBlock({ turn }: { turn: Turn }) {
             type="button"
             aria-expanded={open}
             onClick={() => setOpen((v) => !v)}
-            className="nova-btn nova-btn-ghost -ml-2 mt-1 flex items-center gap-1.5 rounded px-1.5 py-1 text-left"
+            className="nova-btn nova-btn-ghost nova-hit -ml-2 mt-1 flex min-h-[44px] items-center gap-2 rounded px-2 text-left"
           >
             <ChevronDown
               size={12}
@@ -80,7 +80,7 @@ export function EvidenceBlock({ turn }: { turn: Turn }) {
             <div className="mt-1 pl-1.5">
               {reasons.map((d) => (
                 <p key={d.id} className="nova-t-body flex items-start gap-2 py-[3px] text-[var(--nova-ink-muted)]">
-                  <span className="mt-[1px] flex-shrink-0 text-[11px] text-[#12805C]" aria-hidden="true">✓</span>
+                  <span className="mt-[1px] flex-shrink-0 ask-text-sm text-[#12805C]" aria-hidden="true">✓</span>
                   <span>{d.headline}</span>
                 </p>
               ))}
@@ -91,7 +91,7 @@ export function EvidenceBlock({ turn }: { turn: Turn }) {
                       "Computed live from 150 tickets · just now", which is a sentence pretending
                       to be provenance. */}
                   <p className="nova-t-meta">
-                    Based on <b className="font-semibold text-[var(--nova-ink)]">{checks} checks</b>
+                    Based on <b className="ask-w-500 text-[var(--nova-ink)]">{checks} checks</b>
                     {' · '}updated just now
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">

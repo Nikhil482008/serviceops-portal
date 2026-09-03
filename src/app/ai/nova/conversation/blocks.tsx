@@ -29,7 +29,7 @@ export function Emph({ children }: { children: string }) {
   return (
     <>
       {parts.map((p, i) => (p.startsWith('**') && p.endsWith('**')
-        ? <b key={i} className="font-semibold text-[var(--nova-ink)]">{p.slice(2, -2)}</b>
+        ? <b key={i} className="ask-w-500 text-[var(--nova-ink)]">{p.slice(2, -2)}</b>
         : <span key={i}>{p}</span>))}
     </>
   );

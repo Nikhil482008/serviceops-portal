@@ -42,8 +42,8 @@ export function NovaMessage({ startedAt, working, children }: {
       <div className="flex items-center gap-2">
         <AskAiOrb size={20} still={!working} state={working ? 'investigating' : 'settled'} />
         <span className="nova-t-head">Nova</span>
-        <span className="text-[14px] leading-5 text-[var(--nova-ink-faint)]" aria-hidden="true">·</span>
-        <span className="text-[14px] leading-5 text-[var(--nova-ink-muted)]">
+        <span className="ask-text-sm text-[var(--nova-ink-muted)]" aria-hidden="true">·</span>
+        <span className="ask-text-sm text-[var(--nova-ink-muted)]">
           {working ? 'Working' : stamp(startedAt)}
         </span>
       </div>

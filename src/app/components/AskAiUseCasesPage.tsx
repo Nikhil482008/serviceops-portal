@@ -57,7 +57,13 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
      It replaced `askQuestion`, which set a pending string the drawer had to notice; that seam
      could deliver a question WITHOUT an investigation, and this task is about making that
      structurally impossible rather than merely unused. */
-  const ask = (question: string, caseId: string) => nova?.askNova(question, { caseId });
+  const ask = (question: string, caseId: string) => {
+    /* TEC-8 is not an investigation that ends in an answer — it is a plan the reader approves,
+       with nine states a reviewer needs to reach directly. It gets its own surface; every other
+       row still goes through the ONE entry point. */
+    if (caseId === 'TEC-8') { onNavigate('tec8'); return; }
+    nova?.askNova(question, { caseId });
+  };
 
   const TH = 'whitespace-nowrap px-6 py-3 text-left text-[13px] font-semibold text-[#364658]';
 

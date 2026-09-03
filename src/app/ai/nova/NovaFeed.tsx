@@ -3,6 +3,7 @@ import { NovaThinking } from './NovaThinking';
 import { NovaWorkspace } from './NovaWorkspace';
 import { NovaReveal } from './NovaReveal';
 import { InvestigationState } from './conversation/InvestigationState';
+import { AskUserQuestion } from './conversation/AskUserQuestion';
 
 /* The investigation, rendered.
  *
@@ -17,12 +18,43 @@ import { InvestigationState } from './conversation/InvestigationState';
  * long one.
  */
 
-export function NovaFeed({ turn, onRetry }: { turn: Turn; onRetry?: () => void }) {
+export function NovaFeed({ turn, onRetry, onAnswerAsk }: {
+  turn: Turn;
+  onRetry?: () => void;
+  onAnswerAsk?: (askId: string, answers: Record<string, string>, done: boolean) => void;
+}) {
   /* Two presentations of the SAME turn. The view is a property of the investigation, chosen by
      whoever produced it — so this is a render branch, not a second feature with its own state,
      its own reducer and its own chance to disagree about what happened. */
-  if (turn.view === 'thinking') return <NovaThinking turn={turn} />;
-  if (turn.view === 'workspace') return <NovaWorkspace turn={turn} onRetry={onRetry} />;
-  if (turn.view === 'reveal') return <NovaReveal turn={turn} onRetry={onRetry} />;
-  return <InvestigationState turn={turn} onRetry={onRetry} />;
+  const investigation = turn.view === 'thinking' ? <NovaThinking turn={turn} />
+    : turn.view === 'workspace' ? <NovaWorkspace turn={turn} onRetry={onRetry} />
+      : turn.view === 'reveal' ? <NovaReveal turn={turn} onRetry={onRetry} />
+        : <InvestigationState turn={turn} onRetry={onRetry} />;
+
+  if (!turn.asks.length) return investigation;
+
+  /* ── WHY THE CARD SITS ABOVE THE INVESTIGATION ───────────────────────────────────────────
+     While it is pending it is the only thing on screen anyone can act on, and the thing to act
+     on goes first (law 9). Once it resolves the checks below it have collapsed to a single
+     tally, which is a summary rather than a timeline — so nothing ends up out of order by
+     being there. It is also where the reference puts it.
+
+     ⚠️ ANSWERABLE EVEN WHEN THIS IS NOT THE NEWEST TURN. A parked stream stays parked whatever
+     else the reader goes on to ask, so gating on "is this the live turn" would strand it with
+     no way to release it. What DOES make it inert is the turn being stopped or failed, because
+     then there is nothing left to release. */
+  const answerable = !turn.stopped && turn.state !== 'error';
+  return (
+    <>
+      {turn.asks.map((ask) => (
+        <AskUserQuestion
+          key={ask.id}
+          ask={ask}
+          live={answerable && !!onAnswerAsk}
+          onAnswer={(answers, done) => onAnswerAsk?.(ask.id, answers, done)}
+        />
+      ))}
+      {investigation}
+    </>
+  );
 }

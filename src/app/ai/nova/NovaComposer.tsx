@@ -137,20 +137,20 @@ export function NovaComposer({
     return (
       <Shell>
         <div className="flex flex-col items-center gap-3 py-8" role="status" aria-live="polite">
-          <p className="text-[14px] font-medium text-[#364658]">Listening…</p>
+          <p className="ask-text-base ask-w-500 text-[#364658]">Listening…</p>
           <Waveform />
-          <p className="text-[12px] text-[#9CA3AF]">Tell Nova what you need</p>
+          <p className="ask-text-sm text-[#9CA3AF]">Tell Nova what you need</p>
         </div>
         <div className="flex items-center justify-center gap-2 border-t border-[#EEF2F6] px-4 py-2.5">
           <button
             type="button"
             onClick={() => setVoice(null)}
-            className="nova-btn nova-btn-ghost h-8 rounded px-3 text-[12px] font-medium"
+            className="nova-btn nova-btn-ghost h-8 rounded px-3 ask-text-sm ask-w-500"
           >Cancel</button>
           <button
             type="button"
             onClick={stopVoice}
-            className="nova-btn nova-btn-primary h-8 rounded px-3 text-[12px] font-medium"
+            className="nova-btn nova-btn-primary h-8 rounded px-3 ask-text-sm ask-w-500"
           >Stop &amp; send</button>
         </div>
       </Shell>
@@ -161,7 +161,7 @@ export function NovaComposer({
     return (
       <Shell>
         <div className="px-4 pb-2 pt-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#9CA3AF]">
+          <p className="ask-text-xs ask-w-600 uppercase tracking-wider text-[#9CA3AF]">
             Heard this
           </p>
           {/* EDITABLE, not a confirmation dialog. Transcription is wrong often enough that a
@@ -170,20 +170,20 @@ export function NovaComposer({
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
             rows={2}
-            className="mt-1.5 w-full resize-none bg-transparent text-[14px] leading-[1.5] text-[#364658] focus:outline-none"
+            className="mt-1.5 w-full resize-none bg-transparent ask-text-base leading-[1.5] text-[#364658] focus:outline-none"
           />
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-[#EEF2F6] px-4 py-2.5">
           <button
             type="button"
             onClick={() => { setText(transcript); setVoice(null); requestAnimationFrame(() => taRef.current?.focus()); }}
-            className="nova-btn nova-btn-ghost inline-flex h-8 items-center gap-1.5 rounded px-3 text-[12px] font-medium"
+            className="nova-btn nova-btn-ghost inline-flex h-8 items-center gap-1.5 rounded px-3 ask-text-sm ask-w-500"
           ><Pencil size={13} /> Edit</button>
           <button
             type="button"
             onClick={() => { onSend(transcript.trim(), sources); setSources([]); setTranscript(''); setVoice(null); }}
             disabled={!transcript.trim()}
-            className="nova-btn nova-btn-primary inline-flex h-8 items-center gap-1.5 rounded px-3 text-[12px] font-medium"
+            className="nova-btn nova-btn-primary inline-flex h-8 items-center gap-1.5 rounded px-3 ask-text-sm ask-w-500"
           >Send</button>
         </div>
       </Shell>
@@ -201,7 +201,7 @@ export function NovaComposer({
             you did not ask for. */}
         {context && (
           <div className="px-4 pt-3">
-            <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#DDE7F5] bg-[#F2F7FD] py-1 pl-2.5 pr-1 text-[11px] font-medium text-[#2C5F8E]">
+            <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-[#DDE7F5] bg-[#F2F7FD] py-1 pl-2.5 pr-1 ask-text-sm ask-w-500 text-[#2C5F8E]">
               <span className="truncate">{context.label}</span>
               <button
                 type="button"
@@ -228,7 +228,7 @@ export function NovaComposer({
           rows={2}
           placeholder={context ? context.placeholder : 'Ask Nova anything…'}
           disabled={disabled}
-          className="block w-full resize-none bg-transparent px-4 pb-2 pt-4 text-[14px] leading-[1.55] text-[#364658] placeholder:text-[#A9B4C2] focus:outline-none"
+          className="block w-full resize-none bg-transparent px-4 pb-2 pt-4 ask-text-base leading-[1.55] text-[#364658] placeholder:text-[#A9B4C2] focus:outline-none"
         />
 
         {/* Source chips sit ABOVE the bar and stay compact — the composer must not grow tall just
@@ -242,14 +242,14 @@ export function NovaComposer({
               <button
                 type="button"
                 onClick={() => setShowAllSources(true)}
-                className="inline-flex h-6 items-center rounded-full border border-[#DFE5ED] bg-white px-2.5 text-[11px] font-medium text-[#7B8FA5] transition-colors hover:border-[#3D8BD0]"
+                className="inline-flex h-6 items-center rounded-full border border-[#DFE5ED] bg-white px-2.5 ask-text-sm ask-w-500 text-[#7B8FA5] transition-colors hover:border-[#3D8BD0]"
               >{overflow} more</button>
             )}
             {showAllSources && sources.length > MAX_CHIPS && (
               <button
                 type="button"
                 onClick={() => setShowAllSources(false)}
-                className="inline-flex h-6 items-center rounded-full px-2 text-[11px] text-[#9CA3AF] hover:text-[#7B8FA5]"
+                className="inline-flex h-6 items-center rounded-full px-2 ask-text-sm text-[#9CA3AF] hover:text-[#7B8FA5]"
               >Show fewer</button>
             )}
           </div>
@@ -310,7 +310,7 @@ export function NovaComposer({
             sub="Use documents already available in Motadata" onClick={() => setMenu('docs')} />
           <MenuRow icon={<BookOpen size={14} />} title="Knowledge Base"
             sub="Search knowledge articles" onClick={() => setMenu('kb')} />
-          <p className="border-t border-[#EEF2F6] px-3 py-2 text-[11px] leading-[1.5] text-[#9CA3AF]">
+          <p className="border-t border-[#EEF2F6] px-3 py-2 ask-text-sm leading-[1.5] text-[#9CA3AF]">
             Anything you add here is used as context when Nova answers.
           </p>
         </Pop>
@@ -334,7 +334,7 @@ export function NovaComposer({
                   setMenu(null);
                   requestAnimationFrame(() => taRef.current?.focus());
                 }}
-                className="block w-full rounded px-2 py-1.5 text-left text-[12.5px] text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+                className="block w-full rounded px-2 py-1.5 text-left ask-text-sm text-[#364658] transition-colors hover:bg-[#F5F7FA]"
               >{p}</button>
             ))}
           </div>
@@ -393,7 +393,7 @@ function Cap({ icon, label, onClick, active }: {
 function Chip({ source, onRemove }: { source: NovaSource; onRemove: () => void }) {
   const Icon = source.kind === 'kb' ? BookOpen : source.kind === 'doc' ? FileText : Paperclip;
   return (
-    <span className="inline-flex max-w-[190px] items-center gap-1.5 rounded-full border border-[#DFE5ED] bg-[#FAFBFC] py-1 pl-2 pr-1 text-[11px] text-[#364658]">
+    <span className="inline-flex max-w-[190px] items-center gap-1.5 rounded-full border border-[#DFE5ED] bg-[#FAFBFC] py-1 pl-2 pr-1 ask-text-sm text-[#364658]">
       <Icon size={11} className="flex-shrink-0 text-[#9CA3AF]" />
       <span className="truncate">{source.title}</span>
       <button
@@ -417,7 +417,7 @@ function Pop({ children }: { children: React.ReactNode }) {
 
 function PopTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="border-b border-[#EEF2F6] px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[#9CA3AF]">
+    <p className="border-b border-[#EEF2F6] px-3 py-2 ask-text-xs ask-w-600 uppercase tracking-wider text-[#9CA3AF]">
       {children}
     </p>
   );
@@ -434,8 +434,8 @@ function MenuRow({ icon, title, sub, onClick }: {
     >
       <span className="mt-0.5 flex-shrink-0 text-[#7B8FA5]">{icon}</span>
       <span className="min-w-0">
-        <span className="block text-[12.5px] font-medium text-[#364658]">{title}</span>
-        <span className="mt-0.5 block text-[11px] leading-[1.45] text-[#9CA3AF]">{sub}</span>
+        <span className="block ask-text-sm ask-w-500 text-[#364658]">{title}</span>
+        <span className="mt-0.5 block ask-text-sm leading-[1.45] text-[#9CA3AF]">{sub}</span>
       </span>
     </button>
   );
@@ -454,7 +454,7 @@ function PickerFrame({ title, onBack, query, setQuery, placeholder, children }: 
           type="button" onClick={onBack} aria-label="Back"
           className="flex size-7 flex-shrink-0 items-center justify-center rounded text-[#9CA3AF] hover:bg-[#F3F4F6] hover:text-[#364658]"
         ><ChevronLeft size={15} /></button>
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-[#9CA3AF]">{title}</span>
+        <span className="ask-text-xs ask-w-600 uppercase tracking-wider text-[#9CA3AF]">{title}</span>
       </div>
       <div className="flex items-center gap-1.5 border-b border-[#EEF2F6] px-3 py-2">
         <Search size={13} className="flex-shrink-0 text-[#9CA3AF]" />
@@ -463,7 +463,7 @@ function PickerFrame({ title, onBack, query, setQuery, placeholder, children }: 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-[12.5px] text-[#364658] placeholder:text-[#A9B4C2] focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent ask-text-sm text-[#364658] placeholder:text-[#A9B4C2] focus:outline-none"
         />
       </div>
       <div className="max-h-[240px] overflow-y-auto">{children}</div>
@@ -486,16 +486,16 @@ function KbPicker({ onAdd, chosen, onBack }: {
     <PickerFrame title="Knowledge Base" onBack={onBack} query={q} setQuery={setQ}
       placeholder="Search Knowledge Base…">
       {results.length === 0 && (
-        <p className="px-3 py-4 text-center text-[12px] text-[#9CA3AF]">No articles match “{q}”</p>
+        <p className="px-3 py-4 text-center ask-text-sm text-[#9CA3AF]">No articles match “{q}”</p>
       )}
       {results.map((a) => {
         const added = chosen.some((s) => s.id === a.id);
         return (
           <div key={a.id} className="flex items-start gap-2 px-3 py-2 hover:bg-[#F5F7FA]">
             <span className="min-w-0 flex-1">
-              <span className="block text-[12.5px] font-medium text-[#364658]">{a.title}</span>
-              <span className="mt-0.5 block text-[11px] leading-[1.45] text-[#9CA3AF]">{a.summary}</span>
-              <span className="mt-0.5 block text-[10px] uppercase tracking-wider text-[#B6C1CE]">
+              <span className="block ask-text-sm ask-w-500 text-[#364658]">{a.title}</span>
+              <span className="mt-0.5 block ask-text-sm leading-[1.45] text-[#9CA3AF]">{a.summary}</span>
+              <span className="mt-0.5 block ask-text-xs uppercase tracking-wider text-[#B6C1CE]">
                 {a.id} · {a.category}
               </span>
             </span>
@@ -503,7 +503,7 @@ function KbPicker({ onAdd, chosen, onBack }: {
               type="button"
               disabled={added}
               onClick={() => onAdd({ id: a.id, kind: 'kb', title: a.title, meta: a.id })}
-              className={`mt-0.5 inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-full border px-2 text-[11px] font-medium transition-colors ${
+              className={`mt-0.5 inline-flex h-6 flex-shrink-0 items-center gap-1 rounded-full border px-2 ask-text-sm ask-w-500 transition-colors ${
                 added ? 'border-[#EEF2F6] bg-[#FAFBFC] text-[#B6C1CE]'
                   : 'border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0]'}`}
             >
@@ -530,12 +530,12 @@ function DocPicker({ onAdd, chosen, onBack }: {
     <PickerFrame title="Documents" onBack={onBack} query={q} setQuery={setQ}
       placeholder="Search documents…">
       {!q && (
-        <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#B6C1CE]">
+        <p className="px-3 pb-1 pt-2 ask-text-xs ask-w-600 uppercase tracking-wider text-[#B6C1CE]">
           Recent documents
         </p>
       )}
       {results.length === 0 && (
-        <p className="px-3 py-4 text-center text-[12px] text-[#9CA3AF]">No documents match “{q}”</p>
+        <p className="px-3 py-4 text-center ask-text-sm text-[#9CA3AF]">No documents match “{q}”</p>
       )}
       {results.map((d) => {
         const added = chosen.some((s) => s.id === d.id);
@@ -549,8 +549,8 @@ function DocPicker({ onAdd, chosen, onBack }: {
             className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12.5px] text-[#364658]">{d.name}</span>
-              <span className="mt-0.5 block text-[10px] uppercase tracking-wider text-[#B6C1CE]">
+              <span className="block truncate ask-text-sm text-[#364658]">{d.name}</span>
+              <span className="mt-0.5 block ask-text-xs uppercase tracking-wider text-[#B6C1CE]">
                 {d.type} · updated {d.updated}
               </span>
             </span>

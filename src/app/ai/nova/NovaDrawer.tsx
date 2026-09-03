@@ -61,7 +61,9 @@ export function NovaDrawer({
   context?: NovaContext | null;
 }) {
   const { turns, skipInvestigation } = useNovaConversation();
-  const { askNova, askFollowUp, retryTurn, stopTurn, reset, setSkipInvestigation } = useNovaActions();
+  const {
+    askNova, askFollowUp, retryTurn, stopTurn, answerAsk, reset, setSkipInvestigation,
+  } = useNovaActions();
 
   const [staged, setStaged] = useState<Staged>(NONE);
   const [phase, setPhase] = useState<Phase>(turns.length ? 'live' : 'greet');
@@ -333,7 +335,7 @@ export function NovaDrawer({
               aria-pressed={skipInvestigation}
               title="Dev only · skip the investigation"
               aria-label="Dev only: skip the investigation"
-              className={`nova-btn flex size-8 items-center justify-center rounded text-[10px] font-semibold ${
+              className={`nova-btn flex size-8 items-center justify-center rounded ask-text-sm ask-w-600 ${
                 skipInvestigation
                   ? 'bg-[#FBF2E3] text-[#7A5200]'
                   : 'nova-btn-ghost text-[var(--nova-ink-faint)]'}`}
@@ -394,6 +396,7 @@ export function NovaDrawer({
                   onFollowUp={askFollowUp}
                   onEditQuery={(q) => setSeed({ text: q, nonce: Date.now() })}
                   onRetry={() => retryTurn(t.id)}
+                  onAnswerAsk={(askId, answers, done) => answerAsk(t.id, askId, answers, done)}
                 />
               ))}
             </div>

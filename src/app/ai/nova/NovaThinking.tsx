@@ -66,7 +66,7 @@ export function NovaThinking({ turn }: { turn: Turn }) {
         type="button"
         aria-expanded={false}
         onClick={() => { setUserToggled(true); setFolded(false); setOpen(true); }}
-        className="nova-fold flex items-center gap-2 rounded px-1 py-1 text-[12px] text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
+        className="nova-fold flex items-center gap-2 rounded px-1 py-1 ask-text-sm text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
       >
         <span className="text-[#12805C]" aria-hidden="true">✓</span>
         {counts.checks} check{counts.checks === 1 ? '' : 's'}
@@ -82,11 +82,11 @@ export function NovaThinking({ turn }: { turn: Turn }) {
         type="button"
         aria-expanded={open}
         onClick={() => { setUserToggled(true); setOpen((v) => !v); }}
-        className="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-[13px] font-medium text-[#364658] transition-colors hover:bg-[#F5F7FA]"
+        className="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left ask-text-base ask-w-500 text-[#364658] transition-colors hover:bg-[#F5F7FA]"
       >
         <ChevronDown size={13} className={`text-[#9CA3AF] transition-transform ${open ? '' : '-rotate-90'}`} aria-hidden="true" />
         {running ? 'Working on it' : 'Thought it through'}
-        <span className="ml-auto text-[11px] font-normal text-[#B6C1CE]">
+        <span className="ml-auto ask-text-sm ask-w-400 text-[#B6C1CE]">
           {open ? 'Hide trail' : `${counts.checks} check${counts.checks === 1 ? '' : 's'}`}
         </span>
       </button>
@@ -98,18 +98,18 @@ export function NovaThinking({ turn }: { turn: Turn }) {
           <div className="space-y-0.5 py-1">
             {/* PREVIOUS — settled, quiet, no mark. It is context, not a claim. */}
             {previous && (
-              <p className="truncate text-[12px] text-[#B6C1CE]">{previous.label}</p>
+              <p className="truncate ask-text-sm text-[#B6C1CE]">{previous.label}</p>
             )}
             {/* CURRENT — the only line carrying the shimmer, and only while work is running. */}
             {current ? (
               <p
-                className={`truncate text-[12px] text-[#7B8FA5] ${running ? 'nova-shimmer' : ''}`}
+                className={`truncate ask-text-sm text-[#7B8FA5] ${running ? 'nova-shimmer' : ''}`}
                 {...(running ? { role: 'status' as const, 'aria-live': 'off' as const } : {})}
               >
                 {current.label}
               </p>
             ) : (
-              !previous && <p className="text-[12px] text-[#B6C1CE]">Starting…</p>
+              !previous && <p className="ask-text-sm text-[#B6C1CE]">Starting…</p>
             )}
           </div>
         ) : (
@@ -117,11 +117,11 @@ export function NovaThinking({ turn }: { turn: Turn }) {
             {trail.loose.map((d) => <Found key={d.id} d={d} />)}
             {trail.rows.map(({ step, found }) => (
               <div key={step.id}>
-                <p className={`flex items-baseline gap-1.5 text-[12px] ${
+                <p className={`flex items-baseline gap-1.5 ask-text-sm ${
                   step.status === 'complete' ? 'text-[#7B8FA5]'
                     : step.status === 'active' ? 'text-[#364658]' : 'text-[#C6CFDA]'}`}
                 >
-                  <span aria-hidden="true" className="text-[10px]">
+                  <span aria-hidden="true" className="ask-text-sm">
                     {step.status === 'complete' ? '✓' : step.status === 'active' ? '◷' : '·'}
                   </span>
                   {step.label}
@@ -131,7 +131,7 @@ export function NovaThinking({ turn }: { turn: Turn }) {
                 {!!step.sources?.length && (
                   <ul className="mt-0.5 space-y-0.5 pl-4">
                     {step.sources.map((src) => (
-                      <li key={src} className="text-[11px] leading-[1.5] text-[#B6C1CE]">{src}</li>
+                      <li key={src} className="ask-text-sm leading-[1.5] text-[#B6C1CE]">{src}</li>
                     ))}
                   </ul>
                 )}
@@ -149,15 +149,15 @@ export function NovaThinking({ turn }: { turn: Turn }) {
         <div className="ml-[6px] mt-1.5 space-y-1.5 border-l border-[#E5E7EB] pl-3.5" aria-live="polite">
           {turn.discoveries.map((d) => (
             <div key={d.id} className="nova-disc">
-              <p className="text-[12px] font-semibold text-[#364658]">{d.headline}</p>
-              <p className="text-[11px] leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
+              <p className="ask-text-sm ask-w-600 text-[#364658]">{d.headline}</p>
+              <p className="ask-text-sm leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
             </div>
           ))}
         </div>
       )}
 
       {turn.error && (
-        <p className="ml-[6px] mt-1.5 border-l border-[#F3D2D2] pl-3.5 text-[12px] text-[#B42318]">
+        <p className="ml-[6px] mt-1.5 border-l border-[#F3D2D2] pl-3.5 ask-text-sm text-[#B42318]">
           {turn.error.message}
         </p>
       )}
@@ -168,8 +168,8 @@ export function NovaThinking({ turn }: { turn: Turn }) {
 function Found({ d, nested = false }: { d: FeedDiscovery; nested?: boolean }) {
   return (
     <div className={`nova-disc ${nested ? 'mt-1 pl-4' : ''}`}>
-      <p className="text-[12px] font-semibold text-[#364658]">{d.headline}</p>
-      <p className="text-[11px] leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
+      <p className="ask-text-sm ask-w-600 text-[#364658]">{d.headline}</p>
+      <p className="ask-text-sm leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
     </div>
   );
 }

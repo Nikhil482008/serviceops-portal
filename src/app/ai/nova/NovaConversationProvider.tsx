@@ -2,8 +2,8 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
   type ReactNode,
 } from 'react';
-import { mockInvestigation, type NovaEvent } from './novaStream';
-import { applyEvent, newTurn, setState, type Turn } from './turnModel';
+import { mockInvestigation, type NovaEvent, type NovaInvestigation } from './novaStream';
+import { applyEvent, newTurn, recordAsk, setState, type Turn } from './turnModel';
 import { useAskAiActionsOptional } from '../AskAiProvider';
 
 /* THE ONE WAY TO ASK NOVA ANYTHING.
@@ -55,6 +55,13 @@ interface ConversationActions {
   /** Stop a running investigation. UX law 15 again (cancel), and law 6: an action with no way
    *  out is an action people hesitate to take. */
   stopTurn(id: string): void;
+  /** Send the reader's answers to a clarifying question set, releasing a parked investigation.
+   *
+   *  The turn is patched FIRST and the stream released second — the acknowledgement is local,
+   *  so it lands in the same frame as the click rather than after a round trip (law 6). */
+  answerAsk(
+    turnId: string, askId: string, answers: Record<string, string>, done: boolean,
+  ): void;
   reset(): void;
   setSkipInvestigation(on: boolean): void;
 }
@@ -82,6 +89,10 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
   const turnsRef = useRef<Turn[]>(turns);
   turnsRef.current = turns;
   const controllers = useRef(new Map<string, AbortController>());
+  /* Kept because an investigation is not write-only: one parked on a clarifying question has to
+     be handed the answers. Same lifetime as its AbortController, and cleaned up by the same
+     identity check below. */
+  const investigations = useRef(new Map<string, NovaInvestigation>());
 
   /** Change one turn, by id. Every write goes through this, so a turn can only ever be changed by
    *  something addressed to it — which is what keeps turn 2 from disturbing turn 1. */
@@ -93,6 +104,7 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
     const ctl = new AbortController();
     controllers.current.set(turn.id, ctl);
     const inv = mockInvestigation(turn.question, turn.caseId, instant);
+    investigations.current.set(turn.id, inv);
     /* topic AND view. The investigation decides both; copying only one left every technician
        turn rendering the requester's step list while the stream had correctly asked for the
        thinking view — the kind of miss a build cannot see, because both are valid strings. */
@@ -130,8 +142,17 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
         }));
       }
     } finally {
-      controllers.current.delete(turn.id);
-      patch(turn.id, (t) => ({ ...t, ended: true }));
+      /* ONLY IF THIS RUN IS STILL THE CURRENT ONE.
+         `retryTurn` aborts the old run and starts a new one under the SAME turn id, all
+         synchronously — so the old run's rejection is delivered a microtask later, after the
+         replacement has already registered itself. Deleting by id there tore down the new run's
+         controller and stamped `ended: true` on a turn that had only just started. Comparing
+         identity makes the cleanup belong to the run that owns it. */
+      if (controllers.current.get(turn.id) === ctl) {
+        controllers.current.delete(turn.id);
+        investigations.current.delete(turn.id);
+        patch(turn.id, (t) => ({ ...t, ended: true }));
+      }
     }
   }, [patch]);
 
@@ -176,9 +197,25 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
       : { ...t, state: 'idle' as const, stopped: true, ended: true }));
   }, [patch]);
 
+  const answerAsk = useCallback<ConversationActions['answerAsk']>(
+    (turnId, askId, answers, done) => {
+      patch(turnId, (t) => recordAsk(t, askId, answers, done));
+      if (!done) return;                 // a pick, not the end of the set — nothing to release
+      /* Merged, because `answers` here is only the LAST pick and the stream is owed all of them.
+         Reading the turn from the ref rather than from `turns` keeps this action's identity
+         stable, which is the whole point of the split provider. */
+      const t = turnsRef.current.find((x) => x.id === turnId);
+      const full = { ...(t?.asks.find((a) => a.id === askId)?.answers ?? {}), ...answers };
+      /* A no-op if the stream already went away — stopped, retried, or reset. The choices stay
+         recorded above regardless, because they are a thing the reader did. */
+      investigations.current.get(turnId)?.respond?.(askId, full);
+    }, [patch],
+  );
+
   const reset = useCallback(() => {
     controllers.current.forEach((c) => c.abort());
     controllers.current.clear();
+    investigations.current.clear();
     setTurns([]);
   }, []);
 
@@ -188,8 +225,8 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
     () => ({ turns, skipInvestigation }), [turns, skipInvestigation],
   );
   const actions = useMemo<ConversationActions>(
-    () => ({ askNova, askFollowUp, retryTurn, stopTurn, reset, setSkipInvestigation }),
-    [askNova, askFollowUp, retryTurn, stopTurn, reset],
+    () => ({ askNova, askFollowUp, retryTurn, stopTurn, answerAsk, reset, setSkipInvestigation }),
+    [askNova, askFollowUp, retryTurn, stopTurn, answerAsk, reset],
   );
 
   return (

@@ -82,8 +82,8 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
       >
-        <span className="text-[12px] font-semibold text-[#364658]">Context</span>
-        <span className="text-[11px] text-[#9CA3AF]">
+        <span className="ask-text-sm ask-w-600 text-[#364658]">Context</span>
+        <span className="ask-text-sm text-[#9CA3AF]">
           {total} output{total === 1 ? '' : 's'} · {sources.length} source{sources.length === 1 ? '' : 's'}
         </span>
         <ChevronDown
@@ -106,14 +106,14 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
                 role="tab"
                 aria-selected={tab === t}
                 onClick={() => setTab(t)}
-                className={`flex-1 rounded-[6px] px-2 py-1 text-[12px] font-medium capitalize transition-colors ${
+                className={`flex-1 rounded-[6px] px-2 py-1 ask-text-sm ask-w-500 capitalize transition-colors ${
                   tab === t ? 'bg-white text-[#364658] shadow-sm' : 'text-[#7B8FA5] hover:text-[#364658]'}`}
               >{t}</button>
             ))}
           </div>
 
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-[11px] text-[#9CA3AF]">
+            <span className="ask-text-sm text-[#9CA3AF]">
               {tab === 'sources'
                 ? `${shownSources.length} source${shownSources.length === 1 ? '' : 's'}`
                 : `${shownOutputs.length + shownFindings.length} item${shownOutputs.length + shownFindings.length === 1 ? '' : 's'}`}
@@ -126,7 +126,7 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
                 onBlur={() => { if (!q) setSearching(false); }}
                 placeholder="Search context…"
                 aria-label="Search context"
-                className="ml-auto min-w-0 flex-1 bg-transparent text-[12px] text-[#364658] placeholder:text-[#B6C1CE] focus:outline-none"
+                className="ml-auto min-w-0 flex-1 bg-transparent ask-text-sm text-[#364658] placeholder:text-[#B6C1CE] focus:outline-none"
               />
             ) : (
               <button
@@ -143,13 +143,13 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
               <>
                 {shownFindings.map((d) => (
                   <div key={d.id} className="rounded px-1.5 py-1">
-                    <p className="text-[12px] font-semibold leading-[1.4] text-[#364658]">{d.headline}</p>
-                    <p className="text-[11px] leading-[1.45] text-[#9CA3AF]">{d.detail}</p>
+                    <p className="ask-text-sm ask-w-600 leading-[1.4] text-[#364658]">{d.headline}</p>
+                    <p className="ask-text-sm leading-[1.45] text-[#9CA3AF]">{d.detail}</p>
                   </div>
                 ))}
                 {shownOutputs.map((s) => (
-                  <p key={s.id} className="px-1.5 py-1 text-[12px] text-[#7B8FA5]">
-                    <b className="font-semibold text-[#364658]">{s.metric!.value}</b> {s.metric!.label}
+                  <p key={s.id} className="px-1.5 py-1 ask-text-sm text-[#7B8FA5]">
+                    <b className="ask-w-600 text-[#364658]">{s.metric!.value}</b> {s.metric!.label}
                   </p>
                 ))}
                 {!shownFindings.length && !shownOutputs.length && <Empty q={q} />}
@@ -163,8 +163,8 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
                       <span className="flex size-5 flex-shrink-0 items-center justify-center rounded bg-[#EFF4FA] text-[#7B9AC0]">
                         <Icon size={11} />
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[12px] text-[#364658]">{src.label}</span>
-                      <span className="flex-shrink-0 text-[10px] uppercase tracking-wider text-[#B6C1CE]">
+                      <span className="min-w-0 flex-1 truncate ask-text-sm text-[#364658]">{src.label}</span>
+                      <span className="flex-shrink-0 ask-text-xs uppercase tracking-wider text-[#B6C1CE]">
                         {KIND_LABEL[src.kind]}
                       </span>
                     </div>
@@ -182,7 +182,7 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
 
 function Empty({ q }: { q: string }) {
   return (
-    <p className="px-1.5 py-3 text-center text-[11px] text-[#B6C1CE]">
+    <p className="px-1.5 py-3 text-center ask-text-sm text-[#B6C1CE]">
       {q ? `Nothing matches “${q}”` : 'Nothing here yet'}
     </p>
   );

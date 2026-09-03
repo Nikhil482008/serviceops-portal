@@ -64,7 +64,8 @@ const placeholder = (intent: Intent): AnswerObject => ({
   /* And the explanation as what it is: a note to whoever is building this, marked as
      scaffolding rather than dressed up as a response. */
   devNote: `Resolved to the “${intent}” fallback — three generic checks and this placeholder. `
-    + 'Only REQ-01, REQ-02, REQ-04, TEC-01, TEC-02, CXO-02 and CXO-07 have authored scripts; the '
+    + 'Only REQ-01, REQ-02, REQ-04, TEC-01, TEC-02, TEC-03, CXO-02 and CXO-07 have authored '
+    + 'scripts; the '
     + 'rest of the set exists to exercise pacing, not content.',
   followUps: ['Ask something else', 'Show me what is authored'],
 });

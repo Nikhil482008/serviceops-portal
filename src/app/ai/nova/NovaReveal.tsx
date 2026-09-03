@@ -75,7 +75,7 @@ export function NovaReveal({ turn, onRetry }: { turn: Turn; onRetry?: () => void
         type="button"
         aria-expanded={false}
         onClick={() => { setUserToggled(true); setOpen(true); }}
-        className="nova-fold flex items-center gap-2 rounded px-1 py-1 text-[12px] text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
+        className="nova-fold flex items-center gap-2 rounded px-1 py-1 ask-text-sm text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
       >
         <span className="text-[#12805C]" aria-hidden="true">✓</span>
         {counts.checks} check{counts.checks === 1 ? '' : 's'}
@@ -87,7 +87,7 @@ export function NovaReveal({ turn, onRetry }: { turn: Turn; onRetry?: () => void
 
   return (
     <div>
-      <p className="flex items-center gap-1.5 text-[13px] font-medium text-[#7B8FA5]">
+      <p className="flex items-center gap-1.5 ask-text-base ask-w-500 text-[#7B8FA5]">
         <Search size={13} className="text-[#9CA3AF]" aria-hidden="true" />
         Nova is looking into <span className="text-[#364658]">{turn.topic || 'this'}</span>
         {hasAnswer && (
@@ -95,7 +95,7 @@ export function NovaReveal({ turn, onRetry }: { turn: Turn; onRetry?: () => void
             type="button"
             aria-expanded
             onClick={() => { setUserToggled(true); setOpen(false); }}
-            className="ml-auto rounded px-1.5 py-0.5 text-[11px] font-normal text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
+            className="ml-auto rounded px-1.5 py-0.5 ask-text-sm ask-w-400 text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
           >
             Hide
           </button>
@@ -109,7 +109,7 @@ export function NovaReveal({ turn, onRetry }: { turn: Turn; onRetry?: () => void
                 not whitespace: the accessible name of a gapped heading is "01—Understand", which
                 is what a screen reader reads out and what any text assertion sees. This is the
                 same trap that produced "Dateis withinLast 30 days" elsewhere in this codebase. */}
-            <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9CA3AF]">
+            <h3 className="ask-text-xs ask-w-600 uppercase tracking-[0.06em] text-[#9CA3AF]">
               <span className="tabular-nums text-[#C6CFDA]">{c.n}</span>
               {' — '}
               {c.name}
@@ -143,16 +143,16 @@ function Row({ step, isLive }: { step: FeedStep; isLive: boolean }) {
     <div>
       <p
         {...(isLive ? { role: 'status' as const, 'aria-live': 'off' as const } : {})}
-        className={`flex items-baseline gap-2 text-[12.5px] ${
+        className={`flex items-baseline gap-2 ask-text-sm ${
           complete ? 'text-[#364658]' : isLive ? 'text-[#7B8FA5]' : 'text-[#C6CFDA]'}`}
       >
-        <span aria-hidden="true" className="w-3 flex-shrink-0 text-[10px]">
+        <span aria-hidden="true" className="w-3 flex-shrink-0 ask-text-sm">
           {complete ? <span className="text-[#12805C]">✓</span>
             : isLive ? <span className="nova-pulse inline-block size-[6px] rounded-full bg-[#3D8BD0] align-middle" />
               : '·'}
         </span>
         {complete && step.metric
-          ? <span><b className="font-semibold">{step.metric.value}</b>{' '}
+          ? <span><b className="ask-w-600">{step.metric.value}</b>{' '}
             <span className="text-[#7B8FA5]">{step.metric.label}</span></span>
           : <span className={isLive ? 'nova-shimmer' : ''}>{step.label}</span>}
       </p>
@@ -173,12 +173,12 @@ function Tease({ d }: { d: FeedDiscovery }) {
       aria-live="polite"
     >
       {d.tease && (
-        <p className={`text-[11px] font-medium italic ${gap ? 'text-[#B98900]' : 'text-[#7B5BD6]'}`}>
+        <p className={`ask-text-sm ask-w-500 italic ${gap ? 'text-[#B98900]' : 'text-[#7B5BD6]'}`}>
           {d.tease}
         </p>
       )}
-      <p className="mt-0.5 text-[13px] font-semibold leading-[1.45] text-[#364658]">{d.headline}</p>
-      <p className="mt-0.5 text-[12px] leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
+      <p className="mt-0.5 ask-text-base ask-w-600 leading-[1.45] text-[#364658]">{d.headline}</p>
+      <p className="mt-0.5 ask-text-sm leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
     </div>
   );
 }

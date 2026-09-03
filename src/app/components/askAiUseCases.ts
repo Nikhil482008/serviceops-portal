@@ -10,6 +10,8 @@
  * something a person will send ("write my handover for the night shift"). It is not a score.
  */
 
+import { TEC8_PROMPT } from '../ai/nova/tec8/tec8Model';
+
 export type AskAiPersona = 'Requester' | 'Technician' | 'Leadership';
 
 export interface AskAiUseCase {
@@ -81,6 +83,16 @@ export const ASK_AI_USE_CASES: AskAiUseCase[] = [
   {
     id: 'TEC-07', persona: 'Technician', points: 4,
     question: "Write my handover for the night shift: what's burning, what's blocked, and anything the regulator cares about.",
+  },
+
+  {
+    /* THE AGENTIC ONE, and the only case in this table that is not a question.
+     *
+     * Every other row asks Nova for something it can answer. This one asks it to DO something,
+     * which is why it is a four-pointer and why it opens its own surface: the deliverable is a
+     * plan the technician approves, not a reply they read. */
+    id: 'TEC-8', persona: 'Technician', points: 4,
+    question: TEC8_PROMPT,
   },
 
   // ── Leadership — the shape of the month ─────────────────────────────

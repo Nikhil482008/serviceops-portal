@@ -45,8 +45,9 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
 
   return (
     <section>
-      <h4 className="nova-t-label">Your answer</h4>
-
+      {/* NO "YOUR ANSWER" EYEBROW. It labelled a block that is unmistakably the answer — it is
+          the largest thing in the turn and it follows the checks row — and a label directly
+          above a headline competes with the one element allowed to be prominent. */}
       {/* LEVEL 1 — the conclusion. When a script authors a headline it leads and `title` drops to
           being the caption of whatever object sits below it. */}
       {a.headline
@@ -89,13 +90,13 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
                   <dt className="nova-t-label w-[104px] flex-shrink-0">{f.label}</dt>
                   <dd className="min-w-0 flex-1">
                     {isPriority ? (
-                      <span className={`inline-flex items-center rounded-full px-2 py-[1px] text-[11px] font-medium ${
+                      <span className={`inline-flex items-center rounded-full px-2 py-[1px] ask-text-sm ask-w-500 ${
                         PRIORITY_TONE[f.value.toLowerCase()] ?? PRIORITY_TONE.low}`}
                       >{f.value}</span>
                     ) : (
                       /* Subject carries slightly more weight than its siblings — it is the one
                          value a reader checks before pressing the primary action. */
-                      <span className={`nova-t-body ${isSubject ? 'font-medium' : ''}`}>{f.value}</span>
+                      <span className={`nova-t-body ${isSubject ? 'ask-w-500' : ''}`}>{f.value}</span>
                     )}
                     {f.inferred && (
                       <span className="nova-t-meta ml-2">· inferred</span>
@@ -113,7 +114,7 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
         <div className="mt-3 rounded-lg border border-[var(--nova-rule)] bg-[var(--nova-surface)] px-3 py-2.5">
           <p className="flex items-baseline gap-1.5">
             <span className="nova-t-label">{a.metric.label}</span>
-            <span className={`text-[18px] font-semibold ${
+            <span className={`ask-text-lg ask-w-600 ${
               a.metric.direction === 'up' ? 'text-[#8C2018]' : 'text-[#0F6E4F]'}`}
             >
               {a.metric.direction === 'up' ? '↑' : a.metric.direction === 'down' ? '↓' : ''}
@@ -138,7 +139,7 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
                         animationDelay: `${i * 60}ms`,
                       }}
                     />
-                    <span className="nova-t-meta text-[9px]">{c.label}</span>
+                    <span className="nova-t-meta ask-text-sm">{c.label}</span>
                   </span>
                 ))}
               </div>
@@ -146,7 +147,7 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
           })()}
           {a.driver && (
             <p className="nova-t-meta mt-2">
-              Primary driver: <b className="font-semibold text-[var(--nova-ink)]">{a.driver}</b>
+              Primary driver: <b className="ask-w-500 text-[var(--nova-ink)]">{a.driver}</b>
             </p>
           )}
         </div>
