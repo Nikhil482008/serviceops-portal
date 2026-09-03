@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AskAiProvider } from './ai/AskAiProvider';
+import { NovaConversationProvider } from './ai/nova/NovaConversationProvider';
 import { AskAiPanelMount } from './ai/AskAiPanelMount';
 import { TicketListPage } from './components/TicketListPage';
 import { ProblemListPage } from './components/ProblemListPage';
@@ -57,6 +58,10 @@ export default function App() {
        detail drawer — which matters because DrawerStackProvider minimises on navigation, and
        the chat that shipped before this was destroyed when that happened. */
     <AskAiProvider>
+    {/* The conversation lives ABOVE the drawer, not inside it: an investigation has to outlive
+        the view showing it, or closing the drawer mid-turn would abort the work and a settled
+        turn could not sit above a running one. Inside AskAiProvider because asking opens. */}
+    <NovaConversationProvider>
     <DrawerStackProvider activePage={activePage}>
       {activePage === 'request' && <TicketListPage onNavigate={navigate} />}
       {activePage === 'problem' && <ProblemListPage onNavigate={navigate} />}
@@ -94,6 +99,7 @@ export default function App() {
       <AskAiPanelMount activePage={activePage} />
       <Toaster position="top-right" />
     </DrawerStackProvider>
+    </NovaConversationProvider>
     </AskAiProvider>
   );
 }

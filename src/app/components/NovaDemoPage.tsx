@@ -100,6 +100,29 @@ export function NovaDemoPage({ onNavigate }: { onNavigate: (page: string) => voi
               </div>
             </section>
 
+            {/* ── one object, two sizes ────────────────── */}
+            <section>
+              <h2 className="text-[15px] font-semibold text-[#364658]">Same object, two sizes</h2>
+              <p className="mt-1 text-[13px] text-[#7B8FA5]">
+                The trigger orb and the drawer orb, at rest, in the state selected above. One
+                authored 120px body scaled to each — blob insets, drift distances and blur radius
+                are written once, so these are the same object rather than two tunings of it.
+              </p>
+              <div className="mt-4 flex items-end gap-10 rounded-lg border border-[#E5E7EB] bg-white px-6 py-5">
+                <div className="flex flex-col items-center gap-2">
+                  {/* On a real FAB face, because that is where the bleed showed. */}
+                  <span className="flex size-14 items-center justify-center rounded-full border border-[#E5E7EB] bg-white shadow-lg">
+                    <AskAiOrb state={orbState} size={34} />
+                  </span>
+                  <span className="text-[11px] text-[#7B8FA5]">trigger · 34px</span>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <AskAiOrb state={orbState} size={120} />
+                  <span className="text-[11px] text-[#7B8FA5]">drawer · 120px</span>
+                </div>
+              </div>
+            </section>
+
             {/* ── role ─────────────────────────────────────────── */}
             <section>
               <h2 className="text-[15px] font-semibold text-[#364658]">Suggestion set</h2>
@@ -121,18 +144,21 @@ export function NovaDemoPage({ onNavigate }: { onNavigate: (page: string) => voi
             <section>
               <h2 className="text-[15px] font-semibold text-[#364658]">Entry choreography</h2>
               <p className="mt-1 text-[13px] text-[#7B8FA5]">
-                ~520ms, transform and opacity only. Exit is 180ms and deliberately not the entry
-                reversed — arriving is an event, leaving is an instruction already given.
+                ~840ms. Everything after the orb lands is CAUSED by it — the wave leaves the orb,
+                the greeting is lit by the wave, the cards deal out from behind it. Exit is 180ms,
+                simple, and does not ripple: arriving is an event, leaving is an instruction
+                already given.
               </p>
               <ul className="mt-3 space-y-1.5 text-[13px] text-[#364658]">
                 {[
                   ['0ms', 'FAB scales to 0.9, scrim fades in'],
                   ['0ms', 'Drawer slides from the right — 280ms'],
-                  ['60ms', 'Orb flies from the FAB’s rect to the drawer’s slot — 280ms'],
+                  ['60ms', 'Orb flies in and blooms — 0.42 → 1.08 → settle, 420ms'],
                   ['120ms', 'Dotted grid fades in, settling from 1.03'],
-                  ['200ms', 'Greeting rises 8px'],
-                  ['260ms', 'Suggestion cards rise 10px, 50ms apart'],
-                  ['460ms', 'Input fades in and takes focus'],
+                  ['200ms', 'Ripple leaves the orb through the dots — 600ms, ease-out'],
+                  ['~240ms', 'Greeting revealed as the wave’s leading edge reaches it (measured)'],
+                  ['300ms', 'Cards deal out from behind the orb, 45ms apart, spring'],
+                  ['620ms', 'Input fades in, plain, and takes focus'],
                 ].map(([t, what]) => (
                   <li key={t as string} className="flex gap-3">
                     <span className="w-[54px] flex-shrink-0 text-right font-mono text-[12px] tabular-nums text-[#9CA3AF]">{t}</span>

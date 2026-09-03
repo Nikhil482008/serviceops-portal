@@ -34,7 +34,13 @@ export function NovaHost({ userRole, orbState, now }: {
   const [closing, setClosing] = useState(false);
   const [flying, setFlying] = useState<'none' | 'true' | 'exit'>('none');
   const [flight, setFlight] = useState<Flight | null>(null);
+  const [liveOrb, setLiveOrb] = useState<OrbState | null>(null);
+  /* Attention is a fact about the DRAWER (is the caret in the composer, is a menu open) that the
+     Core expresses. It lives here because the Core lives here. */
+  const [attend, setAttend] = useState(false);
 
+  const layerRef = useRef<HTMLDivElement | null>(null);
+  const flightRef = useRef<Flight | null>(null);
   const fabRef = useRef<HTMLButtonElement | null>(null);
   const fabSlotRef = useRef<HTMLSpanElement | null>(null);
   const drawerSlotRef = useRef<HTMLDivElement | null>(null);
@@ -48,14 +54,38 @@ export function NovaHost({ userRole, orbState, now }: {
   const seat = useCallback((el: Element | null, size: number): Flight | null => {
     if (!el) return null;
     const r = el.getBoundingClientRect();
-    /* Centre on the slot. The layer's origin is the viewport's top-left and its transform-origin
-       is top-left too, so this is the slot's centre minus half the orb's UNSCALED size. */
+    const scale = size / DRAWER_ORB;
+    /* Centre on the slot — in SCALED units.
+       The layer's `transform-origin` is top left, so `scale()` shrinks the box toward its own
+       corner: after scaling, the orb's centre sits half the SCALED size from that corner, not
+       half the authored 120px. Subtracting 60 regardless of scale put the FAB's orb
+       (60 - 17) = 43px up and to the left of where it belonged, which is why it read as a
+       detached blob floating above an empty white circle. The drawer was unaffected only
+       because its scale is exactly 1, where the two expressions happen to agree. */
     return {
-      x: r.left + r.width / 2 - DRAWER_ORB / 2,
-      y: r.top + r.height / 2 - DRAWER_ORB / 2,
-      scale: size / DRAWER_ORB,
+      x: r.left + r.width / 2 - (DRAWER_ORB * scale) / 2,
+      y: r.top + r.height / 2 - (DRAWER_ORB * scale) / 2,
+      scale,
     };
   }, []);
+
+  /* The drawer's seat, sized by the slot itself — 120px under the greeting, 24px as the header
+     marker. See the same note in NovaShell: the slot's box is the single fact about how big the
+     orb is there, and the host does not keep a second opinion. */
+  const seatDrawer = useCallback(() => {
+    const el = drawerSlotRef.current;
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return seat(el, Math.min(r.width, r.height) || DRAWER_ORB);
+  }, [seat]);
+
+  /* Same element, new rect, one armed transition. */
+  const moveOrb = useCallback(() => {
+    if (prefersReducedMotion()) { setFlight(seatDrawer()); return; }
+    setFlying('true');
+    requestAnimationFrame(() => requestAnimationFrame(() => setFlight(seatDrawer())));
+    window.setTimeout(() => setFlying('none'), NOVA_DUR.enter + 40);
+  }, [seatDrawer]);
 
   /* Park the orb on the FAB whenever it is not open. `useLayoutEffect` so it is placed before
      paint — a first frame at the wrong position is a visible jump, not a subtle one. */
@@ -68,13 +98,12 @@ export function NovaHost({ userRole, orbState, now }: {
      a drawer left open across a resize would otherwise keep the orb where the slot used to be. */
   useEffect(() => {
     const onResize = () => {
-      const target = open && !closing ? drawerSlotRef.current : fabSlotRef.current;
-      const size = open && !closing ? DRAWER_ORB : FAB_ORB;
-      setFlight(seat(target, size));
+      if (open && !closing) { setFlight(seatDrawer()); return; }
+      setFlight(seat(fabSlotRef.current, FAB_ORB));
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [open, closing, seat]);
+  }, [open, closing, seat, seatDrawer]);
 
   const doOpen = useCallback(() => {
     if (open) return;
@@ -85,7 +114,7 @@ export function NovaHost({ userRole, orbState, now }: {
     if (prefersReducedMotion()) {
       /* No flight. The orb is placed at its destination and the stylesheet fades it in — running
          the FLIP against a stylesheet that has switched transitions off would snap it instead. */
-      requestAnimationFrame(() => setFlight(seat(drawerSlotRef.current, DRAWER_ORB)));
+      requestAnimationFrame(() => setFlight(seatDrawer()));
       return;
     }
 
@@ -97,11 +126,16 @@ export function NovaHost({ userRole, orbState, now }: {
          to be a CHANGE rather than the value it mounted with. A single rAF here is the classic
          way to get a snap instead of a flight. */
       requestAnimationFrame(() => requestAnimationFrame(() => {
-        setFlight(seat(drawerSlotRef.current, DRAWER_ORB));
+        setFlight(seatDrawer());
       }));
     });
-    after(NOVA_STAGE.orb + NOVA_DUR.enter, () => setFlying('none'));
-  }, [open, seat]);
+    /* NOT `NOVA_DUR.enter`. The flight takes 280ms but the BLOOM — small dense point → 1.08 →
+       settle — takes 420, and the stylesheet hangs it off this same `data-flying` attribute so
+       arriving is one fact rather than two that can disagree. Clearing the flag at 280 cut the
+       bloom off a third of the way through its overshoot. The flight's transition is simply
+       removed 140ms after it finished, which costs nothing. */
+    after(NOVA_STAGE.orb + NOVA_DUR.bloom, () => setFlying('none'));
+  }, [open, seat, seatDrawer]);
 
   const doClose = useCallback(() => {
     if (!open) return;
@@ -126,6 +160,58 @@ export function NovaHost({ userRole, orbState, now }: {
   }, [open, seat]);
 
   useEffect(() => clearTimers, []);
+
+  /* ══ CURSOR ─ written to the element, never to React ══════════════════════════
+     A pointer at 120Hz through setState would re-render the drawer, the thread and the composer
+     a hundred times a second for a four-pixel lean. So the handler writes two custom properties
+     straight onto the layer and the stylesheet does the rest — the reconciler never hears about
+     it. Coalesced into one rAF so a burst of moves costs one write.
+
+     The falloff is deliberately wide and the travel deliberately tiny (4px body, 9px halo). This
+     is meant to be DISCOVERED — you notice the Core is aware of you a few seconds after you
+     stop noticing anything else. A larger number would make it a toy. */
+  useEffect(() => {
+    if (!open || closing) return;
+    if (prefersReducedMotion()) return;
+    const el = layerRef.current;
+    if (!el) return;
+
+    const FALLOFF = 280;
+    let queued = 0;
+    let pending: { x: number; y: number } | null = null;
+
+    const write = () => {
+      queued = 0;
+      const f = flightRef.current;
+      if (!pending || !f) return;
+      const cx = f.x + (DRAWER_ORB * f.scale) / 2;
+      const cy = f.y + (DRAWER_ORB * f.scale) / 2;
+      const dx = (pending.x - cx) / FALLOFF;
+      const dy = (pending.y - cy) / FALLOFF;
+      const d = Math.hypot(dx, dy);
+      /* Beyond the falloff it returns to centre rather than clamping to the rim — a Core that
+         stays leaning at whatever the cursor last did is a Core that looks stuck. */
+      const k = d > 1 ? 0 : 1 - d;
+      el.style.setProperty('--core-mx', (Math.max(-1, Math.min(1, dx)) * k).toFixed(3));
+      el.style.setProperty('--core-my', (Math.max(-1, Math.min(1, dy)) * k).toFixed(3));
+    };
+
+    const onMove = (e: PointerEvent) => {
+      pending = { x: e.clientX, y: e.clientY };
+      if (!queued) queued = requestAnimationFrame(write);
+    };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      if (queued) cancelAnimationFrame(queued);
+      el.style.setProperty('--core-mx', '0');
+      el.style.setProperty('--core-my', '0');
+    };
+  }, [open, closing]);
+
+  /* The flight, mirrored to a ref so the cursor handler can read the Core's live position
+     without taking `flight` as a dependency and re-subscribing on every frame of the flight. */
+  flightRef.current = flight;
 
   const shrunk = open && !closing;
 
@@ -152,20 +238,34 @@ export function NovaHost({ userRole, orbState, now }: {
         orbState={orbState}
         orbSlotRef={drawerSlotRef}
         now={now}
+        onOrbSlotChange={moveOrb}
+        onOrbState={setLiveOrb}
+        onAttend={setAttend}
       />
 
       {/* The one orb. Above the drawer so it is never clipped by it mid-flight, and
           `pointer-events-none` so it never takes a click meant for what is underneath. */}
       <div
+        ref={layerRef}
         className="nova-orb-layer z-[10030]"
         data-flying={flying}
         style={{
           transform: flight
             ? `translate3d(${flight.x}px, ${flight.y}px, 0) scale(${flight.scale})`
             : 'translate3d(-9999px, -9999px, 0)',
+          /* THE FAB IS THE CORE, SMALLER. The expressive layers do not switch off at the FAB —
+             they FADE, as a function of how big the Core currently is, so opening reads as one
+             object growing into its full self rather than two objects swapping. At 34px a
+             particle is a third of a pixel; rendering it would be shimmer, not presence. */
+          ['--core-detail' as string]: flight && flight.scale < 0.55 ? '0' : '1',
+          ['--core-attend' as string]: attend ? '1' : '0',
         }}
       >
-        <AskAiOrb state={open && !closing ? orbState : 'dormant'} size={DRAWER_ORB} />
+        <AskAiOrb
+          state={open && !closing ? (liveOrb ?? orbState) : 'dormant'}
+          size={DRAWER_ORB}
+          detail
+        />
       </div>
     </>
   );

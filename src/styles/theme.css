@@ -95,6 +95,81 @@
   /* EXIT IS NOT THE ENTRY REVERSED. Arriving is an event and can take its time; leaving is an
      instruction already given, and matching the entry makes a closed drawer feel reluctant. */
   --ai-dur-exit: 180ms;
+  /* The new entry's two: the wave out through the dotted ground, and a card's deal-out. Mirrored
+     in novaMotion.ts as NOVA_DUR.ripple / NOVA_DUR.card. */
+  /* ── NOVA DRAWER · the polish layer ─────────────────────────────────
+     Tokens rather than inline hex, because two of the greys these replace FAIL AA and would
+     otherwise come back the next time someone copies a nearby line.
+
+     MEASURED against white (scratchpad/contrast.mjs):
+       #364658  9.66:1  PASS
+       #7B8FA5  3.33:1  FAIL  ← was carrying most of the drawer's body text
+       #9CA3AF  2.54:1  FAIL  ← was carrying every label
+       #64748B  4.76:1  PASS
+     So "muted" is now made with SIZE, CASE and WEIGHT, not by fading text below the point where
+     it can be read. Only `--nova-ink-faint` is still under AA, and it is for decoration — rules,
+     disabled glyphs, placeholder chrome — never for text. */
+  --nova-ink:       #364658;
+  --nova-ink-muted: #64748B;
+  --nova-ink-faint: #94A3B8;
+  --nova-rule:      #E8EDF3;
+
+  /* PRIMARY. The product's #3D8BD0 is 3.62:1 with white text and fails; this is the same blue,
+     darker. It also reads calmer, which is what a confident primary should do. */
+  --nova-primary:        #2D74AE;   /* 4.98:1 with white */
+  --nova-primary-hover:  #26638F;
+  --nova-primary-active: #1F5479;
+
+  /* ── THE SPACING SCALE ───────────────────────────────────────────
+     Three sizes, and the SIZE CARRIES MEANING: the biggest gap is a change of speaker, the
+     middle one a change of block within one speaker's turn, the smallest a change of paragraph.
+     A reader can therefore tell whose words they are looking at from the spacing alone, before
+     reading a word — which is the job the old single `--nova-gap` could not do. */
+  /* EIGHT-POINT. Every gap in the drawer is 4 · 8 · 12 · 16 · 24 · 32 and nothing else — the
+     old scale was 24 / 14 / 6, three values off the grid, which is why the vertical rhythm read
+     as arbitrary even where the sizes were right. */
+  --nova-gap-turn:  32px;   /* user turn → Nova turn */
+  --nova-gap-block: 24px;   /* question → checks, checks → answer */
+  --nova-gap-para:   8px;   /* paragraph → paragraph inside one block */
+
+  /* The speaker gutter. Wide enough for a 24px avatar with air, narrow enough that the content
+     column keeps almost all of the drawer. */
+  /* ── CONVERSATION ARCHITECTURE ───────────────────────────────────────
+     The reader's own words get the only filled message surface in the drawer, and Nova's content
+     hangs beneath a named identity row indented to the name. Those two facts are the whole
+     sender-identity system — there is no third treatment to remember. */
+  --nova-said-bg: #EEF2F7;   /* the reader's bubble. Nova never uses a fill. */
+  --nova-indent: 28px;       /* Nova's content, aligned under her name */
+  --nova-surface: #FAFBFC;   /* the ONE info block per answer */
+  --nova-found: #8A6D1F;     /* "Found something", while the work is still running */
+
+  /* Three type levels and no more. */
+  /* ── ONE SCALE, FIVE STEPS ────────────────────────────────────────────
+     12/16 metadata · 14/20 labels · 16/24 body · 20/28 minor heading · 22/32 the answer.
+
+     ⚠️ THE RATIO IS THE POINT, NOT THE TOP OF IT. The previous scale ran 11 / 13 / 18, so the
+     conclusion was 1.38× the body and everything under it was small enough that the contrast
+     read as one big thing on a page of small ones. Widening the BODY rather than raising the
+     headline gives the same ordering at a comfortable reading size, and nothing in a
+     conversational response now exceeds 22px. Hierarchy is carried by weight, spacing and
+     grouping; size only orders what those have already separated. */
+  --nova-fs-head: 16px;    /* Nova's own name */
+  --nova-fs-body: 16px;    /* body, and the reader's question */
+  --nova-fs-label: 14px;   /* row labels, step labels, the checks summary */
+  --nova-fs-meta: 12px;    /* timestamps, counts, provenance */
+
+  --ai-dur-ripple: 600ms;
+  --ai-dur-card: 380ms;
+  /* The greeting leaving, and the feed arriving in the space it left. Mirrored in NovaDrawer as
+     CLEAR_MS — the phase has to outlast the fade or the element unmounts mid-animation. */
+  --ai-dur-clear: 160ms;
+  --ai-dur-feed: 200ms;
+  /* The feed folding away once its answer has landed. */
+  --ai-dur-fold: 200ms;
+  /* The whole reduced-motion budget for feed content. Deliberately shorter than --ai-dur-fast:
+     the feed appends while the reader is reading, and 120ms of fade on every arriving row is
+     itself a kind of motion. */
+  --ai-dur-appear: 100ms;
 
   --ai-ease-enter: cubic-bezier(0.32, 0.72, 0, 1);  /* fast out of the gate, long gentle stop */
   --ai-ease-exit: cubic-bezier(0.7, 0, 0.84, 0);    /* gentle start, quick departure */
@@ -105,6 +180,26 @@
   --orb-speed: 7.5s;
   --orb-hue: 0deg;
   --orb-opacity: 1;
+  /* How far the authored body is scaled to meet the requested size. Written by the component. */
+  --orb-fit: 1;
+  /* Authored against the 120px body. Deliberately NOT 28px: at this diameter a 28px standard
+     deviation spreads roughly 84px — wider than the orb — and the three blobs stop being a body
+     and become one formless wash. This is the one knob if it wants to be softer. */
+  --orb-blur: 11px;
+
+  /* ── THE CORE'S OWN CHANNELS ───────────────────────────────────────
+     Written by JS on the element, read by the stylesheet. None of them causes a React render:
+     the cursor writes a custom property on a ref, which is the whole reason a 60Hz input can
+     drive a 7000-line application's chrome without touching the reconciler. */
+  --core-mx: 0;        /* cursor offset, -1 .. 1, horizontal */
+  --core-my: 0;        /* cursor offset, -1 .. 1, vertical */
+  --core-attend: 0;    /* 0 = at rest, 1 = attending (caret in the composer, cursor near) */
+  --core-amp: 0;       /* voice amplitude while listening, 0 .. 1 */
+  --core-detail: 1;    /* the expressive layers fade out as the Core shrinks toward the FAB */
+
+  /* Aqua. The brand's three stops are violet / magenta / blue; the Core's LIGHT is cooler than
+     its mass, which is what makes the interior read as illumination rather than more paint. */
+  --core-aqua: #7fe3f5;
 }
 
 .dark {
@@ -562,65 +657,379 @@ button:not(:disabled),
    Three stacked radial gradients, blurred, each drifting on its own clock. The blur is what makes
    three hard-edged circles read as one soft body; the different periods (6s / 7.5s / 9s) are what
    stop them ever returning to the same arrangement, which is what would make it read as a loop. */
-.orb {
+/* THE BOX IS ROUND AND IT CLIPS. A blur has no edge of its own — its tail runs about 3σ past the
+   element it is applied to — so an unclipped orb paints a soft rectangle over whatever it sits on,
+   which is exactly what crossed the preview cards' borders. The clip only ever cuts the far tail:
+   the blobs are inset and their gradients reach zero well inside the circle, so within the visible
+   ~2σ there is nothing at the boundary to cut. No hard edge, and no bleed either. */
+/* THE CORE'S ROOT. It owns the state, the scale and the opacity; `.orb` below is now only the
+   clipped mass inside it, because the halo, the ring and the particle field all have to live
+   OUTSIDE that clip — a field that is drawn INTO the body cannot be clipped to the body. */
+.nova-core {
   position: relative;
-  isolation: isolate;
+  display: block;
   transform: scale(var(--orb-scale));
   opacity: var(--orb-opacity);
   transition:
-    transform var(--ai-dur-base) var(--ai-ease-move),
+    transform var(--ai-dur-slow) var(--ai-ease-move),
     opacity var(--ai-dur-base) var(--ai-ease-move);
+}
+.orb {
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  border-radius: 50%;
+  overflow: hidden;
+}
+/* The authored body: always 120px, scaled to whatever size was asked for. Lobe insets, drift
+   distances and the blur radius are written ONCE, so a 34px orb is the 120px one rather than a
+   second tuning of it. A CSS filter applies in the element's own coordinate space before its
+   transform, so the blur scales with the body — which is what makes the two sizes identical.
+
+   Rest opacity is 0.92, not 1, because the bloom animates DOWN to it from 1: the orb arrives
+   dense and becomes soft, and it can only lose opacity if it has some to lose. */
+.orb-body {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  opacity: 0.92;
+  transform: scale(var(--orb-fit));
+  transform-origin: top left;
+  /* AMPLITUDE = ATTENTION. The mass leans toward what it is attending to and swells slightly
+     when attending at all. `translate` and `scale` are their own properties, applied before
+     `transform`, so this composes with the authored scale instead of fighting it. */
+  translate: calc(var(--core-mx) * 4px) calc(var(--core-my) * 4px);
+  scale: calc(1 + var(--core-attend) * 0.025 + var(--core-amp) * 0.05);
+  transition:
+    translate var(--ai-dur-slow) var(--ai-ease-move),
+    scale var(--ai-dur-base) var(--ai-ease-move);
 }
 .orb-blob {
   position: absolute;
-  inset: 0;
-  border-radius: 9999px;
+  border-radius: 50%;
   /* One filter declaration for both: `hue-rotate` is what a state changes, and putting it in a
      second declaration would overwrite the blur. Neither triggers layout. */
-  filter: blur(28px) hue-rotate(var(--orb-hue));
+  filter: blur(var(--orb-blur)) hue-rotate(var(--orb-hue));
   transition: filter var(--ai-dur-slow) var(--ai-ease-move);
   will-change: transform;
 }
-/* Offsets are baked into each blob's own keyframes rather than set here, so a blob's rest
-   position and its drift are one description instead of two that can disagree. */
+
+/* ── THREE LOBES, NOT THREE DISCS ──────────────────────────────────────
+   These used to share one geometry — same 60% box at the same 20%/20% inset — so all three were
+   CONCENTRIC. Three centred gradients add up at the middle and cancel to a circle at the edge,
+   which is exactly why it read as one flat saturated splotch: the drift was the only thing
+   distinguishing them, and drift cannot change a silhouette that is round by construction.
+
+   Now each lobe has its own size, offset, hue and opacity, and NO lobe is centred on another:
+     violet  (42%, 50%) — the body
+     magenta (59%, 57%) — warm, low and right
+     blue    (53%, 33%) — cool, small, half-strength, high and right
+   The three centres are not collinear, so the outline is asymmetric in both axes.
+
+   ⚠️ Every lobe stays clear of the clip: centre-offset + visible radius + blur tail + drift
+   amplitude comes to at most ~48% of the body against the 50% boundary. Moving a lobe outward
+   or widening its drift is what would put a hard cut edge back on the orb. */
 .orb-blob-1 {
-  background: radial-gradient(circle at 50% 50%, var(--ai-stop-1) 0%, rgba(76, 177, 254, 0) 70%);
+  top: 18%;
+  left: 10%;
+  width: 64%;
+  height: 64%;
+  opacity: 0.95;
+  background: radial-gradient(circle at 50% 50%,
+    var(--ai-stop-2) 0%, rgba(115, 30, 251, 0.55) 38%, rgba(115, 30, 251, 0) 70%);
   animation: orbDrift1 var(--orb-speed) ease-in-out infinite;
 }
 .orb-blob-2 {
-  background: radial-gradient(circle at 50% 50%, var(--ai-stop-2) 0%, rgba(115, 30, 251, 0) 70%);
-  animation: orbDrift2 calc(var(--orb-speed) * 1.25) ease-in-out infinite;
+  top: 30%;
+  left: 32%;
+  width: 54%;
+  height: 54%;
+  opacity: 0.72;
+  background: radial-gradient(circle at 50% 50%,
+    var(--ai-stop-3) 0%, rgba(249, 17, 227, 0.5) 36%, rgba(249, 17, 227, 0) 70%);
+  /* 1.31 and 0.83, not 1.25 and 0.8: the old pair share a factor with the base period, so the
+     three lobes returned to the same arrangement every 30s. These do not. */
+  animation: orbDrift2 calc(var(--orb-speed) * 1.31) ease-in-out infinite;
 }
 .orb-blob-3 {
-  background: radial-gradient(circle at 50% 50%, var(--ai-stop-3) 0%, rgba(249, 17, 227, 0) 70%);
-  animation: orbDrift3 calc(var(--orb-speed) * 0.8) ease-in-out infinite;
+  top: 10%;
+  left: 30%;
+  width: 46%;
+  height: 46%;
+  opacity: 0.5;
+  background: radial-gradient(circle at 50% 50%,
+    var(--ai-stop-1) 0%, rgba(76, 177, 254, 0.45) 34%, rgba(76, 177, 254, 0) 70%);
+  animation: orbDrift3 calc(var(--orb-speed) * 0.83) ease-in-out infinite;
 }
 
+/* Percentages are of the LOBE, so the same number is a different distance for each — which is
+   part of why the silhouette never settles. Amplitudes are set per lobe against its own
+   clearance, largest for the small blue one because it has the most room. */
 @keyframes orbDrift1 {
-  0%, 100% { transform: translate3d(-6%, -4%, 0) scale(1); }
-  33%      { transform: translate3d(5%, 6%, 0) scale(1.08); }
-  66%      { transform: translate3d(-3%, 7%, 0) scale(0.94); }
+  0%, 100% { transform: translate3d(-7%, -5%, 0) scale(1); }
+  33%      { transform: translate3d(6%, 8%, 0) scale(1.06); }
+  66%      { transform: translate3d(-4%, 9%, 0) scale(0.95); }
 }
 @keyframes orbDrift2 {
-  0%, 100% { transform: translate3d(7%, 5%, 0) scale(1.04); }
-  40%      { transform: translate3d(-5%, -6%, 0) scale(0.92); }
-  70%      { transform: translate3d(2%, -3%, 0) scale(1.1); }
+  0%, 100% { transform: translate3d(9%, 6%, 0) scale(1.04); }
+  40%      { transform: translate3d(-7%, -9%, 0) scale(0.93); }
+  70%      { transform: translate3d(2%, -4%, 0) scale(1.09); }
 }
 @keyframes orbDrift3 {
-  0%, 100% { transform: translate3d(2%, 8%, 0) scale(0.96); }
-  50%      { transform: translate3d(-7%, -5%, 0) scale(1.12); }
+  0%, 100% { transform: translate3d(4%, 12%, 0) scale(0.96); }
+  50%      { transform: translate3d(-11%, -7%, 0) scale(1.12); }
 }
+
+/* ══ THE HALO ═════════════════════════════════════───────────────────
+   Atmosphere, not an outline. Nearly twice the body's box and outside its clip, so the Core
+   fades into the page rather than ending. It breathes on 11300ms — slow enough that it is
+   never the thing you notice, and coprime with everything else so it never lands in step.
+   It parallaxes further than the body on cursor: nearer things move more, which is the whole
+   trick that gives a flat gradient depth. */
+.orb-halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 200%;
+  height: 200%;
+  margin: -100% 0 0 -100%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(115, 30, 251, 0.17) 0%,
+    rgba(76, 177, 254, 0.13) 30%,
+    rgba(127, 227, 245, 0.07) 48%,
+    rgba(76, 177, 254, 0) 68%);
+  opacity: calc(0.6 + var(--core-attend) * 0.3);
+  translate: calc(var(--core-mx) * 9px) calc(var(--core-my) * 9px);
+  animation: coreHalo 11300ms ease-in-out infinite;
+  transition:
+    opacity var(--ai-dur-slow) var(--ai-ease-move),
+    translate var(--ai-dur-slow) var(--ai-ease-move);
+}
+@keyframes coreHalo {
+  0%, 100% { transform: scale(0.93); }
+  43%      { transform: scale(1.07); }
+}
+
+/* ══ THE VEINS ─ internal light, travelling ──────────────────────────────────
+   Two soft bright patches sweeping through the mass on different paths and different periods
+   (17900 / 23300ms). INSIDE the clip: this is light moving through the body, not around it.
+   `screen` blend is what makes them read as illumination rather than as more paint — they can
+   only ever brighten what is under them. Cheap: two blurred gradients on a 120px box. */
+.orb-vein {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  filter: blur(10px);
+  opacity: var(--core-detail);
+  transition: opacity var(--ai-dur-slow) linear;
+}
+.orb-vein-1 {
+  background: radial-gradient(42% 30% at 50% 50%,
+    rgba(255, 255, 255, 0.5) 0%, rgba(190, 245, 255, 0.22) 45%, rgba(190, 245, 255, 0) 72%);
+  animation: coreVein1 17900ms ease-in-out infinite;
+}
+.orb-vein-2 {
+  background: radial-gradient(34% 26% at 50% 50%,
+    rgba(127, 227, 245, 0.42) 0%, rgba(127, 227, 245, 0) 70%);
+  animation: coreVein2 23300ms ease-in-out infinite;
+  animation-delay: -7300ms;
+}
+/* Three waypoints, not two, and the two veins never cross the same ground: one runs high-left
+   to low-right, the other low-left to high-right, so the interior has no axis of symmetry. */
+@keyframes coreVein1 {
+  0%, 100% { transform: translate3d(-24%, -18%, 0) scale(0.9); }
+  38%      { transform: translate3d(18%, 12%, 0) scale(1.15); }
+  71%      { transform: translate3d(-6%, 22%, 0) scale(0.98); }
+}
+@keyframes coreVein2 {
+  0%, 100% { transform: translate3d(20%, 22%, 0) scale(1.05); }
+  44%      { transform: translate3d(-18%, -14%, 0) scale(0.86); }
+  76%      { transform: translate3d(8%, -22%, 0) scale(1.12); }
+}
+
+/* ══ THE FIELD ─ direction is the message ───────────────────────────────────
+   THE load-bearing cue of the whole system. Direction is CATEGORICAL — inward, still, outward —
+   so it survives at a glance, at small size, and in peripheral vision, which "slightly faster"
+   does not. Everything else in the Core is degree; this is kind.
+
+   Each particle is a zero-size anchor rotated to its own angle, holding one dot that moves along
+   that ray. Rotation and travel are therefore separate transforms on separate elements and never
+   fight. Radii are multiplied by --orb-fit so the field scales with the Core.
+
+   Orbit and twinkle run on DIFFERENT periods, so a single particle is already the product of two
+   incommensurate cycles and has no visible period of its own. */
+.orb-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: var(--core-detail);
+  transition: opacity var(--ai-dur-slow) linear;
+}
+.orb-particle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: rotate(var(--p-a));
+}
+.orb-particle i {
+  position: absolute;
+  display: block;
+  width: 3px;
+  height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    rgba(216, 250, 255, 0.95) 0%, var(--core-aqua) 34%, rgba(127, 227, 245, 0) 72%);
+  opacity: 0;
+  animation:
+    coreWander var(--p-dur) ease-in-out infinite,
+    coreTwinkle var(--p-fade) ease-in-out infinite;
+  animation-delay: var(--p-delay), calc(var(--p-delay) * 0.63);
+}
+/* IDLE — no net direction. They wander in a band outside the mass. Nothing is being taken in
+   and nothing is being given out, which is exactly what "waiting" should look like. */
+@keyframes coreWander {
+  0%, 100% { transform: translateX(calc(var(--p-r0) * var(--orb-fit))); }
+  50%      { transform: translateX(calc(var(--p-r1) * var(--orb-fit))); }
+}
+@keyframes coreTwinkle {
+  0%, 100% { opacity: 0; }
+  20%      { opacity: 0.8; }
+  64%      { opacity: 0.22; }
+}
+/* INVESTIGATING — the field streams INWARD and is consumed at the centre. Opacity is carried by
+   this one keyframe rather than by coreTwinkle, because two animations on `opacity` would mean
+   the last declared one silently wins. */
+@keyframes coreDrawIn {
+  0%   { transform: translateX(calc(var(--p-far) * var(--orb-fit))); opacity: 0; }
+  18%  { opacity: 0.9; }
+  86%  { opacity: 0.5; }
+  100% { transform: translateX(calc(6px * var(--orb-fit))); opacity: 0; }
+}
+
+/* ══ THE RING ─ punctuation, never a state ────────────────────────────────
+   Fires ONCE when the Core enters discovery or settled. A CSS animation restarts when its
+   selector begins to match, so entering a state IS the trigger — no timer, no JS, nothing that
+   can fire twice or get out of step with the state it is announcing. */
+.core-pulse {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  margin: -50% 0 0 -50%;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle,
+    rgba(255, 255, 255, 0) 44%,
+    rgba(150, 232, 255, 0.42) 57%,
+    rgba(150, 232, 255, 0) 74%);
+}
+@keyframes coreCast {
+  0%   { opacity: 0; transform: scale(0.5); }
+  26%  { opacity: 0.95; }
+  100% { opacity: 0; transform: scale(1.55); }
+}
+@keyframes coreFlash {
+  0%   { opacity: 0; transform: scale(0.86); }
+  30%  { opacity: 0.9; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.22); }
+}
+
+/* ── the bloom ────────────────────────────────────────────────
+   Small dense point → 1.08 → settle. Driven off the FLIGHT flag rather than a prop of its own:
+   the bloom is not a separate event, it is what arriving looks like, and one attribute cannot
+   disagree with itself.
+
+   ⚠️ "The blur increases as it scales up" needs no keyframe. `filter` applies in the element's
+   own coordinate space BEFORE any ancestor transform, so a scale of 0.42 renders the 11px blur
+   at ~4.6px on screen. The orb is literally denser when it is small, and softens as it grows,
+   for free — and a blur keyframe would be a second, driftable description of the same fact. */
+.nova-orb-layer[data-flying='true'] .nova-core {
+  animation: novaOrbBloom var(--ai-dur-slow) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.nova-orb-layer[data-flying='true'] .orb-body,
+.nova-orb-layer[data-flying='true'] .orb-halo {
+  animation: novaOrbDense var(--ai-dur-slow) cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes novaOrbBloom {
+  0%   { transform: scale(0.42); }
+  58%  { transform: scale(1.08); }
+  /* Lands on the STATE's scale, not a hardcoded 1, so the animation ending is not a jump. */
+  100% { transform: scale(var(--orb-scale)); }
+}
+@keyframes novaOrbDense {
+  0%   { opacity: 1; }
+  100% { opacity: 0.92; }
+}
+
+/* A STILL orb. The same element, not a picture of one — it just does not drift. The animated
+   orb belongs to the header and to an investigation in progress; one per message would put five
+   moving things on a screen whose whole argument is calm. */
+.nova-core[data-orb-still='true'] .orb-blob,
+.nova-core[data-orb-still='true'] .orb-halo { animation: none; }
+/* The thread marker is the same object with its atmosphere turned down — not a different one. */
+.nova-core[data-orb-still='true'] .orb-halo { opacity: 0.4; }
 
 /* ── the seven states ──────────────────────────────────────────
    Scale, drift speed, hue. Nothing else — a state that also moved the orb or changed its shape
    would be a second language for the same thing. */
-.orb[data-orb-state='dormant']       { --orb-scale: 0.92; --orb-speed: 9s;   --orb-hue: -18deg; --orb-opacity: 0.75; }
-.orb[data-orb-state='arriving']      { --orb-scale: 1.06; --orb-speed: 6s;   --orb-hue: 0deg; }
-.orb[data-orb-state='idle']          { --orb-scale: 1;    --orb-speed: 7.5s; --orb-hue: 0deg; }
-.orb[data-orb-state='listening']     { --orb-scale: 1.04; --orb-speed: 6s;   --orb-hue: 22deg; }
-.orb[data-orb-state='investigating'] { --orb-scale: 1.1;  --orb-speed: 6s;   --orb-hue: -30deg; }
-.orb[data-orb-state='discovery']     { --orb-scale: 1.14; --orb-speed: 6.5s; --orb-hue: 48deg; }
-.orb[data-orb-state='settled']       { --orb-scale: 0.98; --orb-speed: 9s;   --orb-hue: -8deg; }
+.nova-core[data-orb-state='dormant']       { --orb-scale: 0.92; --orb-speed: 9s;    --orb-hue: -18deg; --orb-opacity: 0.75; }
+.nova-core[data-orb-state='arriving']      { --orb-scale: 1.06; --orb-speed: 6s;    --orb-hue: 0deg; }
+.nova-core[data-orb-state='idle']          { --orb-scale: 1;    --orb-speed: 7.5s;  --orb-hue: 0deg; }
+.nova-core[data-orb-state='listening']     { --orb-scale: 1.05; --orb-speed: 5.4s;  --orb-hue: 18deg; }
+.nova-core[data-orb-state='investigating'] { --orb-scale: 1.08; --orb-speed: 3.9s;  --orb-hue: -26deg; }
+.nova-core[data-orb-state='discovery']     { --orb-scale: 1.13; --orb-speed: 4.2s;  --orb-hue: 40deg; }
+.nova-core[data-orb-state='settled']       { --orb-scale: 0.99; --orb-speed: 9s;    --orb-hue: -8deg; }
+
+/* ── AND THE PART THAT IS NOT DEGREE ─────────────────────────────────────
+   The seven lines above are all DEGREE — a bit bigger, a bit faster, a slightly different hue.
+   Degree alone is not communication: nobody can name a state from 8% of scale. What follows is
+   the categorical half, and it is what makes the states nameable without reading a label. */
+
+/* INVESTIGATING — the field reverses into the Core and is consumed. The single most legible
+   moment in the system: it is the only time anything travels in a consistent direction. */
+.nova-core[data-orb-state='investigating'] .orb-particle i {
+  animation: coreDrawIn calc(var(--p-dur) * 0.34) linear infinite;
+  animation-delay: calc(var(--p-delay) * 0.31);
+}
+/* The interior accelerates with it — supporting the direction cue, never carrying it alone. */
+.nova-core[data-orb-state='investigating'] .orb-vein-1 { animation-duration: 6700ms; }
+.nova-core[data-orb-state='investigating'] .orb-vein-2 { animation-duration: 8900ms; }
+.nova-core[data-orb-state='investigating'] .orb-halo   { animation-duration: 5300ms; opacity: 0.82; }
+
+/* DISCOVERY — one flash, under 600ms, then straight back to work. Deliberately NOT a
+   celebration: it is a note in the margin, not applause. */
+.nova-core[data-orb-state='discovery'] .core-pulse {
+  animation: coreFlash 560ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+.nova-core[data-orb-state='discovery'] .orb-particle i {
+  animation: coreDrawIn calc(var(--p-dur) * 0.22) linear infinite;
+}
+.nova-core[data-orb-state='discovery'] .orb-halo { opacity: 1; }
+
+/* ANSWER READY — the direction inverts once. Everything the Core drew in is given back out as a
+   single expanding ring, and then the field returns to wandering. That inversion is the whole
+   sentence: "I took this in, here is what came out." */
+.nova-core[data-orb-state='settled'] .core-pulse {
+  animation: coreCast 1100ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+
+/* LISTENING — amplitude, not direction. Nothing is being processed yet, so nothing streams; the
+   mass simply swells with the voice (--core-amp). Attentive, not busy. */
+.nova-core[data-orb-state='listening'] .orb-halo {
+  opacity: calc(0.72 + var(--core-amp) * 0.28);
+  transition: opacity 90ms linear;
+}
 
 /* ── the drawer ──────────────────────────────────────────────
    `translate3d(100%)`, never `right`. The panel is laid out where it belongs and moved from
@@ -682,7 +1091,75 @@ button:not(:disabled),
     opacity var(--ai-dur-enter) var(--ai-ease-enter),
     transform var(--ai-dur-enter) var(--ai-ease-enter);
 }
-.nova-grid[data-in='true'] { opacity: 1; transform: scale(1); }
+/* ⚠️ TEXTURE, NOT A FEATURE. At full strength this was 22px-pitch dots directly behind 13px
+   text and a luminous Core, and it won — the busiest thing on a screen whose subject is supposed
+   to be the one glowing object in the middle. It is now a trace: present if you look for it,
+   invisible if you are reading. Quieter again once there is a conversation to compete with. */
+.nova-grid[data-in='true'] { opacity: 0.42; transform: scale(1); }
+/* ⚠️ IT BELONGS TO THE ENTRY, NOT TO THE CONVERSATION.
+   The dots are the ground the greeting arrives on and the medium the orb's ripple travels
+   through — that choreography is untouched. But once there is a thread they are 22px-pitch
+   texture directly behind 13px text, competing with the one thing on screen that matters. So the
+   canvas quiets to a trace the moment the drawer goes live, rather than the pattern being
+   deleted and the entry losing its ground. */
+.nova-drawer[data-phase='live'] .nova-grid[data-in='true'] { opacity: 0.22; }
+
+/* ── the dot-grid ripple ────────────────────────────────────────
+   A wave of brightness leaving the orb's centre and running out to the panel edges.
+
+   It is the SAME dot pattern as `.nova-grid`, painted in a stronger ink and revealed through one
+   radial mask whose radius grows. Same `background-size`, same origin, both layers `inset-0`, so
+   the bright dots land exactly on the resting ones — no dot moves, and none is animated
+   individually. When the mask has passed, the layer fades to nothing and what is left underneath
+   is the resting grid at its resting opacity.
+
+   ⚠️ STATED DEVIATION from "transform and opacity only": `mask-size` is animated. It is a paint
+   property — it triggers no layout and no reflow — but it is not compositor-only. The
+   alternative was to scale the layer, and a scaled layer scales its dots, which is the one thing
+   the brief rules out. Repainting a 420px-wide masked layer for 600ms is not where a frame is
+   lost; a growing dot grid would be visibly wrong.
+
+   ⚠️ The gradient's centre and the mask's position use the SAME two custom properties. A
+   percentage mask-position pins that percentage OF THE MASK to that percentage OF THE BOX, so
+   the point that stays still while the mask grows is `--ripple-cx/cy` of the mask — which is
+   only the wave's origin if the gradient is centred there too. Set one and not the other and the
+   wave drifts as it expands. Both are written by NovaDrawer from the measured orb slot. */
+.nova-ripple {
+  background-image: radial-gradient(circle, #9FB0C6 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(circle at var(--ripple-cx, 50%) var(--ripple-cy, 14%),
+    #000 0%, #000 52%, rgba(0, 0, 0, 0.42) 76%, rgba(0, 0, 0, 0) 100%);
+          mask-image: radial-gradient(circle at var(--ripple-cx, 50%) var(--ripple-cy, 14%),
+    #000 0%, #000 52%, rgba(0, 0, 0, 0.42) 76%, rgba(0, 0, 0, 0) 100%);
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: var(--ripple-cx, 50%) var(--ripple-cy, 14%);
+          mask-position: var(--ripple-cx, 50%) var(--ripple-cy, 14%);
+  -webkit-mask-size: 0 0;
+          mask-size: 0 0;
+  opacity: 0;
+}
+/* cubic-bezier(0.215, 0.61, 0.355, 1) is the bezier form of p = 1 - (1 - t)³, chosen because it
+   inverts in closed form — which is what lets novaMotion's `waveReachMs` say when the leading
+   edge reaches the greeting instead of guessing a delay that looks about right. */
+.nova-ripple[data-in='true'] {
+  animation: novaRipple var(--ai-dur-ripple, 600ms) cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+}
+@keyframes novaRipple {
+  0% {
+    -webkit-mask-size: 0 0;
+            mask-size: 0 0;
+    opacity: 0;
+  }
+  10%  { opacity: 1; }
+  72%  { opacity: 1; }
+  100% {
+    -webkit-mask-size: var(--ripple-max, 2600px) var(--ripple-max, 2600px);
+            mask-size: var(--ripple-max, 2600px) var(--ripple-max, 2600px);
+    /* Ends at nothing, so the dots are back to their resting state and not one shade brighter. */
+    opacity: 0;
+  }
+}
 
 /* ── the staged content ───────────────────────────────────────
    One class for everything that fades up, with the distance as a variable, because greeting,
@@ -696,6 +1173,158 @@ button:not(:disabled),
 }
 .nova-rise[data-in='true'] { opacity: 1; transform: translate3d(0, 0, 0); }
 
+/* ── the thinking line ───────────────────────────────────────────
+   A slow light sweeping through the CURRENT line, and only while work is running.
+
+   Deliberately a gradient moving through the TEXT rather than a spinner or a row of dots: the
+   technician view has exactly two lines, and adding a piece of chrome to say "busy" would put a
+   third thing on screen to carry information the moving line already carries. When the work
+   stops the class comes off and the text is simply text.
+
+   ⚠️ `background-position` is a paint animation, not a composited one — the same class as the
+   ripple's mask. It is one short line of text at 2.4s per cycle, so the cost is negligible, and
+   the alternative (translating an overlay) needs a second element to clip it. */
+.nova-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    #7B8FA5 0%, #7B8FA5 35%,
+    #C9D4E2 50%,
+    #7B8FA5 65%, #7B8FA5 100%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  animation: novaShimmer 2.4s ease-in-out infinite;
+}
+@keyframes novaShimmer { to { background-position: -100% 0; } }
+
+/* ── the listening waveform ─────────────────────────────────────
+   Five bars on staggered clocks. HEIGHT is set once and the movement is a scaleY from centre, so
+   this is five composited transforms rather than five layout passes a second — which matters
+   because it runs for as long as someone is talking.
+
+   ⚠️ It is NOT an analyser. There is no audio being read, so a bar that claimed to be this
+   person's voice would be a lie told sixty times a second; it says "something is being heard",
+   which is all the state actually knows. */
+.nova-wave {
+  height: 26px;
+  transform: scaleY(0.25);
+  animation: novaWave 1.05s ease-in-out infinite alternate;
+}
+@keyframes novaWave {
+  from { transform: scaleY(0.22); }
+  to   { transform: scaleY(1); }
+}
+
+/* ── the report's bars ──────────────────────────────────────────
+   Each bar's HEIGHT is a static inline style; the growth is a scaleY from a bottom origin, so
+   five bars arriving is five composited transforms and not five layout passes. The stagger is a
+   per-bar animation-delay written by the component, because a delay is data about that bar. */
+.nova-bar {
+  transform: scaleY(0);
+  transform-origin: bottom center;
+  animation: novaBar 420ms var(--ai-ease-enter) both;
+}
+@keyframes novaBar { to { transform: scaleY(1); } }
+
+/* ── the feed folding away ──────────────────────────────────────
+   `max-height` is animated from a MEASURED scrollHeight written by NovaFeed, never from a guessed
+   constant — a guess either clips a long investigation or leaves a gap under a short one, and
+   `height: auto` cannot be transitioned at all.
+
+   The collapsed row is a real <button> with aria-expanded, so this is a disclosure and not a
+   thing that merely looks like one. */
+.nova-fold-body {
+  overflow: hidden;
+  transition:
+    max-height var(--ai-dur-fold) var(--ai-ease-enter),
+    opacity var(--ai-dur-fold) var(--ai-ease-enter);
+}
+.nova-fold { animation: novaAppear var(--ai-dur-fold) var(--ai-ease-enter) both; }
+
+/* ── cards dealt from the orb ──────────────────────────────────────
+   A card starts ABOVE its own position, under the orb, and travels down into place. `--deal` is
+   the distance, written per card by NovaDrawer as a fraction of how far that card sits from the
+   orb — so the bottom card takes the longest journey and the set fans out rather than sliding as
+   one block.
+
+   The orb layer sits above the drawer (z-[10030] against z-[10020]), so a card travelling
+   through the orb's rect passes BEHIND it. That is the whole reason this reads as dealing out
+   from the orb rather than as four things sliding down.
+
+   The back-out curve overshoots by design — the spring the brief asks for. Opacity is on the
+   plain enter curve: a card that overshoots its OPACITY flickers. */
+.nova-deal {
+  opacity: 0;
+  transform: translate3d(0, calc(var(--deal, 40px) * -1), 0) scale(0.96);
+  transition:
+    opacity var(--ai-dur-base) var(--ai-ease-enter),
+    transform var(--ai-dur-card, 380ms) cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nova-deal[data-in='true'] { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+
+/* ── the greeting clearing ───────────────────────────────────────
+   DOWN and out, which is the opposite of how any of it arrived — the cards dealt downward into
+   place from the orb, and sending sends them the rest of the way rather than rewinding them.
+   Written after the `[data-in]` rules because both are (0,2,0): source order is what decides,
+   and `data-out` has to win over the `data-in` that is still true underneath it. */
+.nova-rise[data-out='true'],
+.nova-deal[data-out='true'] {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0) scale(1);
+  transition:
+    opacity var(--ai-dur-clear) var(--ai-ease-exit),
+    transform var(--ai-dur-clear) var(--ai-ease-exit);
+}
+
+/* ── the feed arriving ───────────────────────────────────────── */
+.nova-feed-in { animation: novaFeedIn var(--ai-dur-feed) var(--ai-ease-enter) both; }
+@keyframes novaFeedIn {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* ── the live step ────────────────────────────────────────────
+   Slow enough to read as breathing rather than as a loading indicator. One dot, one property
+   pair, no halo element — the row is already saying it is the current one in three other ways
+   (ink, weight, and being the only one that is not a tick or a ring). */
+.nova-pulse { animation: novaPulse 1.5s ease-in-out infinite; }
+@keyframes novaPulse {
+  0%, 100% { transform: scale(1);    opacity: 1; }
+  50%      { transform: scale(1.45); opacity: 0.5; }
+}
+
+/* ── the checkmark drawing ──────────────────────────────────────
+   The path carries pathLength="1", so the dash maths is in units of "the whole stroke" and does
+   not have to be re-derived if the tick's geometry is ever adjusted. */
+.nova-tick {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: novaTick 200ms var(--ai-ease-enter) forwards;
+}
+@keyframes novaTick { to { stroke-dashoffset: 0; } }
+
+/* ── the FOUND SO FAR divider ────────────────────────────────────
+   Left to right, as a scaleX from a left origin — one composited property. Animating `width`
+   would have been the obvious way to write it and would lay the panel out on every frame. */
+.nova-hairline {
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: novaHairline 260ms var(--ai-ease-enter) forwards;
+}
+@keyframes novaHairline { to { transform: scaleX(1); } }
+
+/* ── a discovery, the answer, the error ──────────────────────────────
+   In from below with a back-out overshoot. These are the only things in the feed that interrupt,
+   and the spring is what makes them read as arriving rather than as having always been there. */
+.nova-disc { animation: novaDisc 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes novaDisc {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
 /* ══ REDUCED MOTION ═════════════════════════════════════════════
  *
  * Every motion above becomes ONE 120ms opacity fade, and the orb holds still as a static
@@ -708,6 +1337,56 @@ button:not(:disabled),
   .orb-blob-2,
   .orb-blob-3 { animation: none; }
 
+  /* The bloom and the ripple are the two new animations, and both are switched OFF rather than
+     shortened. A ripple is a continuity effect; a fast ripple is still the effect this query
+     exists to remove. The dot grid simply appears at its resting state, which is where the
+     ripple was going to leave it anyway. */
+  .nova-orb-layer[data-flying='true'] .orb,
+  .nova-orb-layer[data-flying='true'] .orb-body,
+  .nova-ripple[data-in='true'] { animation: none; }
+  .nova-ripple { opacity: 0; }
+
+  /* THE FEED. No pulse, no slide-in, no drawn tick — content simply appears over 100ms.
+     ⚠️ The PACING is untouched. `novaFeed.ts` never reads this query: an investigation that
+     hurried up because someone asked for less motion would be answering a different question
+     from the one they asked. What changes is how a row arrives, not when. */
+  .nova-pulse { animation: none; }
+  .nova-hairline { transform: none; animation: none; }
+  /* Collapse instantly. A height animation is the one part of the fold that is purely motion —
+     the disclosure itself still works. */
+  .nova-fold-body { transition: none; max-height: none !important; }
+  /* The sweep is the one thing in the technician view that moves, so it is the one thing to
+     switch off — back to plain ink, which is what the class was standing in for. */
+  /* The bars are simply there at full height, and the waveform holds still — the component also
+     renders a flat bar under this query, so neither depends on the other alone. */
+  .nova-bar { animation: none; transform: none; }
+  .nova-wave { animation: none; transform: none; height: 14px; }
+  .nova-shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-background-clip: border-box;
+            background-clip: border-box;
+    color: #7B8FA5;
+  }
+  .nova-fold { animation: novaAppear var(--ai-dur-appear) linear both; }
+  .nova-tick { stroke-dashoffset: 0; animation: none; }
+  .nova-disc,
+  .nova-feed-in { animation: novaAppear var(--ai-dur-appear) linear both; }
+  .nova-rise[data-out='true'],
+  .nova-deal[data-out='true'] { transform: none; }
+
+  /* The Core keeps its PRESENCE and loses its LIFE. Everything that travels stops; the mass and
+     the halo remain, so Nova is still visibly there and still visibly itself. The field is the
+     one thing removed outright rather than frozen — fourteen stationary dots around a circle is
+     a diagram of an animation, which is worse than no animation. */
+  .orb-field { display: none; }
+  .orb-halo,
+  .orb-vein,
+  .core-pulse { animation: none !important; }
+  .core-pulse { opacity: 0; }
+  .orb-body { translate: none; }
+
+  .nova-core,
   .orb,
   .orb-blob,
   .nova-scrim,
@@ -715,7 +1394,8 @@ button:not(:disabled),
   .nova-fab,
   .nova-orb-layer,
   .nova-grid,
-  .nova-rise {
+  .nova-rise,
+  .nova-deal {
     transition: opacity var(--ai-dur-fast) linear !important;
   }
 
@@ -728,9 +1408,536 @@ button:not(:disabled),
   .nova-grid[data-in='true'] { transform: none; }
   .nova-rise,
   .nova-rise[data-in='true'] { transform: none; }
-  .orb { transform: none; }
+  .nova-deal,
+  .nova-deal[data-in='true'] { transform: none; }
+  .nova-core { transform: none; }
+
+  @keyframes novaAppear { from { opacity: 0; } to { opacity: 1; } }
 
   .nova-drawer { opacity: 0; }
   .nova-drawer[data-open='true'] { opacity: 1; }
   .nova-drawer[data-closing='true'] { opacity: 0; }
 }
+
+/* ══ Nova drawer · polish ═══════════════════════════════════════════
+ *
+ * Three type levels, one primary, one rhythm unit. Classes rather than repeated Tailwind
+ * arbitrary values so the scale is a THING that can be changed in one place — and so a reviewer
+ * can see there are exactly three of them.
+ */
+.nova-t-head { font-size: var(--nova-fs-head); line-height: 20px; font-weight: 600; color: var(--nova-ink); }
+.nova-t-body { font-size: var(--nova-fs-body); line-height: 24px; color: var(--nova-ink); }
+.nova-t-meta { font-size: var(--nova-fs-meta); line-height: 16px; color: var(--nova-ink-muted); }
+/* The scaffolding level. Muted by CASE and TRACKING, not by contrast — it still passes AA. */
+.nova-t-label {
+  /* The section eyebrow. Present so a layer can be named, quiet so it never competes with what
+     it names — "YOUR ANSWER" must not be the second-loudest thing in the answer. */
+  font-size: var(--nova-fs-meta);
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nova-ink-faint);
+}
+
+/* ── buttons ─────────────────────────────────────────────────────
+   THE GRADIENT IS THE ORB'S. No button wears it: two gradients on one screen means neither is
+   the identity of anything, and a Create-ticket button competing with the assistant's own mark
+   is the loudest thing on screen being the most irreversible one.
+
+   Every state is declared here — hover, active, disabled, focus — because "the buttons look
+   static" was true: they had hover on some, focus on none. */
+.nova-btn {
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.nova-btn:focus-visible {
+  outline: 2px solid var(--nova-primary);
+  outline-offset: 2px;
+}
+.nova-btn-primary { background: var(--nova-primary); color: #fff; }
+.nova-btn-primary:hover:not(:disabled)  { background: var(--nova-primary-hover); }
+.nova-btn-primary:active:not(:disabled) { background: var(--nova-primary-active); }
+.nova-btn-primary:disabled { opacity: 0.4; cursor: default; }
+
+/* The quiet counterpart. Deliberately lighter than it was: Discard sitting at the same weight as
+   Create ticket made a destructive choice look like an equal one. */
+.nova-btn-ghost { background: transparent; color: var(--nova-ink-muted); }
+.nova-btn-ghost:hover  { background: #F1F5F9; color: var(--nova-ink); }
+.nova-btn-ghost:active { background: #E3EAF2; }
+
+/* Icon-only capabilities in the composer footer. */
+.nova-btn-icon { background: transparent; color: var(--nova-ink-muted); }
+.nova-btn-icon:hover  { background: #F1F5F9; color: var(--nova-ink); }
+.nova-btn-icon:active { background: #E3EAF2; }
+.nova-btn-icon[aria-expanded='true'] { background: #EAF1F8; color: var(--nova-ink); }
+
+/* ── the user message's actions ────────────────────────────────────
+   Hidden until the message is hovered or something inside it takes focus — and ALWAYS visible
+   where there is no hover at all. `(hover: none)` is the honest test for that: it asks whether
+   the primary input can hover, not whether the screen is small, so a touch laptop gets it right
+   and a narrow desktop window does not get it wrong. */
+.nova-msg-actions {
+  /* Hidden until hover or focus on pointer devices. `visibility` rather than removal so the row
+     does not reflow when it appears — and it shares the attribution's line box rather than
+     owning one, which is what used to push the timestamp away from the message. */
+  opacity: 0;
+  transition: opacity var(--ai-dur-fast) linear;
+}
+.nova-msg:hover .nova-msg-actions,
+.nova-msg:focus-within .nova-msg-actions { opacity: 1; }
+@media (hover: none) {
+  .nova-msg-actions { opacity: 1; }
+}
+
+/* ── the phase header's chevron ─────────────────────────────────── */
+.nova-chev { transition: transform 150ms var(--ai-ease-move); }
+.nova-chev[data-open='false'] { transform: rotate(-90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-btn, .nova-msg-actions, .nova-chev { transition: none; }
+}
+
+/* ══ sender identity ════════════════════════════════════════════════
+ *
+ * THE GUTTER AND ITS SPINE ARE GONE. `.nova-lane` put a silent avatar in a 32px column and ran a
+ * hairline down from it — which announced that a speaker had changed without saying WHO, and
+ * welded question, working and answer into one object. That weld is the wall this redesign was
+ * asked to break.
+ *
+ * What replaces it is two facts that cannot be confused:
+ *   the reader   right-aligned, filled, small     (`.nova-t-said` in a bubble)
+ *   Nova         left, unfilled, named row        (identity row + `--nova-indent`)
+ * Alignment and fill are doing the work, so no borders are needed to say who is talking.
+ */
+
+/* ══ the four registers ════════════════════════════════════════════
+ *
+ * SAID · PROCEDURAL · ANSWER · META. The ANSWER is the largest thing in the turn and the
+ * question is smaller than it — the previous scale had that inverted, which is what made the
+ * reader's own words read as the page title.
+ *
+ *   answer   14px / 500   the conclusion. Dominant, and never bigger than this.
+ *   said     13px / 400   an input to the conversation, not a heading.
+ *   step     12.5px       compact, because it is a list read at a glance.
+ *   proc     11px tracked metadata ABOUT work, quieter than anything it sits beside.
+ */
+.nova-t-answer {
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+.nova-t-said {
+  /* The question is CONTEXT, not the primary content — same size as Nova's body, never larger,
+     and regular weight against the answer's 600. */
+  font-size: var(--nova-fs-body);
+  line-height: 24px;
+  font-weight: 400;
+  color: var(--nova-ink);
+}
+.nova-t-step {
+  font-size: var(--nova-fs-label);
+  line-height: 20px;
+}
+.nova-t-proc {
+  font-size: var(--nova-fs-label);
+  line-height: 20px;
+  color: var(--nova-ink-muted);
+}
+
+/* Scaffolding that is not product content, and must never be mistaken for it. */
+.nova-devnote {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--nova-ink-muted);
+  border-left: 2px solid #E4D7A9;
+  background: #FDFBF3;
+}
+
+/* ══ the empty state ═════════════════════════════════════════════════
+ *
+ * Three type sizes and a lot of air. The Core is the only thing on this screen allowed to be
+ * interesting; everything else is arranged so the eye can leave it and come back.
+ */
+
+/* Identity as an eyebrow. It was two stacked lines — a 15px semibold "Nova" over a tracked
+   "SERVICEOPS AI" — which is a masthead, and a masthead outranked the greeting. One line, 10px,
+   quiet enough to be recognised without being read. */
+.nova-eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #A9B6C6;
+}
+.nova-eyebrow-sub { font-weight: 500; color: #C2CDDA; }
+
+/* THE HERO. The largest text on the screen is now about the reader. */
+.nova-hello {
+  margin-top: 16px;
+  font-size: 22px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.011em;
+  color: var(--nova-ink);
+}
+.nova-hello-sub {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--nova-ink-muted);
+}
+/* One true sentence about this person's estate, when there is one. Deliberately small: context
+   is orientation, not the offer. */
+.nova-hello-ctx {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--nova-ink-faint);
+}
+
+/* ── a suggestion ─────────────────────────────────────────────────────
+   One line, no border at rest. The surface is a RESPONSE to the pointer rather than a permanent
+   frame — which is what lets four of them sit under the Core without becoming the subject.
+   Height is fixed at 40px so the deal-out stagger keeps an even rhythm; the subtitle truncates
+   rather than wrapping for the same reason. */
+.nova-sugg {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  transition:
+    background-color var(--ai-dur-fast) linear,
+    border-color var(--ai-dur-fast) linear;
+}
+.nova-sugg:hover,
+.nova-sugg:focus-visible {
+  background: #FFFFFF;
+  border-color: #E3E9F1;
+}
+.nova-sugg:focus-visible {
+  outline: 2px solid var(--nova-primary);
+  outline-offset: 1px;
+}
+.nova-sugg:active { background: #F4F7FB; }
+
+.nova-sugg-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: #94A6BC;
+  transition: color var(--ai-dur-fast) linear;
+}
+.nova-sugg:hover .nova-sugg-icon { color: var(--nova-primary); }
+
+.nova-sugg-title {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+/* The promise, not the label. Muted and truncating: it earns its place by saying what comes
+   back, and it gives that place up the moment the row is too narrow for both. */
+.nova-sugg-sub {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--nova-ink-faint);
+}
+
+/* ══ the response system ═════════════════════════════════════════════
+ *
+ * Six levels, and the size of a thing is what says which level it is on:
+ *
+ *   1  the conclusion        18px semibold      .nova-headline
+ *   2  numbers, ids, states  inline semibold    <b> from Emph, and the metric values
+ *   3  supporting prose      13px muted         .nova-t-body
+ *   4  evidence and sources  11px               .nova-t-meta
+ *   5  caveats               11px, amber        the Not-verified block
+ *   6  suggested questions   12px pills         .nova-pill
+ *
+ * A reader's eye should travel ANSWER → EVIDENCE → ACTION without being told to.
+ */
+
+/* ── what I said ──────────────────────────────────────────────────────
+   The ONLY filled message surface in the drawer. Nova never gets one, so fill alone answers
+   "whose line is this" before a word is read. */
+.nova-said {
+  /* Tighter, and a smaller radius: the container is a quiet tint marking whose words these are,
+     not a card. */
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--nova-said-bg);
+}
+.nova-said-avatar {
+  /* 24px. At 36 it was the loudest thing in the turn — a two-letter placeholder outweighing the
+     question it belonged to, and outweighing Nova's own 20px mark on the reply beneath it. An
+     avatar here is a speaker tag, not a profile picture: it only has to say "this one is mine". */
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+.nova-said-foot {
+  /* Attribution stays WITH the message. It sat under a 24px action row that reserved its height
+     whether or not it was visible, which pushed "You · Just now" far enough from the bubble to
+     read as a separate element. The row is now driven by the timestamp's own line box and the
+     actions sit inside it. */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 20px;
+  margin-top: 8px;
+  padding-right: 4px;
+}
+
+/* ── LEVEL 1 · the conclusion ───────────────────────────────────────────
+   18px against the question's 13px. The single largest thing in a turn, and the only line a
+   reader has to see. Everything below it is why. */
+.nova-headline {
+  /* 22/32 — a conversational answer, not a page heading. It reads as the conclusion because it
+     is the only 600-weight line at this size in the turn, not because it is big. */
+  margin-top: 8px;
+  font-size: 22px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.011em;
+  color: var(--nova-ink);
+  text-wrap: pretty;
+}
+
+/* ── LEVEL 2 · the reading of the data ───────────────────────────────────
+   Sits ABOVE the table it interprets. A table handed over with no reading is a query result,
+   not an answer. */
+.nova-insight {
+  /* Body size, medium weight. It outranks the prose beneath it by WEIGHT, which is what stops
+     the response acquiring a sixth type size for one sentence. */
+  margin-top: 8px;
+  font-size: var(--nova-fs-body);
+  line-height: 24px;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+
+/* ── structured facts ────────────────────────────────────────────────
+   Five facts in one sentence make a reader parse the sentence to reach any one of them. As rows
+   they can be scanned, skipped, or read in any order — which is what checking on a ticket is. */
+.nova-kv { margin-top: 12px; }
+.nova-kv-row {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 8px 0;
+}
+.nova-kv-row + .nova-kv-row { border-top: 1px solid var(--nova-rule); }
+.nova-kv-label {
+  flex-shrink: 0;
+  width: 104px;
+  font-size: var(--nova-fs-meta);
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nova-ink-faint);
+}
+.nova-kv-value {
+  min-width: 0;
+  flex: 1;
+  font-size: var(--nova-fs-body);
+  line-height: 24px;
+  font-weight: 400;
+  color: var(--nova-ink);
+}
+
+/* ── the table ───────────────────────────────────────────────────────
+   Hairlines only, no vertical rules, no outer box. `tabular-nums` on the numeric columns so
+   digits line up and a column can be compared without reading it. The bar behind a value is
+   what makes the table its own ranking chart. */
+.nova-table-wrap {
+  margin-top: 12px;
+  overflow-x: auto;
+  border-top: 1px solid var(--nova-rule);
+}
+.nova-table { width: 100%; border-collapse: collapse; }
+/* ⚠️ One step BELOW body, deliberately. A table is a dense grid and 16px cells wrap in a
+   462px drawer, which costs more legibility than the extra pixel buys. 14/20 is the scale's
+   label tier, which is what a cell in a compact grid is. */
+.nova-th {
+  padding: 8px;
+  text-align: left;
+  font-size: var(--nova-fs-meta);
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nova-ink-faint);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--nova-rule);
+}
+.nova-th-rank, .nova-td-rank { width: 24px; padding-left: 0; padding-right: 0; }
+.nova-td {
+  position: relative;
+  padding: 8px;
+  font-size: var(--nova-fs-label);
+  line-height: 20px;
+  color: var(--nova-ink);
+  vertical-align: baseline;
+}
+tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
+.nova-td-rank { font-size: var(--nova-fs-meta); color: var(--nova-ink-faint); }
+.nova-th.nova-num, .nova-td.nova-num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Behind the value, never over it. Low alpha so it reads as weight rather than as a control. */
+.nova-td-bar {
+  position: absolute;
+  right: 0;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 3px;
+  background: rgba(61, 139, 208, 0.13);
+  pointer-events: none;
+}
+.nova-td-ink { position: relative; }
+
+/* ── metric cards ──────────────────────────────────────────────────
+   Three headline numbers is a leadership answer's whole first screen. Wraps rather than scrolls:
+   at 462px three cards fit, and on a narrow viewport two-then-one is better than a scrollbar. */
+.nova-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.nova-metric {
+  flex: 1 1 96px;
+  min-width: 96px;
+  padding: 12px;
+  border: 1px solid var(--nova-rule);
+  border-radius: 8px;
+  background: var(--nova-surface);
+}
+.nova-metric-label {
+  font-size: var(--nova-fs-meta);
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nova-ink-faint);
+}
+.nova-metric-value {
+  margin-top: 4px;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--nova-ink);
+}
+/* ⚠️ COLOUR IS SENTIMENT, NOT DIRECTION. Fewer open tickets is good and more breaches is not;
+   the arrow cannot tell them apart, so the script says which and this only paints it. */
+.nova-metric-delta {
+  font-size: var(--nova-fs-meta);
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  color: var(--nova-ink-muted);
+}
+.nova-metric-delta.nova-good { color: #0F6E4F; }
+.nova-metric-delta.nova-bad { color: #B42318; }
+
+/* ── LEVEL 6 · suggested questions ────────────────────────────────────
+   Matched to the reference: a soft-cornered outline, a cool border, a speech bubble, no fill and
+   no heading above them. They wrap rather than truncate — a suggested question you can only read
+   half of is not a suggestion — so at this drawer width two short ones share a row and a long
+   one takes its own.
+
+   ⚠️ THE ONLY THING KEEPING THEM APART FROM THE ACTION BUTTONS IS NOW COLOUR AND THE GLYPH.
+   They were fully-round, which separated them from the 4px action rectangles by SHAPE — a
+   categorical difference that survived peripheral vision. At 8px that difference is a matter of
+   degree, so the cool border tint and the speech bubble carry it instead, and neither is
+   decorative. An action button must never be given this border. */
+.nova-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 1px solid #BBD7F0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(54, 70, 88, 0.04);
+  font-size: var(--nova-fs-label);
+  line-height: 20px;
+  color: var(--nova-ink);
+  text-align: left;
+  transition:
+    border-color var(--ai-dur-fast) linear,
+    background-color var(--ai-dur-fast) linear,
+    box-shadow var(--ai-dur-fast) linear;
+}
+.nova-pill:hover {
+  border-color: var(--nova-primary);
+  background: #F7FBFF;
+  box-shadow: 0 1px 3px rgba(45, 116, 174, 0.12);
+}
+.nova-pill:active { background: #EDF4FB; }
+.nova-pill[disabled] {
+  border-color: var(--nova-rule);
+  background: transparent;
+  box-shadow: none;
+  color: var(--nova-ink-faint);
+  cursor: default;
+}
+/* The glyph is load-bearing, not decoration — see the note above. It stays visible at rest so
+   the group reads as questions before anything is hovered. */
+.nova-pill-icon { flex-shrink: 0; color: #7FA8CE; }
+.nova-pill:hover .nova-pill-icon { color: var(--nova-primary); }
+.nova-pill[disabled] .nova-pill-icon { color: var(--nova-ink-faint); }
+
+/* ── LEVEL 5 · the caveat ───────────────────────────────────────────
+   Visible, never dominant. It is a limit on the answer, so it must not be hideable — but it is
+   also not a second answer, so it gets the smallest type in the response and no heading weight. */
+.nova-caveat {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 12px;
+  border-left: 2px solid #E4C983;
+  border-radius: 0 6px 6px 0;
+  background: #FDFAF2;
+}
+.nova-caveat-body { font-size: var(--nova-fs-label); line-height: 20px; color: var(--nova-ink-muted); }
+
+/* ── LEVEL 4 · sources ────────────────────────────────────────────
+   Trustworthy, not loud. Chips rather than a list: they are references, and a reference the
+   length of a paragraph stops being one. */
+.nova-src {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--nova-rule);
+  border-radius: 999px;
+  background: #fff;
+  font-size: var(--nova-fs-meta);
+  line-height: 16px;
+  color: var(--nova-ink-muted);
+}
+.nova-src-kind { color: var(--nova-ink-faint); }

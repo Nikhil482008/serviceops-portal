@@ -105,6 +105,12 @@ export const ASK_AI_USE_CASES: AskAiUseCase[] = [
     question: 'Any security incidents this year I should be worried about? Did we lose money or data in any of them?',
   },
   {
+    /* The data question, and the one the response system exists for: a ranking answered as a
+       ranking rather than as a sentence about a ranking. */
+    id: 'CXO-07', persona: 'Leadership', points: 3,
+    question: 'Show me the trending HR cases.',
+  },
+  {
     id: 'CXO-06', persona: 'Leadership', points: 3,
     question: 'What problems keep coming back that we should fix permanently instead of patching?',
   },

@@ -6,7 +6,8 @@
  * `open` is false on first paint, so `<Suspense>` never even shows a fallback.
  */
 import { Suspense, lazy, useEffect } from 'react';
-import { isAskAiEnabled } from './flags';
+import { isAskAiEnabled, isNovaShell } from './flags';
+import { NovaShell } from './nova/NovaShell';
 import { useAskAiActions, useAskAiState } from './AskAiProvider';
 import { AskAiEdge } from './AskAiEdge';
 
@@ -30,7 +31,12 @@ export function AskAiPanelMount({ activePage }: { activePage: string }) {
           itself when the assistant is on screen. Mounted here rather than in Sidebar so it is not
           repeated by each of the ~23 pages that draw their own rail. */}
       <AskAiEdge />
-      {open && (
+      {/* ONE surface at a time. Both read the same `open`, so rendering them together would give
+          two panels that each believe they are the assistant. */}
+      {/* The Nova demo route renders its OWN host (NovaHost, with its own FAB) as a harness.
+          Both read the same conversation now, so mounting the product shell there too would put
+          two drawers on screen for one thread. */}
+      {activePage === 'nova-demo' ? null : isNovaShell() ? <NovaShell /> : open && (
         <Suspense fallback={null}>
           <AskAiPanel />
         </Suspense>

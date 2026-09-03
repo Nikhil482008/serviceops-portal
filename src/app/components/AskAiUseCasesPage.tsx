@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { useNovaActionsOptional } from '../ai/nova/NovaConversationProvider';
 import { useAskAiActionsOptional } from '../ai/AskAiProvider';
 import {
   ASK_AI_USE_CASES, ASK_AI_PERSONAS, ASK_AI_CASE_COUNT,
@@ -43,6 +44,7 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
   /* Optional, so this page still renders if it is ever mounted outside the provider — a page of
      questions is worth reading even when the thing that answers them is not mounted. */
   const ai = useAskAiActionsOptional();
+  const nova = useNovaActionsOptional();
 
   const shown = persona ? ASK_AI_USE_CASES.filter((c) => c.persona === persona) : ASK_AI_USE_CASES;
 
@@ -50,7 +52,12 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
      it to the active PAGE, so setting a second one here gave this screen two threads: the rail
      button opened one conversation and a row click started another. Same button, same drawer,
      same conversation — a row just puts a question into it. */
-  const ask = (question: string) => ai?.askQuestion(question);
+  /* ONE way in. `askNova` opens the drawer, appends the turn and runs the investigation — the
+     identical path a typed question takes, with the case id along for the authored script.
+     It replaced `askQuestion`, which set a pending string the drawer had to notice; that seam
+     could deliver a question WITHOUT an investigation, and this task is about making that
+     structurally impossible rather than merely unused. */
+  const ask = (question: string, caseId: string) => nova?.askNova(question, { caseId });
 
   const TH = 'whitespace-nowrap px-6 py-3 text-left text-[13px] font-semibold text-[#364658]';
 
@@ -112,12 +119,12 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
                    target on the smallest thing on the row. */
                 <tr
                   key={c.id}
-                  onClick={() => ask(c.question)}
+                  onClick={() => ask(c.question, c.id)}
                   tabIndex={0}
                   role="button"
                   aria-label={`Ask: ${c.question}`}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ask(c.question); }
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ask(c.question, c.id); }
                   }}
                   className="cursor-pointer transition-colors hover:bg-[#f9fafb] focus-visible:bg-[#f9fafb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3D8BD0]"
                 >

@@ -14,7 +14,7 @@
  */
 import { MessageSquare } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
-import { isAskAiEnabled } from './flags';
+import { isAskAiEnabled, isNovaShell } from './flags';
 import { rememberOpener, useAskAiActionsOptional, useAskAiStateOptional } from './AskAiProvider';
 
 export function AskAiEdge() {
@@ -26,7 +26,11 @@ export function AskAiEdge() {
 
   /* Hidden while the assistant is actually on screen. MINIMISED is deliberately not "on screen":
      the tabs come back as a second way in, beside the pill. */
-  if (state.open && !state.minimized) return null;
+  /* Nova flies its orb back to whatever opened it, and it measures that element's rect at the
+     moment of closing — so the trigger has to still BE there. It sits under the drawer, which
+     covers this edge, so staying mounted costs nothing visually.
+     The old panel keeps the original behaviour: it has no flight to come home to. */
+  if (state.open && !state.minimized && !isNovaShell()) return null;
 
   const openWith = (el: HTMLElement, mode?: 'sidebar' | 'floating') => {
     rememberOpener(el);

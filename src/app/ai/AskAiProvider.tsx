@@ -141,6 +141,12 @@ const ActionsCtx = createContext<AskAiActions | null>(null);
  *  moment the panel opened. */
 const openerRef: { current: HTMLElement | null } = { current: null };
 export const rememberOpener = (el: HTMLElement | null) => { openerRef.current = el; };
+/** What opened the assistant.
+ *
+ *  Already tracked so focus can be returned; the FLIP asks the same question — "what did the user
+ *  press?" — so it reads this rather than introducing a second answer that could disagree with
+ *  where focus goes. */
+export const getOpener = (): HTMLElement | null => openerRef.current;
 
 const THREADS_KEY = 'askAi:threads';
 /** How many conversations the history dropdown keeps. */

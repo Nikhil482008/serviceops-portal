@@ -1,5 +1,99 @@
 **On session start:** If `HANDOFF.md` exists in this directory, read it before anything else for the latest state of the work.
 
+# UX Design Instructions — apply to EVERY interface in this workspace
+
+> Standing instruction, added 2026-09-02 at the user's request. Follow this whenever designing,
+> building, or revising a UI — layouts, navigation, onboarding, forms, settings, dashboards,
+> interactive flows. The goal: minimise confusion, reduce effort, prevent mistakes, and get the
+> user to their intended task as fast as possible.
+>
+> **These are not a checklist to tick.** The closing rule is binding: *do not apply them
+> mechanically* — when laws conflict, prioritise clarity, accessibility, user control and
+> successful task completion, and decide from the user's actual context and goal.
+
+**1. Reduce choices per screen — Hick's Law.** Decision time grows with the number and complexity
+of choices. One clear purpose per screen; remove irrelevant or low-priority options; break
+complicated decisions into steps; recommend an option when the choice is hard.
+
+**2. Make targets large — Fitts's Law.** Buttons and controls easy to click or tap; enough spacing
+between interactive elements; never a tiny icon as the only interaction target; grow the clickable
+area around important controls.
+
+**3. Follow familiar patterns — Jakob's Law.** Users expect your product to work like the ones they
+already know. Established conventions; navigation, search, settings and account controls where
+people expect them; familiar icons and interactions. Do not invent a pattern without a meaningful
+advantage.
+
+**4. Group related information — Law of Proximity.** Near = related. Keep related labels, controls
+and information together; use spacing to communicate relationships; separate unrelated groups with
+more space. Do not reach for borders when spacing can carry the hierarchy.
+
+**5. Break content into chunks — Miller's Law.** Working memory is limited. Small, meaningful
+groups; complex forms and tasks split into steps; headings, sections, concise labels; never ask
+someone to remember information between screens.
+
+**6. Respond within 400 milliseconds — Doherty Threshold.** Acknowledge EVERY action immediately;
+show loading/processing/success when a result is not instant; optimistic updates where safe; never
+leave someone wondering whether their action registered.
+
+**7. Highlight the primary action — Von Restorff Effect.** The primary action gets the strongest
+emphasis; one dominant call to action per section; secondary actions stay quiet; buttons must not
+all compete.
+
+**8. Place key actions nearby — Fitts's Law.** Actions beside the content they affect; submission
+near the final input; frequent actions within easy reach; no unnecessary cursor or eye travel.
+
+**9. Put essentials first — Serial Position Effect.** Most important information first; the final
+action or takeaway at the end; lower-priority material in the middle; order lists and navigation by
+user importance.
+
+**10. End flows memorably — Peak-End Rule.** A clear, satisfying completion state; confirm what was
+accomplished; say what happens next; never end on an empty or ambiguous screen.
+
+**11. Show visible progress — Zeigarnik Effect.** Show what is done and what is not; save progress;
+make interrupted tasks easy to resume; checklists or completion states for multi-step work.
+
+**12. Simplify complex interfaces — Law of Prägnanz.** People read ambiguity in the simplest form
+available. Simple structures and recognisable shapes; no decoration or visual noise; obvious
+hierarchy; understandable at a glance.
+
+**13. Use sensible defaults — Hick's Law.** Preselect the safest, most common option; use context to
+avoid asking; never a default that creates an unexpected commitment; every default easy to change.
+
+**14. Prevent errors proactively — Postel's Law.** Accept reasonable variation in input; state
+requirements before submission; disable impossible actions; warn before risky or destructive ones.
+
+**15. Make errors recoverable — Postel's Law.** Preserve the user's work; explain the failure in
+plain language; say exactly how to fix it; offer undo, retry, restore or cancel.
+
+**16. Maintain pattern consistency — Law of Similarity.** Similar look = similar purpose. Same
+appearance and behaviour for similar components; consistent colour, labels, icons, spacing and
+states; never the same treatment for different actions; reuse before inventing.
+
+**17. Connect related elements visually — Law of Uniform Connectedness.** Containers, lines,
+backgrounds or shared states to show relationships; connect controls to what they affect; keep
+unrelated things visually apart. Connection is deliberate, never decorative.
+
+**18. Reduce task completion time — Parkinson's Law.** Fewest steps; no unnecessary confirmations or
+screens; prefill what is already known; shortcuts for repeat actions.
+
+**19. Reveal complexity gradually — Tesler's Law.** Essential controls first; advanced options only
+when relevant; the system absorbs complexity wherever it can; never force people to understand
+internals.
+
+**20. Make completion feel closer — Goal-Gradient Effect.** Show progress through multi-step flows;
+visible milestones; emphasise progress already made; make the remaining work specific and
+achievable.
+
+## Implementation requirements
+
+1. Identify the user's primary goal. 2. Design the shortest clear path to it. 3. Make the next
+action visually obvious. 4. Remove anything that distracts from completion. 5. Give immediate
+feedback after every interaction. 6. Prevent errors before they occur. 7. Preserve user work when
+something goes wrong. 8. Confirm clearly when the goal is complete.
+
+---
+
 # ServiceOps Ticket Detail
 
 ## What this is
@@ -354,6 +448,76 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   as `#7B4EFB` (one site, not a gradient stop — a typo that shipped, now gone), `#8B5CF6` and
   `#A855F7`, with two gradient midpoints and three alphas; **~24 drawer files still carry the
   literal hex** and are a follow-up sweep, deliberately not bundled in.
+- **Nova is the Ask AI experience, and it lives in `src/app/ai/nova/`.** Two mounts, and the
+  difference matters: **`NovaShell` is what the product renders** (it returns `null` while closed
+  and flies the Core out of whatever opened it — the edge tab, the rail, Ctrl/⌘+J), while
+  **`NovaHost` is only the `NovaDemoPage` route** and owns its own FAB. ⚠️ A change wired into
+  `NovaHost` alone is invisible in the product; that has happened once and was caught only by
+  driving the app rather than the harness. Both must be edited together.
+  **The controller is `NovaConversationProvider`** — `askNova()` is the ONE entry point (a
+  suggestion row, a use-case row, a follow-up pill and the composer all call it), split
+  volatile/stable contexts, and `MIN_INVESTIGATION_MS = 2400` is a floor an early answer WAITS
+  for. Turn state lives above the drawer so an investigation outlives the view.
+- **THE NOVA CORE (`AskAiOrb` + the `.nova-core` block in `theme.css`).** `.nova-core` is the root
+  and `.orb` beneath it is only the CLIPPED mass — the halo, the expanding ring and the 14-particle
+  field must sit OUTSIDE that clip, because the field is drawn INTO the body from beyond it. The
+  clip itself is load-bearing (an 11px blur tail once painted a soft rectangle over neighbouring
+  cards); the particles are safe outside it only because they are 3px dots with a ~2px tail.
+  **The motion is a grammar, not decoration**, and it is the thing to preserve: RADIAL DIRECTION
+  carries data flow (wander = idle, stream INWARD = investigating, cast OUTWARD once = answer
+  ready), amplitude carries attention, density and speed carry effort, one flash is a discrete
+  event, and hue carries almost nothing because it is the least discriminable channel at 34px.
+  Direction is CATEGORICAL, which is why it survives a glance where "slightly faster" does not.
+  ⚠️ **Every period in the system is pairwise near-coprime** — the three lobes are 7500 / 9825 /
+  6225ms and each particle carries its own orbit AND twinkle period. Replacing any of them with a
+  round number (8000, 12000) is what would make the field visibly cycle. Cursor proximity and
+  composer focus are written as `--core-mx` / `--core-my` / `--core-attend` **onto the element via
+  a ref** — never `setState`, or a 120Hz pointer re-renders the whole thread for a 4px lean.
+- **The conversation is FOUR LAYERS, one per file, in `nova/conversation/`:** `UserMessage`
+  (the reader's turn — the ONLY filled message surface in the drawer) → `InvestigationState`
+  (what Nova is doing; collapses itself to a ~40px "✓ 9 checks · 3 findings" once there is an
+  answer) → `AnswerBlock` (the conclusion, composed from `blocks.tsx`) → `EvidenceBlock` /
+  `ActionGroup` / `FollowUpSuggestions`. `NovaAnswer` is now only the ORDER of those layers and
+  `NovaFeed` only routes between the four investigation views (`steps` / `reveal` / `workspace` /
+  the unreferenced `thinking`).
+  ⚠️ **A GAP is never collapsed.** `EvidenceBlock` hides justification behind "Why Nova says
+  this" but renders `role: 'gap'` findings above the toggle — a gap is a LIMIT on the answer, and
+  hiding a limit is how a reader trusts something further than it deserves.
+  ⚠️ **Every step label is a TASK, never reasoning.** The expanded trail is headed "Checks
+  performed" for that reason; nothing in the module may narrate how a conclusion was reached.
+- **The response model (`scripts/registry.ts`).** An answer declares `headline` (the conclusion,
+  and the largest thing in the turn), `insight` (what the data MEANS — rendered ABOVE the data),
+  and any of `kv` / `table` / `metrics` / `fields`. ⚠️ **`headline` OUTRANKS `title`**: for a
+  `text` answer carrying both, `title` is not rendered at all, so authoring one is writing copy
+  nobody reads. Emphasis is `**…**` parsed by `Emph` in `blocks.tsx` into React children —
+  **never `dangerouslySetInnerHTML`**, because answer text is the one string here that will
+  eventually come from a model. It is deliberately NOT a markdown renderer: a full parser lets an
+  author bold a clause, and a response where everything is bold carries as much information as one
+  where nothing is.
+  The footer's two buttons **declare what they are** (`runAsks` / `cancelAsks`) rather than being
+  sniffed from their label — five of ten authored labels are questions for Nova, not commitments.
+  `step(id, label, sources?)` is what feeds "Sources"; a script that omits them ships a Sources
+  section that can never appear.
+- **ONE type scale and ONE 8-point rhythm, both in `theme.css`.** 12/16 metadata · 14/20 labels ·
+  16/24 body · 22/32 the answer, and **nothing in a conversational response exceeds 24px**. Gaps
+  are `--nova-gap-turn: 32` / `--nova-gap-block: 24` / `--nova-gap-para: 8` and every spacing
+  value in the Nova block is a multiple of 4. ⚠️ **Hierarchy is carried by weight, spacing and
+  grouping — size only orders what those have already separated.** The answer is 1.4× the body,
+  not 2×; the insight outranks the prose beneath it with NO size step at all, on weight alone.
+  Reaching for a sixth type size is the failure mode this scale exists to prevent.
+- **Nova's verification lives in the session scratchpad, not in CI** (`node <name>.mjs`; bundle
+  with the project's non-hoisted esbuild, mount in jsdom, drive it). ⚠️ **Substring matching over
+  source is only safe when the needle cannot occur in prose.** This module's scanners have now
+  produced three false positives that way: `'right'` matched inside the word "brighter" in a
+  comment, `'**inline emphasis**'` matched inside a code comment, and the comment *forbidding*
+  `dangerouslySetInnerHTML` read as a violation of it. Strip comments before scanning source.
+  A CSS reader must also **resolve `var()`** (most sizes are tokens) and **match a rule to its own
+  closing brace** (many are one-liners, so slicing to the next `\n}` runs into another rule).
+- ⚠️ **Bash heredocs in this environment eat one backslash level.** A `\\s` written into a
+  patch script arrives as `s`, which silently breaks every regex it appears in. Write patch
+  scripts as FILES (Write tool, then `py file.py`), or avoid escapes entirely with character
+  classes — `[ ]*` rather than `\s*`, `[{]` rather than `\{`.
+
 - **The Licence distribution card's second view is AI BOM, not CBOM** (`bomDashboardUi.tsx` +
   `bomDashboardData.ts`). The card's heading is "Licence distribution" and CBOM was the one reading
   that could not answer it — a crypto asset has no licence, so that view reported posture instead.
