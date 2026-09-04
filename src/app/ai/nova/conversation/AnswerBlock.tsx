@@ -1,5 +1,6 @@
 import type { AnswerObject } from '../novaStream';
 import { Emph, NovaDataTable, NovaHeadline, NovaInsight, NovaKeyValues, NovaMetrics } from './blocks';
+import { DEFAULT_VIEW, type AnswerView } from './ResponseUtilityBar';
 
 /* WHAT NOVA CONCLUDES — the strongest thing in the turn, and the only thing that has to be
  * readable in two seconds.
@@ -31,7 +32,13 @@ const PRIORITY_TONE: Record<string, string> = {
   low: 'bg-[#EDF3F9] text-[#2D5478]',
 };
 
-export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
+export function AnswerBlock({ answer: a, view = DEFAULT_VIEW }: {
+  answer: AnswerObject;
+  /** The reader's chosen rendering of THIS answer — density (••• "Make it shorter") and
+   *  visual (••• "Change visual"). The facts never change; only how much prose surrounds
+   *  them and which shape the data takes. */
+  view?: AnswerView;
+}) {
   const draft = a.form === 'draft';
   /* THE ORDER IS THE ARGUMENT.
        headline   the conclusion, biggest thing on screen
@@ -41,7 +48,27 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
        kv         the structured facts
        text       the supporting prose, last of the primary layer
      A reader who stops after the first two lines still has the answer. */
-  const lead = draft ? undefined : a.text;
+  /* CONCISE keeps every number, conclusion, caveat and citation — the supporting prose and the
+     aside are what an executive summary drops. Never a truncation. */
+  const concise = view.density === 'concise';
+  const lead = draft || concise ? undefined : a.text;
+
+  /* CHANGE VISUAL — derived transforms of the SAME data, so the two shapes cannot disagree.
+     A table becomes summary cards (label column + the column its bar reads, or the last one);
+     metric cards become a two-column table. */
+  let metrics = a.metrics;
+  let table = a.table;
+  if (view.visual === 'cards' && a.table) {
+    const valueCol = a.table.barCol ?? a.table.cols.length - 1;
+    metrics = a.table.rows.map((r) => ({ label: r[0], value: r[valueCol] }));
+    table = undefined;
+  } else if (view.visual === 'table' && a.metrics?.length) {
+    table = {
+      cols: ['Metric', 'Value', 'Change'],
+      rows: a.metrics.map((m) => [m.label, m.value, m.delta ?? '—']),
+    };
+    metrics = undefined;
+  }
 
   return (
     <section>
@@ -57,8 +84,8 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
       {/* LEVEL 2 — the reading of the data, BEFORE the data. */}
       {a.insight && <NovaInsight>{a.insight}</NovaInsight>}
 
-      {!!a.metrics?.length && <NovaMetrics items={a.metrics} />}
-      {a.table && <NovaDataTable table={a.table} />}
+      {!!metrics?.length && <NovaMetrics items={metrics} />}
+      {table && <NovaDataTable table={table} />}
       {!!a.kv?.length && <NovaKeyValues items={a.kv} />}
 
       {/* LEVEL 3 — supporting explanation. Emphasis is inline and selective: ticket ids,
@@ -68,7 +95,7 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
       {lead && (
         <p className="nova-t-body mt-2 text-[var(--nova-ink-muted)]"><Emph>{lead}</Emph></p>
       )}
-      {draft && a.text && <p className="nova-t-body mt-2 text-[var(--nova-ink-muted)]"><Emph>{a.text}</Emph></p>}
+      {draft && !concise && a.text && <p className="nova-t-body mt-2 text-[var(--nova-ink-muted)]"><Emph>{a.text}</Emph></p>}
 
       {/* ── the draft ───────────────────────────────────────────────
           The proposed record. THE one filled surface in a response. */}
@@ -153,7 +180,7 @@ export function AnswerBlock({ answer: a }: { answer: AnswerObject }) {
         </div>
       )}
 
-      {a.aside && <p className="nova-t-meta mt-4">{a.aside}</p>}
+      {a.aside && !concise && <p className="nova-t-meta mt-4">{a.aside}</p>}
 
       {a.recommendation && (
         <p className="nova-t-body mt-4">

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check, ChevronDown, ListChecks } from 'lucide-react';
 import { askComplete, type FeedAsk } from '../turnModel';
+import type { AskQuestion } from '../novaStream';
 
 /* NOVA ASKS BEFORE IT ANSWERS.
  *
@@ -11,32 +12,27 @@ import { askComplete, type FeedAsk } from '../turnModel';
  * emitter is parked until these come back, which is what makes the questions worth answering
  * rather than a form that appears while the work carries on behind it.
  *
- * ── ONE CARD, TWO STATES, SAME ROWS ──────────────────────────────────────────────────────────
- * While it is pending, one question is open and the rest are one-line rows. Once it resolves,
- * every row is closed and the card reads as the record of what was chosen. Deliberately NOT two
- * components: the answered card is what the pending card becomes, and building them separately
- * is how the two drift into looking like different objects (law 16).
+ * ── ONE QUESTION ON SCREEN, ANSWERED ONES ABOVE IT ───────────────────────────────────────────
+ * While pending, the card shows what has been answered (one line each) and the question being
+ * asked now — and NOTHING ELSE. The unreached questions used to render as bare grey rows, and
+ * they read as exactly what they were: dead text with no badge, no control and no reason to be
+ * there. The "N of M answered" counter already carries how much is left, so the rows carried
+ * nothing. Removed on feedback.
  *
- *   ROW, CLOSED    question · Answered/Skipped · chevron        44px, expands
- *   ROW, OPEN      question, then its choices as radio rows     each 44px
+ * Once the set resolves, every row is a one-line record of what was chosen — which is the same
+ * card, finished, not a second design (law 16).
  *
- * ── WHY ONE AT A TIME ────────────────────────────────────────────────────────────────────────
- * Three questions with four options each is twelve simultaneous choices, which is exactly the
- * load Hick's Law describes and Miller's Law says to break up. Opening one at a time makes it
- * three choices of four. The other rows stay VISIBLE though — that is the progress (law 11) and
- * the sense of an end in sight (law 20); hiding them would trade one problem for a worse one.
+ * ── "SOMETHING ELSE" IS A REAL OPTION ────────────────────────────────────────────────────────
+ * A fixed list is a guess about the answer, and the person answering is the one who knows.
+ * A choice authored with `other: true` opens a text field; the typed text IS the answer, stored
+ * in the same map as a picked choice id, and echoed back on the collapsed row like any other
+ * choice. Free text does not auto-submit — an empty or half-typed sentence is not an answer, so
+ * it confirms with Enter or its own button.
  *
- * ── NO SUBMIT BUTTON ─────────────────────────────────────────────────────────────────────────
- * A pick answers a question and opens the next. The set closes on the last pick. A Submit would
- * be a step that exists only to be pressed (law 18), and every pick stays changeable right up
- * until that last one — so nothing is lost by not having a confirmation to guard.
- *
- * ⚠️ THE ONE DEVIATION FROM THE REFERENCE. The reference prints "Running Tool: Ask User
- * Question" above the card. That names an internal mechanism, and this module has spent its
- * whole life keeping those off the screen — there is no "Thinking…" anywhere in it, because a
- * named check says what is happening and a machine noun does not. The card's own header carries
- * the same information in the product's voice, so the extra line would be a second affordance
- * for one thing.
+ * ── NO SUBMIT BUTTON ON THE SET ──────────────────────────────────────────────────────────────
+ * A pick answers a question and opens the next; the set closes on the last answer. A set-level
+ * Submit would be a step that exists only to be pressed (law 18), and every answer stays
+ * changeable right up until the last one lands.
  */
 export function AskUserQuestion({ ask, live, onAnswer }: {
   ask: FeedAsk;
@@ -48,6 +44,9 @@ export function AskUserQuestion({ ask, live, onAnswer }: {
   /* An override, not the source of truth. Null means "whatever is next", which is what makes the
      card advance by itself without a step counter to keep in step with the answers. */
   const [opened, setOpened] = useState<string | null>(null);
+  /* The free-text draft, per question — kept locally until confirmed, because an unfinished
+     sentence must not release a parked stream. */
+  const [draft, setDraft] = useState<{ q: string; text: string } | null>(null);
 
   const pending = ask.status === 'pending';
   const operable = pending && live;
@@ -55,13 +54,27 @@ export function AskUserQuestion({ ask, live, onAnswer }: {
   const next = ask.questions.find((q) => !ask.answers[q.id]);
   const openId = opened ?? (operable ? next?.id ?? null : null);
 
-  const pick = (questionId: string, choiceId: string) => {
-    const merged = { ...ask.answers, [questionId]: choiceId };
+  const pick = (questionId: string, value: string) => {
+    const merged = { ...ask.answers, [questionId]: value };
     const done = ask.questions.every((q) => !!merged[q.id]);
     /* Only the delta travels. The turn owns the accumulation — see `recordAsk`. */
-    onAnswer({ [questionId]: choiceId }, done);
+    onAnswer({ [questionId]: value }, done);
     setOpened(null);
+    setDraft(null);
   };
+
+  /** The stored answer, read back as words: a choice's label, or the free text itself. */
+  const said = (q: AskQuestion): string | null => {
+    const v = ask.answers[q.id];
+    if (!v) return null;
+    return q.choices.find((c) => c.id === v)?.label ?? v;
+  };
+
+  /* Answered rows and the open question. The unreached ones are NOT rendered — the counter in
+     the header is what says how much is left. Resolved shows everything, skipped included. */
+  const visible = pending
+    ? ask.questions.filter((q) => !!ask.answers[q.id] || q.id === openId)
+    : ask.questions;
 
   return (
     <section
@@ -96,13 +109,13 @@ export function AskUserQuestion({ ask, live, onAnswer }: {
       </div>
 
       <ol className="nova-ask-list">
-        {ask.questions.map((q) => {
+        {visible.map((q) => {
           const chosen = ask.answers[q.id];
-          const choice = q.choices.find((c) => c.id === chosen);
+          const matched = q.choices.find((c) => c.id === chosen);
+          /* An answer that matches no choice id IS the free text the reader typed. */
+          const isFree = !!chosen && !matched;
           const open = openId === q.id;
-          /* Everything after the open one, before it has been reached. Shown, but quiet — it is
-             the road ahead, not a control. */
-          const ahead = pending && !open && !chosen;
+          const typing = draft?.q === q.id;
 
           return (
             <li key={q.id} className="nova-ask-row" data-open={open ? 'true' : 'false'}>
@@ -110,36 +123,80 @@ export function AskUserQuestion({ ask, live, onAnswer }: {
                 <fieldset className="nova-ask-open">
                   <legend className="nova-ask-q">{q.question}</legend>
                   <div className="nova-ask-choices">
-                    {q.choices.map((c) => (
-                      <label
-                        key={c.id}
-                        className="nova-ask-choice"
-                        data-picked={chosen === c.id ? 'true' : 'false'}
-                      >
-                        {/* A REAL radio. Arrow-key movement within the group, the right
-                            announcement, and the label's whole box as the target come free;
-                            re-implementing them on buttons is how the keyboard case gets lost. */}
-                        <input
-                          type="radio"
-                          className="sr-only"
-                          name={`${ask.id}-${q.id}`}
-                          value={c.id}
-                          checked={chosen === c.id}
-                          disabled={!operable}
-                          onChange={() => pick(q.id, c.id)}
-                        />
-                        <span className="nova-ask-dot" aria-hidden="true">
-                          {chosen === c.id && <Check size={11} strokeWidth={3} />}
-                        </span>
-                        <span className="min-w-0">
-                          <span className="nova-ask-choice-label">{c.label}</span>
-                          {/* What picking it MEANS, where that is not obvious from the label.
-                              Never a restatement — a second line that says the same thing again
-                              is a line the reader pays for twice. */}
-                          {c.detail && <span className="nova-ask-choice-detail">{c.detail}</span>}
-                        </span>
-                      </label>
-                    ))}
+                    {q.choices.map((c) => {
+                      const picked = chosen === c.id || (c.other && (isFree || typing));
+                      return (
+                        <div key={c.id}>
+                          <label
+                            className="nova-ask-choice"
+                            data-picked={picked ? 'true' : 'false'}
+                          >
+                            {/* A REAL radio. Arrow-key movement within the group, the right
+                                announcement, and the label's whole box as the target come free;
+                                re-implementing them on buttons is how the keyboard case gets
+                                lost. */}
+                            <input
+                              type="radio"
+                              className="sr-only"
+                              name={`${ask.id}-${q.id}`}
+                              value={c.id}
+                              checked={!!picked}
+                              disabled={!operable}
+                              onChange={() => {
+                                if (c.other) {
+                                  /* Opens the field; the ANSWER is the confirmed text. */
+                                  setDraft({ q: q.id, text: isFree ? chosen! : '' });
+                                } else {
+                                  pick(q.id, c.id);
+                                }
+                              }}
+                            />
+                            <span className="nova-ask-dot" aria-hidden="true">
+                              {picked && <Check size={11} strokeWidth={3} />}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="nova-ask-choice-label">{c.label}</span>
+                              {/* What picking it MEANS, where that is not obvious from the
+                                  label. Never a restatement. */}
+                              {c.detail && <span className="nova-ask-choice-detail">{c.detail}</span>}
+                            </span>
+                          </label>
+
+                          {c.other && (typing || isFree) && (
+                            <div className="nova-ask-other">
+                              <label className="sr-only" htmlFor={`${ask.id}-${q.id}-other`}>
+                                Your own answer
+                              </label>
+                              <input
+                                id={`${ask.id}-${q.id}-other`}
+                                type="text"
+                                className="nova-ask-other-input"
+                                placeholder="Type it here…"
+                                value={typing ? draft!.text : chosen ?? ''}
+                                disabled={!operable}
+                                autoFocus={typing && !draft!.text}
+                                onChange={(e) => setDraft({ q: q.id, text: e.target.value })}
+                                onKeyDown={(e) => {
+                                  const t = (typing ? draft!.text : chosen ?? '').trim();
+                                  if (e.key === 'Enter' && t) pick(q.id, t);
+                                }}
+                              />
+                              {/* 36px tall to sit level with the field; .nova-hit pads the
+                                  pressable area back out to 44px. */}
+                              <button
+                                type="button"
+                                className="nova-btn nova-btn-primary nova-hit nova-ask-other-go"
+                                disabled={!operable || !(typing ? draft!.text.trim() : chosen)}
+                                onClick={() => {
+                                  const t = (typing ? draft!.text : chosen ?? '').trim();
+                                  if (t) pick(q.id, t);
+                                }}
+                              >Use this</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </fieldset>
               ) : (
@@ -147,21 +204,19 @@ export function AskUserQuestion({ ask, live, onAnswer }: {
                   type="button"
                   className="nova-ask-closed"
                   aria-expanded={false}
-                  /* Nothing to expand once the whole set has been answered and the row is not
-                     the record of a choice — an inert row should not offer a press. */
-                  disabled={ahead || (!operable && !chosen)}
+                  /* A row with nothing behind it should not offer a press — only a recorded
+                     choice, or a still-changeable answer, earns the chevron. */
+                  disabled={!operable && !chosen}
                   onClick={() => setOpened(q.id)}
                 >
-                  <span className="nova-ask-q" data-ahead={ahead ? 'true' : 'false'}>
-                    {q.question}
-                  </span>
+                  <span className="nova-ask-q">{q.question}</span>
                   <span className="nova-ask-tail">
                     {chosen ? (
                       <span className="nova-ask-badge">Answered</span>
                     ) : pending ? null : (
                       <span className="nova-ask-badge" data-skipped="true">Skipped</span>
                     )}
-                    {!ahead && (
+                    {(operable || chosen) && (
                       <ChevronDown size={13} className="nova-chev" data-open="false" aria-hidden="true" />
                     )}
                   </span>
@@ -170,19 +225,21 @@ export function AskUserQuestion({ ask, live, onAnswer }: {
 
               {/* The choice itself, under its question, once the row is closed. This is the whole
                   point of the resolved card: not that it was answered, but WHAT was answered. */}
-              {!open && choice && <p className="nova-ask-chosen">{choice.label}</p>}
+              {!open && said(q) && <p className="nova-ask-chosen">{said(q)}</p>}
             </li>
           );
         })}
       </ol>
 
       {/* Law 15 — a question that cannot be got past is a trap, and this one is holding a stream
-          open. Quiet, because it is the way out and not the way through (law 7). */}
+          open. A TERTIARY button: quieter than an answer, but unmistakably pressable — the
+          previous ghost treatment made the way out nearly invisible, which is its own kind of
+          trap. */}
       {operable && !askComplete(ask) && (
         <div className="nova-ask-foot">
           <button
             type="button"
-            className="nova-btn nova-btn-ghost nova-ask-skip"
+            className="nova-btn nova-ask-skip"
             onClick={() => onAnswer({}, true)}
           >
             {answeredCount > 0 ? 'Carry on without the rest' : 'Skip these and carry on'}

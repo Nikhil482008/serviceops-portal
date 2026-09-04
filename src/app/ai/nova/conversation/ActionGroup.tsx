@@ -26,10 +26,12 @@ import type { AnswerObject } from '../novaStream';
  *  long the "working" state is held before the result, not a delay invented to look busy. */
 const ACK_MS = 400;
 
-export function ActionGroup({ answer: a, onAsk, onDiscard }: {
+export function ActionGroup({ answer: a, onAsk, onDiscard, onDone }: {
   answer: AnswerObject;
   onAsk: (question: string) => void;
   onDiscard: () => void;
+  /** The committing primary has run — the parent releases the follow-up pills. */
+  onDone?: () => void;
 }) {
   const [phase, setPhase] = useState<'idle' | 'confirm' | 'busy' | 'done'>('idle');
   if (!a.footer) return null;
@@ -41,7 +43,7 @@ export function ActionGroup({ answer: a, onAsk, onDiscard }: {
 
   if (phase === 'done') {
     return (
-      <section style={{ marginTop: 'var(--nova-gap-block)' }}>
+      <section style={{ marginTop: 16 }}>
         <p className="flex items-center gap-1.5 ask-text-base ask-w-500 text-[#0F6E4F]">
           <Check size={14} aria-hidden="true" />
           {f.run}
@@ -56,9 +58,9 @@ export function ActionGroup({ answer: a, onAsk, onDiscard }: {
   }
 
   return (
-    <section style={{ marginTop: 'var(--nova-gap-block)' }}>
-      <h4 className="nova-t-label">Available actions</h4>
-
+    /* No "Available actions" heading — the primary IS the conclusion of the answer, and a label
+       between the fold and the button was one more thing holding them apart. */
+    <section style={{ marginTop: 16 }}>
       {phase === 'confirm' ? (
         /* Review → approve. Named, so "Confirm" is never the only word on screen. */
         <div className="mt-2">
@@ -70,7 +72,7 @@ export function ActionGroup({ answer: a, onAsk, onDiscard }: {
               type="button"
               onClick={() => {
                 setPhase('busy');
-                window.setTimeout(() => setPhase('done'), ACK_MS);
+                window.setTimeout(() => { setPhase('done'); onDone?.(); }, ACK_MS);
               }}
               className="nova-btn nova-btn-primary inline-flex h-9 items-center rounded px-4 ask-text-base ask-w-500"
             >Confirm</button>

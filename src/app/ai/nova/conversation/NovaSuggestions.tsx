@@ -60,7 +60,8 @@ export function NovaSuggestions({ userRole, staged, out, onAsk, rowRef }: {
             data-out={out ? 'true' : 'false'}
             tabIndex={here && !out ? 0 : -1}
           >
-            <span className="nova-sugg-icon" aria-hidden="true"><Icon size={15} /></span>
+            {/* data-tone: each row's own hue — see .nova-sugg-icon[data-tone] in theme.css. */}
+            <span className="nova-sugg-icon" data-tone={String(i % 4)} aria-hidden="true"><Icon size={15} /></span>
             <span className="nova-sugg-title">{c.title}</span>
             <span className="nova-sugg-sub">{c.subtitle}</span>
           </button>

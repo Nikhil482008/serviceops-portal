@@ -62,7 +62,7 @@ export function NovaDrawer({
 }) {
   const { turns, skipInvestigation } = useNovaConversation();
   const {
-    askNova, askFollowUp, retryTurn, stopTurn, answerAsk, reset, setSkipInvestigation,
+    askNova, askFollowUp, retryTurn, stopTurn, answerAsk, respondToPlan, reset, setSkipInvestigation,
   } = useNovaActions();
 
   const [staged, setStaged] = useState<Staged>(NONE);
@@ -384,10 +384,12 @@ export function NovaDrawer({
 
           {/* The thread. Every turn keeps its own steps, findings and answer; a new one appends. */}
           {/* ONE rhythm unit between turns, and the same unit inside them — see --nova-gap.
+              `pt-4`: the header carries no divider, so this gap is the only thing separating it
+              from the reader's first message — 4px left the question looking stuck to the chrome.
               A comment cannot live between `&& (` and the element: that position must be the one
               expression the conditional returns. */}
           {phase === 'live' && (
-            <div className="pt-1" style={{ display: 'grid', rowGap: 'var(--nova-gap-turn)' }}>
+            <div className="pt-4" style={{ display: 'grid', rowGap: 'var(--nova-gap-turn)' }}>
               {turns.map((t, i) => (
                 <NovaTurn
                   key={t.id}
@@ -396,7 +398,9 @@ export function NovaDrawer({
                   onFollowUp={askFollowUp}
                   onEditQuery={(q) => setSeed({ text: q, nonce: Date.now() })}
                   onRetry={() => retryTurn(t.id)}
+                  onRegenerate={() => retryTurn(t.id, true)}
                   onAnswerAsk={(askId, answers, done) => answerAsk(t.id, askId, answers, done)}
+                  onPlanRespond={(id, payload) => respondToPlan(t.id, id, payload)}
                 />
               ))}
             </div>

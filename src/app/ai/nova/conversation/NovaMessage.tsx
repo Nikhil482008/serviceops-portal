@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react';
 import { AskAiOrb } from '../AskAiOrb';
 
 /* WHAT NOVA SAID.
@@ -25,11 +26,18 @@ function stamp(at: number, now = Date.now()): string {
   return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function NovaMessage({ startedAt, working, children }: {
+export function NovaMessage({ startedAt, working, activity, phase, children }: {
   startedAt: number;
   /** Something is still happening. The orb keeps its investigating state so the identity row
    *  itself carries the liveness, and no second spinner is needed anywhere below it. */
   working: boolean;
+  /** WHAT is happening, when the view can say so — the topic, worn in the slot "Working"
+   *  otherwise occupies. "Working" is the fallback, not a second line: a row that can name the
+   *  subject has no business also saying the generic word. */
+  activity?: string;
+  /** A NAMED PHASE that owns the slot outright — "Planning your night-shift handover",
+   *  "Plan ready", "Executing the approved plan". A full phrase, so no prefix is added. */
+  phase?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -43,9 +51,20 @@ export function NovaMessage({ startedAt, working, children }: {
         <AskAiOrb size={20} still={!working} state={working ? 'investigating' : 'settled'} />
         <span className="nova-t-head">Nova</span>
         <span className="ask-text-sm text-[var(--nova-ink-muted)]" aria-hidden="true">·</span>
-        <span className="ask-text-sm text-[var(--nova-ink-muted)]">
-          {working ? 'Working' : stamp(startedAt)}
-        </span>
+        {working && phase ? (
+          <span className="min-w-0 truncate ask-text-sm ask-w-500 text-[var(--nova-ink)]">{phase}</span>
+        ) : working && activity ? (
+          <span className="flex min-w-0 items-center gap-1.5 ask-text-sm text-[var(--nova-ink-muted)]">
+            <Search size={12} className="flex-shrink-0 text-[#9CA3AF]" aria-hidden="true" />
+            <span className="min-w-0 truncate">
+              Looking into <span className="ask-w-500 text-[var(--nova-ink)]">{activity}</span>
+            </span>
+          </span>
+        ) : (
+          <span className="ask-text-sm text-[var(--nova-ink-muted)]">
+            {working ? 'Working' : stamp(startedAt)}
+          </span>
+        )}
       </div>
 
       {/* Indented to the name. This is the ONLY grouping device for Nova's side — no border,

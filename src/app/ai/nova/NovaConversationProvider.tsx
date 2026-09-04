@@ -50,8 +50,10 @@ interface ConversationActions {
    *  have something to call, and so a chip can never become a second way in. */
   askFollowUp(question: string, fromTurnId: string): void;
   /** Run the same question again, in place. UX law 15: an error the reader cannot act on is a
-   *  dead end — and `error.recoverable` was being set by the stream with nothing reading it. */
-  retryTurn(id: string): void;
+   *  dead end — and `error.recoverable` was being set by the stream with nothing reading it.
+   *  `instant` skips the pacing — the ••• menu's Regenerate, which replaces the answer without
+   *  replaying the wait. */
+  retryTurn(id: string, instant?: boolean): void;
   /** Stop a running investigation. UX law 15 again (cancel), and law 6: an action with no way
    *  out is an action people hesitate to take. */
   stopTurn(id: string): void;
@@ -62,6 +64,10 @@ interface ConversationActions {
   answerAsk(
     turnId: string, askId: string, answers: Record<string, string>, done: boolean,
   ): void;
+  /** Release a stream parked on a plan proposal (or a failed execution step). `payload.action`
+   *  says what the reader chose — approve / revise / remove_step / edit_step / add_step / retry.
+   *  The approval is patched onto the turn FIRST so the click lands in the same frame. */
+  respondToPlan(turnId: string, id: string, payload: Record<string, string>): void;
   reset(): void;
   setSkipInvestigation(on: boolean): void;
 }
@@ -108,7 +114,7 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
     /* topic AND view. The investigation decides both; copying only one left every technician
        turn rendering the requester's step list while the stream had correctly asked for the
        thinking view — the kind of miss a build cannot see, because both are valid strings. */
-    patch(turn.id, (t) => ({ ...t, topic: inv.topic, view: inv.view, scope: inv.scope }));
+    patch(turn.id, (t) => ({ ...t, topic: inv.topic, view: inv.view, scope: inv.scope, activity: inv.activity }));
 
     try {
       for await (const e of inv.run(ctl.signal) as AsyncIterable<NovaEvent>) {
@@ -171,7 +177,7 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
     askNova(question, { context: { followUpOf: fromTurnId } });
   }, [askNova]);
 
-  const retryTurn = useCallback<ConversationActions['retryTurn']>((id) => {
+  const retryTurn = useCallback<ConversationActions['retryTurn']>((id, instant) => {
     const old = turnsRef.current.find((t) => t.id === id);
     if (!old) return;
     /* Whatever was still in flight is abandoned first, or two streams write the same turn. */
@@ -181,7 +187,7 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
        a second copy of the question appearing below the first. */
     const fresh = newTurn(id, old.question, old.caseId, old.context);
     setTurns((prev) => prev.map((t) => (t.id === id ? fresh : t)));
-    void run(fresh, skipRef.current);
+    void run(fresh, instant ?? skipRef.current);
   }, [run]);
 
   const stopTurn = useCallback<ConversationActions['stopTurn']>((id) => {
@@ -212,6 +218,18 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
     }, [patch],
   );
 
+  const respondToPlan = useCallback<ConversationActions['respondToPlan']>(
+    (turnId, id, payload) => {
+      /* Approval acknowledged locally, in the same frame as the click — the exec_begin event
+         confirms it a beat later. Every other action's acknowledgement IS the next
+         plan_proposed / exec_step event. */
+      if (payload.action === 'approve') {
+        patch(turnId, (t) => (t.plan ? { ...t, plan: { ...t.plan, status: 'approved' } } : t));
+      }
+      investigations.current.get(turnId)?.respond?.(id, payload);
+    }, [patch],
+  );
+
   const reset = useCallback(() => {
     controllers.current.forEach((c) => c.abort());
     controllers.current.clear();
@@ -225,8 +243,8 @@ export function NovaConversationProvider({ children }: { children: ReactNode }) 
     () => ({ turns, skipInvestigation }), [turns, skipInvestigation],
   );
   const actions = useMemo<ConversationActions>(
-    () => ({ askNova, askFollowUp, retryTurn, stopTurn, answerAsk, reset, setSkipInvestigation }),
-    [askNova, askFollowUp, retryTurn, stopTurn, answerAsk, reset],
+    () => ({ askNova, askFollowUp, retryTurn, stopTurn, answerAsk, respondToPlan, reset, setSkipInvestigation }),
+    [askNova, askFollowUp, retryTurn, stopTurn, answerAsk, respondToPlan, reset],
   );
 
   return (

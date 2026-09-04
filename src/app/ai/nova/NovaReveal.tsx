@@ -4,6 +4,9 @@ import { activeIndex, turnCounts, type FeedDiscovery, type FeedStep, type Turn }
 import { prefersReducedMotion } from './novaMotion';
 import { NovaContextTabs } from './NovaContextTabs';
 import { NovaFailure } from './NovaFailure';
+import { LiveInvestigation } from './conversation/LiveInvestigation';
+import { PlanCard } from './conversation/PlanCard';
+import { ExecutionProgress } from './conversation/ExecutionProgress';
 
 /* MYSTERY → REVEAL.
  *
@@ -28,7 +31,12 @@ import { NovaFailure } from './NovaFailure';
 const COLLAPSE_DELAY_MS = 300;
 const num = (i: number) => String(i + 1).padStart(2, '0');
 
-export function NovaReveal({ turn, onRetry }: { turn: Turn; onRetry?: () => void }) {
+export function NovaReveal({ turn, onRetry, onPlanRespond }: {
+  turn: Turn;
+  onRetry?: () => void;
+  /** Release a stream parked on a plan proposal or a failed execution step. */
+  onPlanRespond?: (id: string, payload: Record<string, string>) => void;
+}) {
   const [open, setOpen] = useState(true);
   const [userToggled, setUserToggled] = useState(false);
   const hasAnswer = !!turn.answer;
@@ -69,6 +77,39 @@ export function NovaReveal({ turn, onRetry }: { turn: Turn; onRetry?: () => void
     return m;
   }, [turn.discoveries]);
 
+  /* THE LIVE PRESENTATION IS OPT-IN, BY THE SCRIPT. A script that tallies what its checks
+     read (TEC-02) gets the compact live block — scope strip, current check, foldable trail.
+     One that does not keeps the full chapter view it was authored against. Error and stop fall
+     back to the full view too: those states are ABOUT the trail, and folding it away while
+     showing a failure would hide the context the failure needs. */
+  const compact = turn.steps.some((x) => !!x.tally) && !turn.error && !turn.stopped;
+
+  /* The chapters — ONE copy, used directly by the classic view and as the fold's contents by
+     the live one. Two renderings of the trail would drift the way any duplicated markup does. */
+  const trail = (
+    <div className="space-y-3.5">
+      {chapters.filter((c) => c.started).map((c, ci) => (
+        <section key={c.name} className={ci > 0 && !compact ? 'nova-feed-in' : undefined}>
+          {/* ⚠️ The separator is LITERAL TEXT, not a flex gap between three children. A gap is
+              not whitespace: the accessible name of a gapped heading is "01—Understand", which
+              is what a screen reader reads out and what any text assertion sees. */}
+          <h3 className="ask-text-xs ask-w-600 uppercase tracking-[0.06em] text-[#9CA3AF]">
+            <span className="tabular-nums text-[#C6CFDA]">{c.n}</span>
+            {' — '}
+            {c.name}
+          </h3>
+          <div className="mt-1 space-y-0.5">
+            {c.steps.map((st) => (
+              <Row key={st.id} step={st} isLive={turn.steps.indexOf(st) === live} />
+            ))}
+          </div>
+          {c.steps.flatMap((st) => foundAfter.get(st.id) ?? []).map((d) => <Tease key={d.id} d={d} />)}
+        </section>
+      ))}
+      {(foundAfter.get('') ?? []).map((d) => <Tease key={d.id} d={d} />)}
+    </div>
+  );
+
   if (!open) {
     return (
       <button
@@ -87,50 +128,69 @@ export function NovaReveal({ turn, onRetry }: { turn: Turn; onRetry?: () => void
 
   return (
     <div>
-      <p className="flex items-center gap-1.5 ask-text-base ask-w-500 text-[#7B8FA5]">
-        <Search size={13} className="text-[#9CA3AF]" aria-hidden="true" />
-        Nova is looking into <span className="text-[#364658]">{turn.topic || 'this'}</span>
-        {hasAnswer && (
-          <button
-            type="button"
-            aria-expanded
-            onClick={() => { setUserToggled(true); setOpen(false); }}
-            className="ml-auto rounded px-1.5 py-0.5 ask-text-sm ask-w-400 text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
-          >
-            Hide
-          </button>
-        )}
-      </p>
+      {/* The classic view's header. The live view has NO line of its own for this — the topic
+         rides the identity row above ("Nova · Looking into …"), so printing it again here
+         would be the same sentence twice in two rows. */}
+      {!compact && (
+        <p className="flex items-center gap-1.5 ask-text-base ask-w-500 text-[#7B8FA5]">
+          <Search size={13} className="text-[#9CA3AF]" aria-hidden="true" />
+          Nova is looking into <span className="text-[#364658]">{turn.topic || 'this'}</span>
+          {hasAnswer && (
+            <button
+              type="button"
+              aria-expanded
+              onClick={() => { setUserToggled(true); setOpen(false); }}
+              className="ml-auto rounded px-1.5 py-0.5 ask-text-sm ask-w-400 text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
+            >
+              Hide
+            </button>
+          )}
+        </p>
+      )}
 
-      <div className="mt-3 space-y-3.5">
-        {chapters.filter((c) => c.started).map((c, ci) => (
-          <section key={c.name} className={ci > 0 ? 'nova-feed-in' : undefined}>
-            {/* ⚠️ The separator is LITERAL TEXT, not a flex gap between three children. A gap is
-                not whitespace: the accessible name of a gapped heading is "01—Understand", which
-                is what a screen reader reads out and what any text assertion sees. This is the
-                same trap that produced "Dateis withinLast 30 days" elsewhere in this codebase. */}
-            <h3 className="ask-text-xs ask-w-600 uppercase tracking-[0.06em] text-[#9CA3AF]">
-              <span className="tabular-nums text-[#C6CFDA]">{c.n}</span>
-              {' — '}
-              {c.name}
-            </h3>
-            <div className="mt-1 space-y-0.5">
-              {c.steps.map((s) => (
-                <Row key={s.id} step={s} isLive={turn.steps.indexOf(s) === live} />
-              ))}
-            </div>
-            {c.steps.flatMap((s) => foundAfter.get(s.id) ?? []).map((d) => <Tease key={d.id} d={d} />)}
-          </section>
-        ))}
+      {compact ? (
+        <div>
+          {/* LIVE SCOPE → CURRENT CHECK, with the trail folded INTO the scope row. No Context
+              card on this path: its outputs and sources are the same facts the answer already
+              derives under "Why Nova says this" (EvidenceBlock reads the same steps), and a
+              second copy of one provenance is how the two drift. */}
+          <LiveInvestigation
+            turn={turn}
+            history={trail}
+            onHide={hasAnswer ? () => { setUserToggled(true); setOpen(false); } : undefined}
+          />
+          {/* THE PLAN-FIRST SURFACES. The proposal parks the stream, so between planning and
+              execution the card is the only live thing on screen; both are inert once the turn
+              stopped or failed, exactly like a parked ask. */}
+          {turn.plan && (
+            <PlanCard
+              plan={turn.plan}
+              live={!turn.stopped && turn.state !== 'error' && !!onPlanRespond}
+              onRespond={(a) => onPlanRespond?.(turn.plan!.proposal.id, a as unknown as Record<string, string>)}
+            />
+          )}
+          {turn.execution && (
+            <ExecutionProgress
+              steps={turn.execution.steps}
+              live={!turn.stopped && turn.state !== 'error' && !!onPlanRespond}
+              onRetry={(stepId) => onPlanRespond?.(`retry:${stepId}`, { action: 'retry' })}
+            />
+          )}
+          <div className="mt-4">
+            <NovaFailure turn={turn} onRetry={onRetry} />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3.5">
+          {trail}
 
-        {(foundAfter.get('') ?? []).map((d) => <Tease key={d.id} d={d} />)}
+          {/* The reference section: what came out, and what it read. Collapsed by default so it
+              never competes with the reveal while the reveal is still happening. */}
+          <NovaContextTabs turn={turn} />
 
-        {/* The reference section: what came out, and what it read. Collapsed by default so it
-            never competes with the reveal while the reveal is still happening. */}
-        <NovaContextTabs turn={turn} />
-
-        <NovaFailure turn={turn} onRetry={onRetry} />
-      </div>
+          <NovaFailure turn={turn} onRetry={onRetry} />
+        </div>
+      )}
     </div>
   );
 }

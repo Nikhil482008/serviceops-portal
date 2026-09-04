@@ -9,17 +9,25 @@
  * against cases the authored scripts never produce.
  */
 import type { AnswerObject, DiscoveryRole, NovaEvent, NovaStep, ScriptView } from './novaStream';
-import type { AskQuestion, StepMetric, StepSource } from './scripts/registry';
+import type { AskQuestion, PlanDiff, PlanProposal, StepMetric, StepSource } from './scripts/registry';
 
 export type StepStatus = 'pending' | 'active' | 'complete';
 export interface FeedStep {
   id: string; label: string; status: StepStatus; sources?: StepSource[];
   lane?: string; phase?: string; metric?: StepMetric;
+  /** What completing this check adds to the live scope strip. */
+  tally?: Record<string, number>;
 }
 export interface FeedDiscovery {
   id: string; role: DiscoveryRole; headline: string; detail: string;
   /** The eyebrow shown above it by the reveal view. */
   tease?: string;
+  /** Source labels this finding rests on — what "Supported by" lists. */
+  support?: string[];
+  /** An AI conclusion, not a system fact — labelled as such wherever it renders. */
+  inference?: boolean;
+  /** Evidence strength in words, never an invented percentage. */
+  basis?: string;
   /** Which step had just finished when this arrived — recorded at apply time so the expanded
    *  trail can interleave findings with the checks that produced them, rather than listing all
    *  the steps and then all the findings as two unrelated columns. */
@@ -40,6 +48,25 @@ export interface FeedAsk {
   questions: AskQuestion[];
   answers: Record<string, string>;
   status: 'pending' | 'resolved';
+}
+
+/** The plan a plan-first turn is parked on (or has approved). `diff` is what the latest
+ *  modification changed — kept beside the proposal so a revision is always visible. */
+export interface TurnPlan {
+  proposal: PlanProposal;
+  diff?: PlanDiff;
+  status: 'review' | 'approved';
+}
+
+/** One step of the approved plan, executing. */
+export interface ExecStepState {
+  id: string;
+  label: string;
+  status: 'todo' | 'active' | 'done' | 'failed';
+  /** Why it failed — shown beside the retry, never folded away. */
+  note?: string;
+  /** What the recovery action is called — "Retry notification", named, never a bare "Retry". */
+  retry?: string;
 }
 
 /**  idle → investigating → answering → settled
@@ -65,6 +92,11 @@ export interface Turn {
   /** Clarifying questions this turn raised. Almost always empty — only a script that authored
    *  an `ask` beat produces one. */
   asks: FeedAsk[];
+  /** The plan-first surface. Only a script with a `proposal` beat produces either. */
+  plan: TurnPlan | null;
+  execution: { steps: ExecStepState[] } | null;
+  /** The identity row's action phrase, when the investigation named one. */
+  activity?: string;
   answer: AnswerObject | null;
   error: { message: string; recoverable: boolean } | null;
   /** Wall-clock, for the minimum-visible-investigation floor. */
@@ -90,6 +122,8 @@ export const newTurn = (
   steps: [],
   discoveries: [],
   asks: [],
+  plan: null,
+  execution: null,
   answer: null,
   error: null,
   startedAt: Date.now(),
@@ -115,11 +149,13 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
               phase: p.phase ?? known.phase,
               metric: p.metric ?? known.metric,
               sources: p.sources ?? known.sources,
+              tally: p.tally ?? known.tally,
             };
           }
           return {
             id: p.id, label: p.label, status: 'pending' as StepStatus,
             lane: p.lane, phase: p.phase, metric: p.metric, sources: p.sources,
+            tally: p.tally,
           };
         }),
       };
@@ -140,7 +176,10 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
       const seen = t.steps.some((x) => x.id === e.id);
       const steps = t.steps.map((x) => (
         x.id === e.id
-          ? { ...x, label: e.label, status: 'complete' as StepStatus, sources: e.sources ?? x.sources }
+          ? {
+            ...x, label: e.label, status: 'complete' as StepStatus,
+            sources: e.sources ?? x.sources, tally: e.tally ?? x.tally,
+          }
           : x));
       return {
         ...t,
@@ -156,6 +195,7 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
         ...t,
         discoveries: [...t.discoveries, {
           id: e.id, role: e.role, headline: e.headline, detail: e.detail, tease: e.tease,
+          support: e.support, inference: e.inference, basis: e.basis,
           afterStepId: done.length ? done[done.length - 1].id : undefined,
         }],
       };
@@ -170,6 +210,43 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
            — and it is the reader, not Nova, that everything is now waiting on. */
         steps: t.steps.map((x) => (x.status === 'active' ? { ...x, status: 'complete' as StepStatus } : x)),
         asks: [...t.asks, { id: e.id, questions: e.questions, answers: {}, status: 'pending' }],
+      };
+    }
+
+    case 'plan_proposed':
+      return {
+        ...t,
+        /* The investigation is over the moment a plan is up for review — nothing may look like
+           it is still running behind a decision the reader now owns. */
+        steps: t.steps.map((x) => (x.status === 'active' ? { ...x, status: 'complete' as StepStatus } : x)),
+        plan: { proposal: e.proposal, diff: e.diff, status: 'review' },
+      };
+
+    case 'exec_begin':
+      return {
+        ...t,
+        plan: t.plan ? { ...t.plan, status: 'approved' } : t.plan,
+        execution: { steps: e.steps.map((s) => ({ id: s.id, label: s.label, status: 'todo' as const })) },
+      };
+
+    case 'exec_step': {
+      if (!t.execution) return t;
+      return {
+        ...t,
+        execution: {
+          steps: t.execution.steps.map((s) => (
+            s.id === e.id
+              ? {
+                ...s, status: e.status,
+                note: e.status === 'failed' ? e.note : undefined,
+                retry: e.status === 'failed' ? e.retry : undefined,
+              }
+              : e.status === 'active' && s.status === 'active'
+                /* One active at a time, same rule as the investigation's steps. */
+                ? { ...s, status: 'done' as const }
+                : s
+          )),
+        },
       };
     }
 
@@ -231,6 +308,10 @@ export const askComplete = (a: FeedAsk): boolean =>
 export const pendingAsk = (t: Turn): FeedAsk | null =>
   t.asks.find((a) => a.status === 'pending') ?? null;
 
+/** Parked on a plan awaiting the reader's approval. */
+export const planPending = (t: Turn): boolean =>
+  !!t.plan && t.plan.status === 'review' && !t.answer && !t.stopped && t.state !== 'error';
+
 /** Set a turn's state, refusing the one transition that would break the machine.
  *
  * ⚠️ `settled` is reachable ONLY from `answering`. That is the enforcement behind "the answer
@@ -262,11 +343,83 @@ export function activeIndex(t: Turn): number {
      not paint over that: a row ticking away while Nova waits on the reader tells them their
      answer is optional, and it is the only thing the turn is blocked on. */
   if (pendingAsk(t)) return -1;
+  /* PARKED ON A PLAN, or executing one. The investigation trail is over either way — the plan
+     card or the execution list is what is alive now, and a check pulsing beneath a decision
+     the reader owns would claim work that is not happening. */
+  if (t.plan) return -1;
   const live = t.steps.findIndex((x) => x.status === 'active');
   if (live >= 0) return live;
   for (let i = t.steps.length - 1; i >= 0; i--) if (t.steps[i].status === 'complete') return i;
   return -1;
 }
+
+/* ── the evidence view ─────────────────────────────────────────────────── */
+
+/** What a source's authority label reads as. */
+export const AUTHORITY_LABEL: Record<NonNullable<StepSource['authority']>, string> = {
+  system: 'System record',
+  kb: 'Approved KB',
+  history: 'Historical case',
+  user: 'User provided',
+  inference: 'AI inference',
+};
+
+/** A source's effective authority — authored, else defaulted by kind. Knowledge articles are
+ *  approved KB; everything else the system read is a system record. */
+export const sourceAuthority = (s: StepSource): NonNullable<StepSource['authority']> =>
+  s.authority ?? (s.kind === 'kb' ? 'kb' : 'system');
+
+export interface TurnEvidence {
+  /** Non-gap discoveries — the key findings. */
+  findings: FeedDiscovery[];
+  /** The limits on the answer. Never folded away. */
+  gaps: FeedDiscovery[];
+  /** Every source a completed check read, deduped by label, in reading order. */
+  sources: StepSource[];
+}
+
+/** THE ONE EVIDENCE VIEW. The provenance strip, the "How Nova knows" fold and the evidence
+ *  drawer all read this — one derivation, so three surfaces cannot disagree about what the
+ *  answer rests on. Sources come only from checks that COMPLETED: a check that never finished
+ *  read nothing anyone should be told about. */
+export function evidenceOf(t: Turn): TurnEvidence {
+  const seen = new Map<string, StepSource>();
+  t.steps.forEach((s) => {
+    if (s.status !== 'complete') return;
+    s.sources?.forEach((src) => { if (!seen.has(src.label)) seen.set(src.label, src); });
+  });
+  return {
+    findings: t.discoveries.filter((d) => d.role !== 'gap'),
+    gaps: t.discoveries.filter((d) => d.role === 'gap'),
+    sources: [...seen.values()],
+  };
+}
+
+/** One figure on the live scope strip: how much of something the investigation has read. */
+export interface ScopeCount { n: number; unit: string }
+
+/** The live scope — the strip's numbers, DERIVED.
+ *
+ * The sum of every COMPLETED check's tally, in the order the units first appeared. Completed
+ * only, deliberately: a number moves at the moment the check that earned it lands, so the strip
+ * ticks in step with the work rather than on a schedule of its own — and a stalled stream
+ * honestly shows a strip that has stopped growing. Scripts with no tallies produce an empty
+ * scope, which is what lets a view treat "this script quantifies itself" as an opt-in. */
+export function liveScope(t: Turn): ScopeCount[] {
+  const totals = new Map<string, number>();
+  for (const s of t.steps) {
+    if (s.status !== 'complete' || !s.tally) continue;
+    for (const [unit, n] of Object.entries(s.tally)) {
+      totals.set(unit, (totals.get(unit) ?? 0) + n);
+    }
+  }
+  return [...totals.entries()].filter(([, n]) => n > 0).map(([unit, n]) => ({ n, unit }));
+}
+
+/** "1 KB article" / "4 KB articles". Units here are simple English nouns; the day one is not,
+ *  give the unit its own plural in the tally key rather than teaching this function grammar. */
+export const scopeLabel = (n: number, unit: string): string =>
+  n === 1 ? unit : `${unit}s`;
 
 /** How many steps genuinely finished. Reads the stored status, not the derived one — a step that
  *  is pulsing again because the stream stalled has still completed. */

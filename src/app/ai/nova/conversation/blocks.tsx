@@ -1,4 +1,5 @@
 import type { AnswerKV, AnswerMetric, AnswerTable } from '../scripts/registry';
+import { NovaInlineCitation } from './NovaCitations';
 
 /* THE RESPONSE BLOCKS — the pieces a Nova answer is composed from.
  *
@@ -25,12 +26,17 @@ import type { AnswerKV, AnswerMetric, AnswerTable } from '../scripts/registry';
  * and there must never be — answer text is the one string in this module that will eventually
  * come from a model. */
 export function Emph({ children }: { children: string }) {
-  const parts = children.split(/(\*\*[^*]+\*\*)/g);
+  /* Two authored tokens: `**bold**` and `[[citation]]`. A citation resolves through the
+     CitationProvider into a numbered marker; outside a provider (or uncited) the token simply
+     disappears, so stray brackets can never reach the reader. */
+  const parts = children.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\])/g);
   return (
     <>
       {parts.map((p, i) => (p.startsWith('**') && p.endsWith('**')
         ? <b key={i} className="ask-w-500 text-[var(--nova-ink)]">{p.slice(2, -2)}</b>
-        : <span key={i}>{p}</span>))}
+        : p.startsWith('[[') && p.endsWith(']]')
+          ? <NovaInlineCitation key={i} label={p.slice(2, -2)} />
+          : <span key={i}>{p}</span>))}
     </>
   );
 }

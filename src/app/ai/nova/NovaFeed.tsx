@@ -18,17 +18,19 @@ import { AskUserQuestion } from './conversation/AskUserQuestion';
  * long one.
  */
 
-export function NovaFeed({ turn, onRetry, onAnswerAsk }: {
+export function NovaFeed({ turn, onRetry, onAnswerAsk, onPlanRespond }: {
   turn: Turn;
   onRetry?: () => void;
   onAnswerAsk?: (askId: string, answers: Record<string, string>, done: boolean) => void;
+  /** Release a stream parked on a plan proposal or a failed execution step (TEC-07). */
+  onPlanRespond?: (id: string, payload: Record<string, string>) => void;
 }) {
   /* Two presentations of the SAME turn. The view is a property of the investigation, chosen by
      whoever produced it — so this is a render branch, not a second feature with its own state,
      its own reducer and its own chance to disagree about what happened. */
   const investigation = turn.view === 'thinking' ? <NovaThinking turn={turn} />
     : turn.view === 'workspace' ? <NovaWorkspace turn={turn} onRetry={onRetry} />
-      : turn.view === 'reveal' ? <NovaReveal turn={turn} onRetry={onRetry} />
+      : turn.view === 'reveal' ? <NovaReveal turn={turn} onRetry={onRetry} onPlanRespond={onPlanRespond} />
         : <InvestigationState turn={turn} onRetry={onRetry} />;
 
   if (!turn.asks.length) return investigation;

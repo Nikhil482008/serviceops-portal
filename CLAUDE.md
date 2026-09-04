@@ -505,6 +505,54 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   grouping — size only orders what those have already separated.** The answer is 1.4× the body,
   not 2×; the insight outranks the prose beneath it with NO size step at all, on weight alone.
   Reaching for a sixth type size is the failure mode this scale exists to prevent.
+- **The trust/evidence experience (answer side).** "How Nova knows" (`EvidenceBlock`) is the ONE
+  trust gateway: gaps ("Not verified") always visible above a collapsed tertiary fold; expanded =
+  key findings with one-line provenance ("INC-0988 · notes · System record · Updated 2 hours
+  ago"; an AI inference is labelled, strength IN WORDS, never a percentage) then curated source
+  chips. Chips and inline `[[label]]` citations (`NovaCitations.tsx`, numbered by render-order
+  scan) open the **evidence drawer** (`NovaEvidenceDrawer`, portaled to `<body>` at z-10035 —
+  a child z-index cannot escape the drawer's stacking context, which is how the orb bled through
+  its header once): Findings|Sources tabs, search, kind filters, focus-on-citation, capture-phase
+  Escape so ONE keypress closes only the sheet. `evidenceOf(turn)` (turnModel) is the single
+  derivation the fold, the count and the drawer all read. Honesty is TESTED: every basedOn label,
+  citation and finding-support must name a source its own script's checks read (trust.mjs sweep).
+- **Every answer ends in three levels** (NovaAnswer order): answer → utility bar → suggestion
+  pills LAST. `ResponseUtilityBar`: Copy (real clipboard text via `answerToText`), Share (honest
+  toast), "N sources" (opens the drawer; count = evidenceOf's), 👍/👎, and a data-driven ••• menu —
+  the answer's authored `menu` items on top (Copy * really copies; unwired items toast "Not in
+  this demo"), then the common group: Regenerate (re-runs `retryTurn(id, instant=true)` in
+  place), Change visual (only when a table/metrics exists — real derived table⇄cards transforms
+  in AnswerBlock), Double-check (a REAL derived re-verification of claim→source tracing),
+  View sources (expands the fold in place), Flag (toast + disabled "Flagged for review").
+  Chips: `FollowUpSuggestions` renders `FollowUp = string | {label, disabled}` — three per
+  requester answer, third disabled with "Not in this demo"; plain hairline pills (the gradient
+  border was retired; the orb is the module's only gradient).
+- **TEC-07 is the PLAN-FIRST interaction** (night-shift handover): planning (TEC-2's tallied
+  live strip + "Planning your night-shift handover" identity phase) → a `proposal` beat PARKS
+  the stream exactly like an ask → `PlanCard` (numbered steps, "What will change", evidence
+  fold, Modify/Approve) → modifications (canned natural-language revision, per-step remove/edit,
+  declared addable step) each yield a NEW proposal with a visible diff needing approval again →
+  execution derives from the approved object only (`exec_begin`/`exec_step` events,
+  `ExecutionProgress` ✓●○⚠), the notify step fails deterministically and parks for "Retry
+  notification", and the completion answer's kv is BUILT from the approved plan's `done` rows.
+  `respondToPlan` (provider) is the release seam; `activeIndex` returns −1 while `turn.plan`
+  exists so nothing pulses behind a decision the reader owns.
+- **REQ-01..07 are hardcoded requester responses over ONE mock ticket store**
+  (`nova/mockTickets.ts`: seeds INC-0988/0035/0871/0790/0644 + REQ-0512; mutations
+  create/update/addNote/escalate/close + a `drafts` map are the ONLY writers;
+  `useSyncExternalStore` bridge). Answers author `blocks` (registry `RequesterBlock`) rendered by
+  `conversation/RequesterBlocks.tsx` — DraftCard (inline-editable Subject/Priority), StatusCard
+  (4-step stepper, note quoted), DiffCard, tickable StepList w/ Windows/Mac toggle + authored
+  short/detail variants (the ••• "Make it shorter"/"Show technical details" swap them),
+  YesNoPrompt, NoteComposer (+"This update also changes", `close: true` for resolution notes),
+  RequestList/StatChips (LIVE store — INC-1042 created in REQ-01 appears in REQ-06), AgeBar,
+  ResolutionNote, ConfirmBanner. THE APPROVAL RULE: propose → ONE confirm → store mutates → the
+  card is REPLACED by a ConfirmBanner; secondary collapses to a muted record; chips swap to
+  `followUpsAfter` on confirm. Every functional chip has its OWN script in
+  `scripts/requesterScripts.ts` (chips go through askNova; nothing renders an answer directly —
+  the renderer only has `onAsk`). REQ-06 row click asks "What's happening with <ref>?" (generic
+  status script parses the ref from the question). ⚠️ `requesterScripts.ts` imports registry
+  TYPES only (local helper copies) — the registry imports its VALUE, and a value cycle would TDZ.
 - **Nova's verification lives in the session scratchpad, not in CI** (`node <name>.mjs`; bundle
   with the project's non-hoisted esbuild, mount in jsdom, drive it). ⚠️ **Substring matching over
   source is only safe when the needle cannot occur in prose.** This module's scanners have now

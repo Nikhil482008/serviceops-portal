@@ -12,7 +12,8 @@
  */
 import {
   scriptFor, scriptForQuestion,
-  type AnswerObject, type AskQuestion, type Beat, type DiscoveryRole, type Script,
+  type AnswerObject, type AskQuestion, type Beat, type DiscoveryRole, type PlanDiff,
+  type PlanProposal, type PlanStep, type Script,
   type ScriptView, type StepMetric, type StepSource,
 } from './scripts/registry';
 import { fallbackScript, intentOf } from './scripts/fallbacks';
@@ -26,6 +27,8 @@ export interface NovaStep {
   metric?: StepMetric;
   /** What this check read. Surfaced by the reveal view's Sources tab. */
   sources?: StepSource[];
+  /** What completing this check adds to the live scope strip. */
+  tally?: Record<string, number>;
 }
 
 export type NovaEvent =
@@ -38,9 +41,10 @@ export type NovaEvent =
    *  rows and is otherwise identical. */
   | { type: 'plan'; steps: NovaStep[] }
   | { type: 'step_start'; id: string; label: string }
-  | { type: 'step_complete'; id: string; label: string; sources?: StepSource[] }
+  | { type: 'step_complete'; id: string; label: string; sources?: StepSource[];
+      tally?: Record<string, number> }
   | { type: 'discovery'; id: string; role: DiscoveryRole; headline: string; detail: string;
-      tease?: string }
+      tease?: string; support?: string[]; inference?: boolean; basis?: string }
   /** Nova needs something from the reader before it can carry on.
    *
    *  ⚠️ THE STREAM IS NOW BLOCKED. Nothing further arrives until `respond` is called with the
@@ -48,6 +52,17 @@ export type NovaEvent =
    *  client posts the result back, the stream resumes — rather than on a modal, because a
    *  question that does not actually gate the work is a question nobody needs to answer. */
   | { type: 'ask'; id: string; questions: AskQuestion[] }
+  /** A PLAN for review. The stream is parked exactly as on an ask — nothing executes until
+   *  `respond(proposal.id, { action: 'approve' })`. Every modification re-emits this event with
+   *  a NEW proposal id and the diff, so an approval always names the exact plan it approves. */
+  | { type: 'plan_proposed'; proposal: PlanProposal; diff?: PlanDiff }
+  /** Execution begins — over the APPROVED proposal's steps, derived from nothing else. */
+  | { type: 'exec_begin'; steps: Array<{ id: string; label: string }> }
+  /** One execution step's progress. A `failed` step parks the stream awaiting
+   *  `respond('retry:' + id, …)` — the partial state, with its retry, is a real state and not
+   *  a claim of success. */
+  | { type: 'exec_step'; id: string; status: 'active' | 'done' | 'failed'; note?: string;
+      retry?: string }
   | { type: 'answer'; payload: AnswerObject }
   | { type: 'error'; message: string; recoverable: boolean };
 
@@ -56,6 +71,9 @@ export type NovaEvent =
  *  consumer that guesses the subject will one day guess it wrong. */
 export interface NovaInvestigation {
   topic: string;
+  /** The identity row's action phrase while this runs, when the work names itself better with a
+   *  verb — "Planning your night-shift handover". */
+  activity?: string;
   /** How the feed should present this investigation. A property of the WORK, not of the
    *  component — so a backend can choose it, and the drawer never has to know who is asking. */
   view: ScriptView;
@@ -145,6 +163,7 @@ export function mockInvestigation(
 
   return {
     topic: script.topic,
+    activity: script.activity,
     view: script.view ?? 'steps',
     scope: script.scope,
     respond(askId, answers) {
@@ -156,6 +175,19 @@ export function mockInvestigation(
     async *run(signal: AbortSignal) {
       const gaps = pacing();
       const pause = async () => { if (!instant) await sleep(gaps.next().value as number, signal); };
+      /* Park the stream on an id until `respond` releases it. The ask branch below predates this
+         helper and keeps its inline copy; the proposal branch parks repeatedly, so it earns one. */
+      const park = (id: string) => new Promise<Record<string, string>>((resolve, reject) => {
+        if (signal.aborted) return reject(new DOMException('aborted', 'AbortError'));
+        parked.set(id, resolve);
+        signal.addEventListener('abort', () => {
+          parked.delete(id);
+          reject(new DOMException('aborted', 'AbortError'));
+        }, { once: true });
+      });
+      /* The plan the reader APPROVED — execution and the completion answer derive from this,
+         which is the §16 guarantee: what was on screen at approval is what runs. */
+      let approvedPlan: PlanProposal | null = null;
 
       /* The plan first, so the scope is legible before anything starts happening. */
       /* The plan carries the WHOLE scaffold — lanes and passes included — so the workspace can
@@ -165,7 +197,7 @@ export function mockInvestigation(
         .filter((b): b is Extract<Beat, { kind: 'step' }> => b.kind === 'step')
         .map((b) => ({
           id: b.id, label: b.label, lane: b.lane, phase: b.phase,
-          metric: b.metric, sources: b.sources,
+          metric: b.metric, sources: b.sources, tally: b.tally,
         }));
       if (steps.length) yield { type: 'plan', steps };
 
@@ -177,7 +209,7 @@ export function mockInvestigation(
           yield { type: 'step_start', id: b.id, label: b.label };
           await pause();
           if (signal.aborted) return;
-          yield { type: 'step_complete', id: b.id, label: b.label, sources: b.sources };
+          yield { type: 'step_complete', id: b.id, label: b.label, sources: b.sources, tally: b.tally };
           /* A discovery or an answer that follows a step rides on it with NO pause, so the list
              never flickers through a frame in which nothing is running. */
           continue;
@@ -187,6 +219,7 @@ export function mockInvestigation(
           yield {
             type: 'discovery', id: b.id, role: b.role,
             headline: b.headline, detail: b.detail, tease: b.tease,
+            support: b.support, inference: b.inference, basis: b.basis,
           };
           continue;
         }
@@ -211,7 +244,88 @@ export function mockInvestigation(
           continue;
         }
 
-        if (b.kind === 'answer') { yield { type: 'answer', payload: b.payload }; continue; }
+        if (b.kind === 'proposal') {
+          let current: PlanProposal = b.proposal;
+          let diff: PlanDiff | undefined;
+          let rev = 0;
+          /* REVIEW LOOP. Approve breaks out; every other action derives a NEW proposal (new id,
+             visible diff) and parks again — a modified plan always needs approval again. */
+          for (;;) {
+            yield { type: 'plan_proposed', proposal: current, diff };
+            const res = await park(current.id);
+            const action = res.action ?? 'approve';
+            if (action === 'approve') break;
+            const bump = (p: PlanProposal, d: PlanDiff): void => {
+              rev += 1;
+              current = { ...p, id: `${b.proposal.id}-r${rev}`, intro: 'Plan updated.' };
+              diff = d;
+            };
+            if (action === 'revise') {
+              /* The deterministic demo modification — whatever was typed, this is what the
+                 prototype knows how to change. An honest mock, not a parser. */
+              bump(b.revision.proposal, b.revision.diff);
+            } else if (action === 'remove_step') {
+              const gone = current.steps.find((s) => s.id === res.step);
+              if (!gone) continue;
+              bump({
+                ...current,
+                steps: current.steps.filter((s) => s.id !== res.step),
+                impact: current.impact.filter((i) => i.stepId !== res.step),
+              }, { removed: [gone.label] });
+            } else if (action === 'edit_step') {
+              const was = current.steps.find((s) => s.id === res.step);
+              if (!was || !res.label || res.label === was.label) continue;
+              bump({
+                ...current,
+                steps: current.steps.map((s) => (s.id === res.step ? { ...s, label: res.label } : s)),
+              }, { updated: [{ label: 'Step', from: was.label, to: res.label }] });
+            } else if (action === 'add_step') {
+              const add = current.addable;
+              if (!add || current.steps.some((s) => s.id === add.id)) continue;
+              bump({ ...current, steps: [...current.steps, add], addable: undefined },
+                { added: [add.label] });
+            }
+            await pause();
+          }
+          approvedPlan = current;
+
+          /* EXECUTION — the approved steps, in order, ✓●○ driven by events. */
+          yield {
+            type: 'exec_begin',
+            steps: current.steps.map((s: PlanStep) => ({ id: s.id, label: s.execLabel ?? s.label })),
+          };
+          const retried = new Set<string>();
+          for (const s of current.steps) {
+            if (signal.aborted) return;
+            yield { type: 'exec_step', id: s.id, status: 'active' };
+            await pause();
+            if (s.fail && !retried.has(s.id)) {
+              yield { type: 'exec_step', id: s.id, status: 'failed', note: s.fail.note, retry: s.fail.retry };
+              /* PARTIAL COMPLETION IS A PARKED STATE, not a claim of success — nothing more
+                 happens until the reader retries (or abandons the turn). */
+              await park(`retry:${s.id}`);
+              retried.add(s.id);
+              yield { type: 'exec_step', id: s.id, status: 'active' };
+              await pause();
+            }
+            yield { type: 'exec_step', id: s.id, status: 'done' };
+          }
+          continue;
+        }
+
+        if (b.kind === 'answer') {
+          /* A plan-first turn's completion DERIVES its checklist from the approved plan's own
+             `done` rows — a removed step's outcome cannot appear, a swapped notification reads
+             as what actually ran. */
+          const payload = approvedPlan
+            ? {
+              ...b.payload,
+              kv: approvedPlan.steps.map((s) => s.done).filter((x): x is NonNullable<typeof x> => !!x),
+            }
+            : b.payload;
+          yield { type: 'answer', payload };
+          continue;
+        }
         if (b.kind === 'error') {
           yield { type: 'error', message: b.message, recoverable: b.recoverable };
           return;
@@ -223,4 +337,7 @@ export function mockInvestigation(
   };
 }
 
-export type { AnswerObject, AskChoice, AskQuestion, DiscoveryRole, ScriptView, StepSource } from './scripts/registry';
+export type {
+  AnswerObject, AskChoice, AskQuestion, DiscoveryRole, PlanDiff, PlanImpactRow, PlanProposal,
+  PlanStep, ScriptView, StepSource,
+} from './scripts/registry';

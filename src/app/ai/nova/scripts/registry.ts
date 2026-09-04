@@ -1,3 +1,5 @@
+import { REQUESTER_SCRIPTS } from './requesterScripts';
+
 /* The authored investigation scripts, by case id.
  *
  * A script is DECLARATIVE — a list of beats, not a list of events. One `step` beat becomes a
@@ -72,6 +74,64 @@ export interface AnswerMetric {
   good?: boolean;
 }
 
+/* ── REQUESTER BLOCKS ─────────────────────────────────────────────────────────────────────────
+ * The requester answers compose from ONE set of primitives, described as data. A script says
+ * WHAT the answer contains; `RequesterBlocks` renders it and wires it to the mock ticket store.
+ * Every block that changes state names its mutation, follows propose → confirm → ConfirmBanner,
+ * and nothing mutates on the initial answer. */
+
+export interface DraftField {
+  label: string; value: string;
+  inferred?: boolean;
+  /** Inline-editable on click — Subject as text, Priority as a small select. */
+  editable?: boolean;
+  options?: string[];
+}
+export interface DiffRow { label: string; from: string; to: string }
+export interface BannerSpec {
+  /** May contain `{ref}`, replaced with the mutated record's ref. */
+  text: string;
+  actions?: Array<{ label: string; ask?: string }>;
+}
+
+export type RequesterBlock =
+  /** AnswerHead as a block, so a two-part answer (REQ-07) can carry two of them. */
+  | { w: 'head'; n?: string; text: string; body?: string }
+  | { w: 'confidence'; text: string }
+  | { w: 'draft'; id: string; title: string; fields: DraftField[];
+      primary: string; secondary: string; banner: BannerSpec;
+      /** followUps swap to the answer's `followUpsAfter` once created. */
+      category?: string }
+  | { w: 'status'; ref: string; actions?: Array<{ label: string; ask?: string }> }
+  | { w: 'diff'; id: string; title: string; rows: DiffRow[]; why: string;
+      primary: string; secondary: string; banner: BannerSpec;
+      mutation: 'escalate' | 'reopen' | 'raise-priority'; ref: string }
+  | { w: 'steps'; id: string; tickable?: boolean;
+      /** Either one list, or one per platform (toggle shown when both exist). */
+      steps?: string[]; windows?: string[]; mac?: string[];
+      /** Authored alternates the ••• menu swaps in — never generated. */
+      short?: string[]; detail?: string }
+  | { w: 'yesno'; id: string; prompt: string;
+      yes: { record: string; askAfter?: string }; no: { ask: string } }
+  | { w: 'note'; id: string; ref: string; prefill: string; title?: string;
+      primary: string; secondary: string; banner: BannerSpec;
+      /** "This update also changes" rows — applied to the ticket on confirm. */
+      changes?: Array<DiffRow & { patch?: 'assets' }>;
+      /** The note IS a resolution note — confirming also closes the ticket (REQ-07). */
+      close?: boolean }
+  | { w: 'list' }
+  | { w: 'statchips' }
+  | { w: 'agebar'; open: string; typical: string; pct: number }
+  | { w: 'resolution'; ref: string; action?: { label: string; ask: string } }
+  | { w: 'timeline'; steps: Array<{ label: string; note: string }>; footer: string }
+  | { w: 'picker'; id: string; prompt: string; options: string[]; confirm: string;
+      draftId: string; banner: BannerSpec }
+  | { w: 'team'; heading: string; members: Array<{ name: string; onShift: boolean; load: string }> }
+  | { w: 'closelist'; id: string; primary: string; banner: BannerSpec };
+
+/** A follow-up chip: functional, or shown-but-disabled ("Not in this demo"). */
+export type FollowUp = string | { label: string; disabled: true };
+
 export interface AnswerObject {
   form: 'draft' | 'text' | 'report';
   /** What the answer IS, in a few words.
@@ -120,9 +180,26 @@ export interface AnswerObject {
     cancelAsks?: boolean;
   };
   aside?: string;
+  /** THE PROVENANCE STRIP — the two-to-four source labels that sit directly under the answer
+   *  as "Based on" chips. Authored, because the strip is a claim about what the answer RESTS
+   *  ON, not a list of everything the investigation touched; each label must name a source some
+   *  check actually read. */
+  basedOn?: string[];
+  /** Analytics provenance: the scope of the data behind a numbers answer — record count, date
+   *  range, population. "4,218 incidents · Jun 1–30". What makes a chart answer checkable. */
+  dataScope?: string;
   /** Follow-ups this ANSWER earns. Authored per script rather than drawn from a generic list —
-   *  "what happens after I create it?" is only a sensible question under a draft card. */
-  followUps?: string[];
+   *  "what happens after I create it?" is only a sensible question under a draft card. An entry
+   *  may be `{ label, disabled: true }`: shown so the intent is visible, but not in this demo. */
+  followUps?: FollowUp[];
+  /** The chip set AFTER the answer's main block is confirmed (REQ-01: post-creation). */
+  followUpsAfter?: FollowUp[];
+  /** The interactive requester surface — see RequesterBlock. Rendered between the answer text
+   *  and the evidence fold, wired to the mock ticket store. */
+  blocks?: RequesterBlock[];
+  /** The ••• menu's TYPE-SPECIFIC top group for this answer. The common group (Regenerate ·
+   *  View sources · Flag) is appended by the bar itself. */
+  menu?: string[];
   /* ── report form only ─────────────────────────────────────────────── */
   /** The headline movement: "SLA breaches ↑ 18%". */
   metric?: { label: string; value: string; direction?: 'up' | 'down' };
@@ -161,14 +238,31 @@ export interface StepMetric { value: string; label: string }
 export interface StepSource {
   label: string;
   kind: 'ticket' | 'kb' | 'doc' | 'data';
+  /** WHAT KIND OF TRUTH this is. A system record and an AI inference must never wear the same
+   *  label — confusing the two is the one failure a trust surface exists to prevent. Defaults
+   *  by `kind` (kb → approved KB, everything else → system record); authored only where the
+   *  default would be wrong (a HISTORICAL case, a USER claim, an INFERENCE). */
+  authority?: 'system' | 'kb' | 'history' | 'user' | 'inference';
+  /** "Updated 3h ago" — authored and deterministic. Operational data ages; a source that will
+   *  not say how old it is asks for trust it has not earned. */
+  freshness?: string;
+  /** One line of what the source currently holds — "Status · Waiting on vendor". The evidence
+   *  drawer's summary row, so a reader can verify WITHOUT opening the original. */
+  detail?: string;
 }
 
 /** One option on a clarifying question.
  *
  * `detail` is the second line under the label — what picking it would MEAN, not a restatement
  * of it. A choice a reader cannot tell apart from its neighbour is a choice that costs time
- * without buying anything. */
-export interface AskChoice { id: string; label: string; detail?: string }
+ * without buying anything.
+ *
+ * `other` turns the option into a TEXT FIELD. A fixed list is a guess about what the answer
+ * could be, and the person answering is the one who knows; without this, a technician whose
+ * situation is not among the three has to pick the closest wrong one, which is worse than not
+ * asking. It is authored per question rather than injected everywhere, because there are
+ * questions where free text is genuinely not an answer. */
+export interface AskChoice { id: string; label: string; detail?: string; other?: boolean }
 
 /** A question Nova asks BEFORE it answers.
  *
@@ -184,24 +278,102 @@ export interface AskQuestion {
   choices: AskChoice[];
 }
 
+/* ── THE PLAN-FIRST INTERACTION (TEC-07) ─────────────────────────────────────────────────────
+ * A complex request is not answered — it is PLANNED, reviewed, optionally revised, APPROVED,
+ * and only then executed. The proposal beat parks the stream exactly the way an ask does: the
+ * plan on screen at the moment of approval is the plan that executes, because execution is
+ * derived from the approved proposal object and from nothing else. */
+
+/** One step of a proposed plan. `label` is what the reader approves; `execLabel` is the same
+ *  work in the present tense while it runs; `done` is the completion row it earns — derived
+ *  into the final answer, so a removed step's outcome can never appear. */
+export interface PlanStep {
+  id: string;
+  label: string;
+  detail?: string;
+  execLabel?: string;
+  done?: AnswerKV;
+  /** Fails deterministically on first execution — the partial-completion path. `retry` names
+   *  the recovery action; a retried step succeeds. */
+  fail?: { note: string; retry: string };
+}
+
+/** One row of "What will change" — either a transition (`from → to`) or a stated consequence.
+ *  `stepId` ties it to the step that causes it, so removing the step removes the claim. */
+export interface PlanImpactRow {
+  label: string;
+  from?: string;
+  to?: string;
+  value?: string;
+  stepId?: string;
+}
+
+/** What was different about a revised plan — rendered above the new proposal so a modification
+ *  is always VISIBLE, never a silent swap. */
+export interface PlanDiff {
+  removed?: string[];
+  updated?: Array<{ label: string; from: string; to: string }>;
+  added?: string[];
+}
+
+export interface PlanProposal {
+  id: string;
+  /** "Here's how I'll handle this." — the one line above the plan. */
+  intro: string;
+  steps: PlanStep[];
+  impact: PlanImpactRow[];
+  /** Evidence points only — user-safe facts, never reasoning. The "Why Nova recommends this"
+   *  fold. */
+  evidence?: string[];
+  /** Button labels, declared: the primary names its consequence ("Approve & run"). */
+  approve: string;
+  modify: string;
+  /** Ghost text seeding the modify input — the deterministic demo modification, offered rather
+   *  than hidden. */
+  hint?: string;
+  /** ONE optional step "+ Add step" can append — declared, so an addition is still authored
+   *  content rather than a step the prototype pretends it can invent. */
+  addable?: PlanStep;
+}
+
 export type Beat =
   /** `sources` is what the step actually READ. Optional, and only the thinking view surfaces it —
    *  a technician auditing an answer wants to know where it came from; a requester does not.
    *  `lane` and `phase` are the workspace view's two axes: WHERE a check is looking (Tickets,
    *  SLA, Teams…) and WHICH pass it belongs to. Both optional; the other two views ignore them. */
   | { kind: 'step'; id: string; label: string; sources?: StepSource[];
-      lane?: string; phase?: string; metric?: StepMetric }
+      lane?: string; phase?: string; metric?: StepMetric;
+      /** What completing this check ADDS to the investigation's quantified scope — e.g.
+       *  `{ ticket: 4, 'data source': 1 }`. The live strip is the running SUM of these over
+       *  completed checks, which is what keeps it honest: a number can only move because a
+       *  named check finished, and only by what that check's own copy claims it read. */
+      tally?: Record<string, number> }
   /** `tease` is the eyebrow above a finding — "Interesting…", "One final check". It is the whole
    *  mechanic of the reveal view: a line that says something was found WITHOUT saying what, so the
    *  next second is spent wanting to know rather than waiting. Optional; the other views ignore
    *  it, and a finding with none still renders. */
   | { kind: 'discovery'; id: string; role: DiscoveryRole; headline: string; detail: string;
-      tease?: string }
+      tease?: string;
+      /** The source labels this finding rests on — what "Supported by" lists. Authored beside
+       *  the finding, so a finding cannot claim support the script never gave it. */
+      support?: string[];
+      /** An AI CONCLUSION rather than a system fact. Rendered with its own label, because the
+       *  reader must never mistake Nova's judgement for an authoritative record state. */
+      inference?: boolean;
+      /** Evidence strength IN WORDS — "Strong evidence · 6 matching incidents" — never a
+       *  fabricated percentage. */
+      basis?: string }
   /* ASK THE READER, then wait. The emitter STOPS here until the answers come back — see
    *  `novaStream.ts`. That is the honest shape: a real backend emits a tool call, the client
    *  posts the result, and the stream resumes. A beat that fired and carried on would be a
    *  question nobody had to answer, which is a form nobody would trust. */
   | { kind: 'ask'; id: string; questions: AskQuestion[] }
+  /* PROPOSE A PLAN, then wait. Parks the stream like an ask: nothing executes until the reader
+   * approves, and every modification produces a NEW proposal that needs approval again. The
+   * `revision` is the deterministic natural-language demo modification (§15 of the plan-first
+   * brief); step-level edits and removals are derived from the current proposal in the emitter. */
+  | { kind: 'proposal'; proposal: PlanProposal;
+      revision: { proposal: PlanProposal; diff: PlanDiff } }
   | { kind: 'answer'; payload: AnswerObject }
   | { kind: 'error'; message: string; recoverable: boolean };
 
@@ -220,10 +392,13 @@ export interface Script {
   /** The header strip: what this investigation is working across. Shown by the workspace view so
    *  the scale is legible before any of it has finished. */
   scope?: StepMetric[];
+  /** The identity row's ACTION phrase while this script runs — "Planning your night-shift
+   *  handover" — for scripts whose work is better named by a verb than by "Looking into". */
+  activity?: string;
   beats: Beat[];
 }
 
-const step = (id: string, label: string, sources?: StepSource[]): Beat =>
+export const step = (id: string, label: string, sources?: StepSource[]): Beat =>
   ({ kind: 'step', id, label, sources });
 
 /** A workspace / chapter check: which lane and pass it belongs to, the number it lands on, and
@@ -233,12 +408,16 @@ const lane = (
   metric?: StepMetric, sources?: StepSource[],
 ): Beat => ({ kind: 'step', id, label, phase, lane: laneName, metric, sources });
 
+/** Attach a tally to a step beat. A wrapper rather than a seventh positional argument on
+ *  `lane()` — six unlabelled arguments is already at the edge of readable. */
+const tallied = (b: Beat, tally: Record<string, number>): Beat => ({ ...b, tally });
+
 /* Shorthands. Sources are written beside the check that read them, so a script author cannot
    add a source without saying which check it belongs to. */
-const tk = (label: string): StepSource => ({ label, kind: 'ticket' });
-const kb = (label: string): StepSource => ({ label, kind: 'kb' });
-const doc = (label: string): StepSource => ({ label, kind: 'doc' });
-const dat = (label: string): StepSource => ({ label, kind: 'data' });
+export const tk = (label: string, x?: Partial<StepSource>): StepSource => ({ label, kind: 'ticket', ...x });
+export const kb = (label: string, x?: Partial<StepSource>): StepSource => ({ label, kind: 'kb', ...x });
+export const doc = (label: string, x?: Partial<StepSource>): StepSource => ({ label, kind: 'doc', ...x });
+export const dat = (label: string, x?: Partial<StepSource>): StepSource => ({ label, kind: 'data', ...x });
 
 /* ── REQ-01 ──────────────────────────────────────────────────────────
    "My laptop screen flickers whenever I put it on the docking station. Can you log a ticket?"
@@ -307,36 +486,52 @@ const REQ_01: Script = {
            — and it pushed the thing the reader must actually DO into the second half of
            the sentence. The body says only the next action. */
         text: 'Review the draft and create it.',
-        /* `inferred` marks what NOVA decided rather than what the reader said. Type, Subject and
-           Requester come from their own words; category, subcategory and priority are Nova's
-           call — and this card is a thing they are about to approve. */
-        fields: [
-          { label: 'Type', value: 'Incident' },
-          { label: 'Subject', value: 'Laptop screen flickers when docked' },
-          { label: 'Category', value: 'End User Computing', inferred: true },
-          { label: 'Subcategory', value: 'Laptop & Desktop', inferred: true },
-          { label: 'Priority', value: 'Medium', inferred: true },
-          { label: 'Requester', value: 'you' },
+        /* THE DRAFT IS NOW A BLOCK — the shared DraftCard wired to the mock ticket store.
+           `inferred` marks what NOVA decided rather than what the reader said; Subject and
+           Priority are editable in place, because this card is a thing about to be approved.
+           Creating goes propose → confirm (the primary) → store.createTicket → ConfirmBanner,
+           and the chip set swaps to the post-creation questions. */
+        blocks: [
+          { w: 'draft', id: 'req01', title: 'New incident', category: 'End User Computing',
+            fields: [
+              { label: 'Type', value: 'Incident' },
+              { label: 'Subject', value: 'Laptop screen flickers when docked', editable: true },
+              { label: 'Category', value: 'End User Computing', inferred: true },
+              { label: 'Subcategory', value: 'Laptop & Desktop', inferred: true },
+              { label: 'Priority', value: 'Medium', inferred: true, editable: true, options: ['Low', 'Medium', 'High'] },
+              { label: 'Requester', value: 'you' },
+            ],
+            primary: 'Create ticket', secondary: 'Discard',
+            banner: {
+              text: '{ref} created — End User Computing will pick it up',
+              actions: [
+                { label: 'View ticket' },
+                { label: 'Add a note', ask: 'Add a note to INC-1042' },
+              ],
+            } },
         ],
-        footer: { run: 'Create ticket', cancel: 'Discard' },
-        /* No `aside`. It said "we have handled 6 laptop/display issues like this before", which is
-           the same fact as the BASED ON row, which is the same fact as the finding the reader
-           already watched arrive. Three tellings of one thing; the footer's is the scannable one. */
+        menu: ['Edit draft', 'Copy summary'],
         followUps: [
-          "Add the dock's asset tag",
-          'Make this high priority',
+          "Add my docking station's asset tag",
           'What happens after I create it?',
+          { label: 'Make it high priority', disabled: true },
+        ],
+        followUpsAfter: [
+          'Add a note to INC-1042',
+          'Show me its status',
+          { label: 'Notify my manager', disabled: true },
         ],
       },
     },
   ],
 };
 
-/* ── REQ-02 ──────────────────────────────────────────────────────────
-   "Any update on my VPN issue?" — a status question, so the answer is a reading of what is on
-   file rather than something to create. Eight checks: the extra ones are the difference between
-   "it is with the vendor" and knowing whether that costs the requester anything. */
-const REQ_02: Script = {
+/* ── REQ-02 (SUPERSEDED) ─────────────────────────────────────────────
+   The live REQ-02 is authored in requesterScripts.ts against the mock ticket store (INC-0988).
+   This vendor-story version is kept only as authoring reference — it is NOT in the SCRIPTS map,
+   is unreferenced, and esbuild drops it from the bundle. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const REQ_02_LEGACY: Script = {
   topic: 'your open VPN ticket',
   match: /(any )?update on my vpn|vpn.*any update/i,
   beats: [
@@ -344,20 +539,26 @@ const REQ_02: Script = {
        has a Sources section that can never appear — which is how the flagship requester case
        shipped with provenance that existed only in the component. */
     step('r2s1', 'Finding your open requests', [dat('Your open requests')]),
-    step('r2s2', 'Filtering to the VPN ones', [tk('INC-4471')]),
-    step('r2s3', 'Reading the latest activity', [tk('INC-4471 · activity')]),
+    step('r2s2', 'Filtering to the VPN ones',
+      [tk('INC-4471', { freshness: 'Updated 3h ago', detail: 'Status · Waiting on vendor' })]),
+    step('r2s3', 'Reading the latest activity',
+      [tk('INC-4471 · activity', { freshness: 'Updated 3h ago' })]),
     {
       kind: 'discovery', id: 'r2d1', role: 'evidence',
       headline: 'INC-4471 moved to Waiting on vendor yesterday',
       detail: 'The network team raised it with the VPN gateway supplier.',
+      support: ['INC-4471', 'INC-4471 · activity'],
     },
-    step('r2s4', 'Checking who it is waiting on', [dat('Vendor status')]),
+    step('r2s4', 'Checking who it is waiting on',
+      [dat('Vendor update', { freshness: 'Updated yesterday', detail: 'Gateway supplier · investigating' })]),
     step('r2s5', "Reading the vendor's last response"),
-    step('r2s6', 'Checking the SLA clock', [doc('SLA policy · P3 Response')]),
+    step('r2s6', 'Checking the SLA clock',
+      [doc('SLA policy · P3 Response', { detail: 'Clock · Paused', freshness: 'Checked just now' })]),
     {
       kind: 'discovery', id: 'r2d3', role: 'routing',
       headline: 'The clock is paused while it sits with the vendor',
       detail: 'It resumes when they respond, so no breach is being counted against this.',
+      support: ['SLA policy · P3 Response'],
     },
     step('r2s7', 'Looking for anything else of yours that is related'),
     step('r2s8', 'Checking whether there is a workaround meanwhile'),
@@ -365,6 +566,7 @@ const REQ_02: Script = {
       kind: 'discovery', id: 'r2d2', role: 'gap',
       headline: "The supplier's own reference isn't on the ticket",
       detail: 'So I cannot tell you where it sits in their queue.',
+      support: ['INC-4471'],
     },
     {
       kind: 'answer',
@@ -378,13 +580,15 @@ const REQ_02: Script = {
            reaching any one of them required parsing all of it — and someone checking on their own
            ticket is scanning for exactly one. */
         kv: [
-          { label: 'Status', value: '**Waiting on vendor**', tone: 'warn' as const },
+          { label: 'Status', value: '**Waiting on vendor**[[INC-4471]]', tone: 'warn' as const },
           { label: 'Ticket', value: '**INC-4471** — VPN disconnects from home network' },
-          { label: 'With', value: '**Gateway supplier**, since yesterday afternoon' },
+          { label: 'With', value: '**Gateway supplier**[[Vendor update]], since yesterday afternoon' },
           { label: 'Next update', value: '**Within 2 working days**' },
-          { label: 'SLA', value: '**Paused** while it is with the vendor', tone: 'ok' as const },
+          { label: 'SLA', value: '**Paused**[[SLA policy · P3 Response]] while it is with the vendor', tone: 'ok' as const },
         ],
         text: 'Nothing is needed from you.',
+        /* The requester strip stays SIMPLE — the ticket and the two things that changed. */
+        basedOn: ['INC-4471', 'SLA policy · P3 Response', 'Vendor update'],
         followUps: [
           'Chase the vendor',
           'Notify me when it changes',
@@ -395,10 +599,11 @@ const REQ_02: Script = {
   ],
 };
 
-/* ── REQ-04 ──────────────────────────────────────────────────────────────────────────────────
-   "I changed my domain password and now VPN says authentication failed." — a troubleshoot, and
-   the one case where the honest answer is a cause plus a next step, not a ticket. */
-const REQ_04: Script = {
+/* ── REQ-04 (SUPERSEDED) ─────────────────────────────────────────────────────────────────────
+   The live REQ-04 is authored in requesterScripts.ts with the tickable StepList, the platform
+   toggle and the Did-this-fix-it prompt. Kept only as reference — NOT in the SCRIPTS map. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const REQ_04_LEGACY: Script = {
   topic: 'your VPN sign-in failure',
   match: /(changed|reset).{0,30}password.{0,60}vpn|vpn.{0,40}authentication failed/i,
   beats: [
@@ -559,41 +764,53 @@ const TEC_02: Script = {
   beats: [
     lane('t2s1', 'Understand', '', 'Reading who is on the line',
       { value: 'Corporate Banking', label: 'relationship manager' }),
-    lane('t2s2', 'Understand', '', 'Finding the tickets they mean',
+    tallied(lane('t2s2', 'Understand', '', 'Finding the tickets they mean',
       { value: '4 open', label: '1 major incident' },
       [tk('INC-4390'), dat('Corporate Banking ticket view')]),
+    /* ⚠️ A tally never claims more than the step's own copy: this one found "4 open"
+       tickets in one source, so that is exactly what it adds. */
+    { ticket: 4, 'data source': 1 }),
 
-    lane('t2s3', 'Check history', '', 'Reading the major incident timeline',
+    tallied(lane('t2s3', 'Check history', '', 'Reading the major incident timeline',
       { value: 'INC-4390', label: 'raised 04:12 today' },
-      [tk('INC-4390'), doc('Major incident log')]),
-    lane('t2s4', 'Check history', '', 'Checking what they have already been told',
+      [tk('INC-4390'), doc('Major incident log')]), { 'data source': 1 }),
+    tallied(lane('t2s4', 'Check history', '', 'Checking what they have already been told',
       { value: '2', label: 'updates sent' },
-      [dat('Customer comms log')]),
+      [dat('Customer comms log')]), { 'data source': 1 }),
     {
       kind: 'discovery', id: 't2d1', role: 'routing',
       tease: 'Worth knowing before you speak',
       headline: 'They were last updated three hours ago',
       detail: 'The 09:00 update promised a fix by noon.',
+      support: ['Customer comms log'],
     },
 
-    lane('t2s5', 'Compare', '', 'Checking how many payrolls are affected',
-      { value: '3', label: 'corporate clients' }),
-    lane('t2s6', 'Compare', '', 'Measuring what is held up',
+    tallied(lane('t2s5', 'Compare', '', 'Checking how many payrolls are affected',
+      { value: '3', label: 'corporate clients' }), { client: 3 }),
+    tallied(lane('t2s6', 'Compare', '', 'Measuring what is held up',
       { value: '₹4.2 cr', label: 'in salary transfers' },
-      [dat('Payments queue'), doc('Bulk upload runbook')]),
-    lane('t2s7', 'Compare', '', 'Looking for the same failure before',
+      [dat('Payments queue'), doc('Bulk upload runbook')]), { 'data source': 2 }),
+    tallied(lane('t2s7', 'Compare', '', 'Looking for the same failure before',
       { value: '1', label: 'in March, same cause' },
-      [tk('INC-2871 · March'), kb('KB-1190 · Bulk upload format errors')]),
+      [tk('INC-2871 · March', { authority: 'history', detail: 'Resolved · same root cause' }),
+        kb('KB-1190 · Bulk upload format errors', { freshness: 'Updated 2d ago' })]),
+    { ticket: 1, 'KB article': 1 }),
     {
       kind: 'discovery', id: 't2d2', role: 'evidence',
       tease: 'Interesting\u2026',
       headline: "March's incident was a file-format change",
       detail: 'The same upstream vendor changed their delimiter without notice.',
+      support: ['INC-2871 · March', 'KB-1190 · Bulk upload format errors'],
+      /* Nova's conclusion, not a record state — and it says so, with its strength in words
+         rather than an invented percentage. */
+      inference: true,
+      basis: 'Strong evidence · same vendor, same failure signature as March',
     },
 
-    lane('t2s8', 'Verify', '', 'Checking the current fix status',
+    tallied(lane('t2s8', 'Verify', '', 'Checking the current fix status',
       { value: 'In UAT', label: 'patch built 10:40' },
-      [dat('Release pipeline'), tk('CHG-1044')]),
+      [dat('Release pipeline', { freshness: 'Checked just now', detail: 'CHG-1044 · In UAT' }),
+        tk('CHG-1044', { freshness: 'Updated 20m ago' })]), { 'data source': 1 }),
     lane('t2s9', 'Verify', '', 'Checking who owns the next step',
       { value: 'Payments', label: 'Engineering' }),
     lane('t2s10', 'Verify', '', 'Checking the noon estimate still holds'),
@@ -602,6 +819,7 @@ const TEC_02: Script = {
       tease: 'One thing I could not check',
       headline: 'I could not confirm the noon estimate',
       detail: 'Payments Engineering has not posted an update since 09:40.',
+      support: ['Release pipeline'],
     },
     {
       kind: 'answer',
@@ -610,12 +828,13 @@ const TEC_02: Script = {
         title: 'Your 30 seconds',
         headline: 'Salary uploads have been failing since 04:12 — same cause as March',
         kv: [
-          { label: 'Impact', value: '**3 corporate clients**, about **₹4.2 crore** held' },
-          { label: 'Cause', value: 'Upstream vendor **changed their file format** without notice' },
-          { label: 'Fix', value: 'Patch in **UAT since 10:40**, owned by Payments Engineering' },
-          { label: 'Careful', value: 'The **noon** estimate is from 09:00 and **unconfirmed since 09:40**', tone: 'risk' as const },
+          { label: 'Impact', value: '**3 corporate clients**, about **₹4.2 crore** held[[Payments queue]]' },
+          { label: 'Cause', value: 'Upstream vendor **changed their file format** without notice[[INC-2871 · March]]' },
+          { label: 'Fix', value: 'Patch in **UAT since 10:40**, owned by Payments Engineering[[Release pipeline]]' },
+          { label: 'Careful', value: 'The **noon** estimate is from 09:00 and **unconfirmed since 09:40**[[Customer comms log]]', tone: 'risk' as const },
         ],
         text: 'Bulk salary uploads have been failing since 04:12 for three corporate clients, holding about ₹4.2 crore in transfers. Cause is the same as March: the upstream vendor changed their file format without notice. A patch is in UAT as of 10:40 and Payments Engineering owns the release. They were last told 09:00 that it would be fixed by noon — do not repeat that time, because nobody has confirmed it since 09:40.',
+        basedOn: ['INC-4390', 'Payments queue', 'KB-1190 · Bulk upload format errors'],
         recommendation: 'Promise them a confirmed time rather than the old one — ask Payments Engineering for a fresh estimate while you have the RM on the line.',
         footer: { run: 'Open INC-4390', cancel: 'Draft an update for them', cancelAsks: true },
         followUps: [
@@ -667,6 +886,7 @@ const TEC_03: Script = {
             { id: 'one', label: 'Just this one user', detail: 'Nobody else has reported it yet.' },
             { id: 'few', label: 'A few people in the same office' },
             { id: 'site', label: 'The whole Bengaluru site', detail: 'Widespread — treat as an incident.' },
+            { id: 'other', label: 'Something else', other: true },
             { id: 'unknown', label: "I don't know yet" },
           ],
         },
@@ -677,6 +897,7 @@ const TEC_03: Script = {
             { id: 'wifi', label: 'Office Wi-Fi' },
             { id: 'wired', label: 'Office wired network' },
             { id: 'home', label: 'Home or mobile broadband' },
+            { id: 'other', label: 'Something else', other: true },
             { id: 'unknown', label: "I don't know yet" },
           ],
         },
@@ -687,6 +908,7 @@ const TEC_03: Script = {
             { id: 'device', label: 'New laptop or dock' },
             { id: 'account', label: 'Password or account change' },
             { id: 'nothing', label: 'Nothing they know of' },
+            { id: 'other', label: 'Something else', other: true },
             { id: 'unknown', label: "I don't know yet" },
           ],
         },
@@ -762,12 +984,15 @@ const CXO_02: Script = {
   beats: [
     // ── pass one · the scale ────────────────────────────────────────
     lane('c2a1', 'Live analysis', 'Tickets', 'Reading open tickets',
-      { value: '1,284', label: 'open tickets analysed' }),
+      { value: '1,284', label: 'open tickets analysed' },
+      [dat('Ticket data · June', { freshness: 'Checked just now', detail: '1,284 open tickets · all teams' })]),
     lane('c2a2', 'Live analysis', 'SLA', 'Counting breaches',
-      { value: '27', label: 'breached' }),
+      { value: '27', label: 'breached' },
+      [dat('SLA data · June', { freshness: 'Checked just now', detail: '74 breaches recorded' })]),
     lane('c2a3', 'Live analysis', 'SLA', 'Checking breach patterns'),
     lane('c2a4', 'Live analysis', 'Teams', 'Reading Service Desk workload',
-      { value: 'Service Desk', label: '14 of 27' }),
+      { value: 'Service Desk', label: '14 of 27' },
+      [dat('Team workload data', { freshness: 'Checked just now' })]),
     lane('c2a5', 'Live analysis', 'Teams', 'Reading Network workload',
       { value: 'Network', label: '9 of 27' }),
     lane('c2a6', 'Live analysis', 'Teams', 'Comparing team workload'),
@@ -823,9 +1048,12 @@ const CXO_02: Script = {
           { label: 'Jun', value: 27 },
         ],
         driver: 'VPN authentication incidents',
-        text: 'Breaches are up 18% on May, and the rise is not spread across the estate — it '
-          + 'sits almost entirely in VPN authentication tickets from two offices that moved to '
-          + 'the new policy on 3 June.',
+        text: 'Breaches are up 18% on May[[SLA data · June]], and the rise is not spread across '
+          + 'the estate — it sits almost entirely in VPN authentication tickets[[Ticket data · June]] '
+          + 'from two offices that moved to the new policy on 3 June.',
+        basedOn: ['Ticket data · June', 'SLA data · June', 'Team workload data'],
+        /* What makes an analytics answer checkable: the population, counted and dated. */
+        dataScope: '1,284 open tickets · Jun 1–30 · all teams',
         footer: { run: 'View affected tickets', cancel: 'Export summary' },
         followUps: [
           'Which office is worse?',
@@ -898,13 +1126,177 @@ const CXO_07: Script = {
   ],
 };
 
+/* ── TEC-07 ──────────────────────────────────────────────────────────────────────────────────
+   "Write my handover for the night shift: what's burning, what's blocked, and anything the
+   regulator cares about."
+
+   THE PLAN-FIRST CASE. The request is complex and consequential (it posts a note and notifies a
+   person), so Nova PLANS before it acts: tallied checks feed the live strip while it works out
+   the approach, the proposal parks the stream for review, a canned natural-language revision
+   demonstrates modification (drop the SLA section, notify the on-call engineer instead), and
+   execution — derived from the approved proposal, never from this file's original — runs with a
+   deterministic notification failure so the partial state and its retry are reachable. */
+const TEC_07: Script = {
+  topic: 'your night-shift handover',
+  activity: 'Planning your night-shift handover',
+  match: /handover.*night|night.?shift.*handover|write my handover/i,
+  view: 'reveal',
+  beats: [
+    tallied({ ...step('t7s1', 'Scanning the open queue', [dat('Open queue · evening snapshot', { freshness: 'Live' })]), phase: 'Take stock' } as Beat, { ticket: 6 }),
+    tallied({ ...step('t7s2', 'Pulling what changed since this morning', [dat('Ticket activity · today', { freshness: 'Updated just now' })]), phase: 'Take stock' } as Beat, { ticket: 3 }),
+    {
+      kind: 'discovery', id: 't7d1', role: 'evidence',
+      headline: '2 incidents are still burning into the evening',
+      detail: 'INC-4390 (payroll uploads) and INC-4482 (VPN gateway) are active with people waiting.',
+      support: ['Open queue · evening snapshot'],
+    },
+    tallied({ ...step('t7s3', "Reading this morning's handover", [doc('Handover · this morning')]), phase: 'Compare' } as Beat, { 'data source': 1 }),
+    tallied({ ...step('t7s4', 'Checking what each blocked ticket is waiting on', [dat('Vendor status board', { freshness: 'Updated 1h ago' })]), phase: 'Compare' } as Beat, { 'data source': 1 }),
+    {
+      kind: 'discovery', id: 't7d2', role: 'evidence',
+      headline: '3 tickets are blocked on vendors',
+      detail: 'Two on the gateway supplier, one on the payroll processor.',
+      support: ['Vendor status board'],
+    },
+    tallied({ ...step('t7s5', 'Checking regulator-sensitive cases', [doc('Compliance register', { freshness: 'Checked just now' }), tk('INC-4371', { detail: 'Payroll data incident · reporting window open' })]), phase: 'Check exposure' } as Beat, { 'data source': 1 }),
+    {
+      kind: 'discovery', id: 't7d3', role: 'evidence',
+      headline: 'INC-4371 reports to the regulator inside 48 hours',
+      detail: 'The notification window closes tomorrow at 14:00 — the night shift must not sit on it.',
+      support: ['Compliance register', 'INC-4371'],
+    },
+    tallied({ ...step('t7s6', 'Checking which SLA clocks run overnight', [dat('SLA clocks · overnight')]), phase: 'Check exposure' } as Beat, { 'data source': 1 }),
+    step('t7s7', 'Building the handover plan'),
+    {
+      kind: 'proposal',
+      proposal: {
+        id: 't7plan',
+        intro: "Here's how I'll handle this.",
+        steps: [
+          { id: 'p1', label: 'Summarise the two burning incidents',
+            detail: 'INC-4390 and INC-4482 — current state, owner, and the next action each needs.',
+            execLabel: 'Summarising the burning incidents',
+            done: { label: 'Burning', value: '**INC-4390** and **INC-4482** summarised with next actions' } },
+          { id: 'p2', label: 'List the blocked tickets with what unblocks them',
+            detail: 'The 3 vendor-blocked tickets, each with who owes what.',
+            execLabel: 'Listing the blocked tickets',
+            done: { label: 'Blocked', value: '**3 tickets** listed with what unblocks each' } },
+          { id: 'p3', label: 'Flag the regulator deadline on INC-4371',
+            detail: 'The 48-hour reporting window closes tomorrow at 14:00.',
+            execLabel: 'Flagging the regulator deadline',
+            done: { label: 'Regulator', value: '**INC-4371** flagged — window closes tomorrow 14:00', tone: 'warn' } },
+          { id: 'p4', label: 'Attach the overnight SLA clocks',
+            detail: 'Which clocks keep running tonight and which resume at 08:00.',
+            execLabel: 'Attaching the SLA clocks',
+            done: { label: 'SLA', value: '**4 overnight clocks** attached' } },
+          { id: 'p5', label: 'Post the handover to the night-shift channel',
+            execLabel: 'Posting the handover',
+            done: { label: 'Handover', value: 'Posted to the **night-shift channel**', tone: 'ok' } },
+          { id: 'p6', label: 'Notify the night-shift lead',
+            detail: 'A direct notification so it is read at shift start, not found later.',
+            execLabel: 'Notifying the night-shift lead',
+            done: { label: 'Notified', value: '**Night-shift lead**, directly', tone: 'ok' },
+            fail: { note: 'The notification service timed out — the handover is posted, but nobody has been told yet.', retry: 'Retry notification' } },
+        ],
+        impact: [
+          { label: 'Handover note', value: '1 note posted to the night-shift channel', stepId: 'p5' },
+          { label: 'Notification', value: 'The night-shift lead will be notified', stepId: 'p6' },
+          { label: 'Tickets', value: 'No ticket fields change' },
+        ],
+        evidence: [
+          '2 incidents are still active into the evening',
+          '3 tickets are blocked on vendors',
+          'INC-4371 reports to the regulator inside 48 hours',
+        ],
+        approve: 'Approve & run',
+        modify: 'Modify plan',
+        hint: 'e.g. Notify the on-call engineer instead, and drop the SLA section',
+        addable: { id: 'p7', label: "Carry over this morning's unfinished items",
+          detail: 'Anything the day shift inherited and did not close.',
+          execLabel: 'Carrying over the unfinished items',
+          done: { label: 'Carried over', value: "This morning's **2 unfinished items** included" } },
+      },
+      /* The DEMO MODIFICATION, deterministic: whatever the reader types, the prototype applies
+         this revision — drop the SLA section, notify the on-call engineer instead of the lead. */
+      revision: {
+        proposal: {
+          id: 't7plan-r',
+          intro: 'Plan updated.',
+          steps: [
+            { id: 'p1', label: 'Summarise the two burning incidents',
+              detail: 'INC-4390 and INC-4482 — current state, owner, and the next action each needs.',
+              execLabel: 'Summarising the burning incidents',
+              done: { label: 'Burning', value: '**INC-4390** and **INC-4482** summarised with next actions' } },
+            { id: 'p2', label: 'List the blocked tickets with what unblocks them',
+              detail: 'The 3 vendor-blocked tickets, each with who owes what.',
+              execLabel: 'Listing the blocked tickets',
+              done: { label: 'Blocked', value: '**3 tickets** listed with what unblocks each' } },
+            { id: 'p3', label: 'Flag the regulator deadline on INC-4371',
+              detail: 'The 48-hour reporting window closes tomorrow at 14:00.',
+              execLabel: 'Flagging the regulator deadline',
+              done: { label: 'Regulator', value: '**INC-4371** flagged — window closes tomorrow 14:00', tone: 'warn' } },
+            { id: 'p5', label: 'Post the handover to the night-shift channel',
+              execLabel: 'Posting the handover',
+              done: { label: 'Handover', value: 'Posted to the **night-shift channel**', tone: 'ok' } },
+            { id: 'p6', label: 'Notify the on-call engineer',
+              detail: 'A direct notification so it is read at shift start, not found later.',
+              execLabel: 'Notifying the on-call engineer',
+              done: { label: 'Notified', value: '**On-call engineer**, directly', tone: 'ok' },
+              fail: { note: 'The notification service timed out — the handover is posted, but nobody has been told yet.', retry: 'Retry notification' } },
+          ],
+          impact: [
+            { label: 'Handover note', value: '1 note posted to the night-shift channel', stepId: 'p5' },
+            { label: 'Notification', value: 'The on-call engineer will be notified', stepId: 'p6' },
+            { label: 'Tickets', value: 'No ticket fields change' },
+          ],
+          evidence: [
+            '2 incidents are still active into the evening',
+            '3 tickets are blocked on vendors',
+            'INC-4371 reports to the regulator inside 48 hours',
+          ],
+          approve: 'Approve & run',
+          modify: 'Modify plan',
+          hint: 'e.g. Put the SLA section back',
+          addable: { id: 'p7', label: "Carry over this morning's unfinished items",
+            detail: 'Anything the day shift inherited and did not close.',
+            execLabel: 'Carrying over the unfinished items',
+            done: { label: 'Carried over', value: "This morning's **2 unfinished items** included" } },
+        },
+        diff: {
+          removed: ['Attach the overnight SLA clocks'],
+          updated: [{ label: 'Notification', from: 'Night-shift lead', to: 'On-call engineer' }],
+        },
+      },
+    },
+    {
+      kind: 'answer',
+      payload: {
+        form: 'text',
+        title: 'Handover posted',
+        headline: 'Your handover is posted',
+        /* kv is DERIVED at execution time from the approved plan's `done` rows — authored kv
+           here would be a second copy that a modification could contradict. */
+        text: 'Everything the night shift needs is in one note. Nothing changed on the tickets themselves.',
+        basedOn: ['Open queue · evening snapshot', 'Vendor status board', 'Compliance register'],
+        followUps: [
+          'Show the burning incidents',
+          "What's likely to breach overnight",
+          'Draft the morning summary too',
+        ],
+        footer: { run: 'View handover', cancel: 'Anything I should do before I leave?', cancelAsks: true },
+      },
+    },
+  ],
+};
+
 export const SCRIPTS: Record<string, Script> = {
   'REQ-01': REQ_01,
-  'REQ-02': REQ_02,
-  'REQ-04': REQ_04,
+  /* REQ-02 through REQ-07, and every requester chip's own script. */
+  ...REQUESTER_SCRIPTS,
   'TEC-01': TEC_01,
   'TEC-02': TEC_02,
   'TEC-03': TEC_03,
+  'TEC-07': TEC_07,
   'CXO-02': CXO_02,
   'CXO-07': CXO_07,
 };

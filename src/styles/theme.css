@@ -1726,6 +1726,14 @@ button:not(:disabled),
   color: #94A6BC;
   transition: color var(--ai-dur-fast) linear;
 }
+/* Each row carries its own hue (reference-matched, on feedback). Calm, mid-saturation inks —
+   the glyphs distinguish the offers from each other without out-shouting the Core, which is
+   still the only ANIMATED colour on the screen. Hover keeps the shared response: everything
+   answers the pointer in the primary, so the tones never read as four different products. */
+.nova-sugg-icon[data-tone='0'] { color: #7C5CFC; }
+.nova-sugg-icon[data-tone='1'] { color: #2D74AE; }
+.nova-sugg-icon[data-tone='2'] { color: #12805C; }
+.nova-sugg-icon[data-tone='3'] { color: #B7791F; }
 .nova-sugg:hover .nova-sugg-icon { color: var(--nova-primary); }
 
 .nova-sugg-title {
@@ -2231,6 +2239,194 @@ button:not(:disabled),
   .tec8-dots { transition: none; }
 }
 
+/* ── the trust surface ─────────────────────────────────────────────────
+   Citations, the Based-on strip, and the evidence sheet. Existing tokens throughout — a trust
+   surface that arrived wearing new colours would itself be the thing to distrust. */
+
+/* An inline citation: a small numbered marker after the claim it supports. Kept modest — it is
+   a footnote, not a button row — but a real target with a focus ring. */
+.nova-cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  margin-left: 3px;
+  padding: 0 3px;
+  border: 1px solid #C7D6E4;
+  border-radius: 4px;
+  background: #F5F9FC;
+  font-size: var(--ask-fs-xs);
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--nova-primary);
+  vertical-align: 2px;
+  cursor: pointer;
+  transition: background 120ms var(--ai-ease-move), border-color 120ms var(--ai-ease-move);
+}
+.nova-cite:hover { background: #EAF1F8; border-color: var(--nova-primary); }
+.nova-cite:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: 1px; }
+
+/* A source chip that is a BUTTON — the .nova-src shape, made pressable. */
+.nova-src-btn { cursor: pointer; transition: border-color 120ms var(--ai-ease-move); }
+.nova-src-btn:hover { border-color: var(--nova-primary); color: var(--nova-ink); }
+.nova-src-btn:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: 1px; }
+
+/* ── the evidence sheet: level 3, sliding OVER the conversation ── */
+.nova-ev-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 10035;   /* over the Nova drawer (10020) AND its orb layer (10030) — the orb's halo
+                       was bleeding through the sheet header when it sat between the two */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 462px;
+  max-width: 95vw;
+  background: #fff;
+  border-left: 1px solid var(--nova-rule);
+  box-shadow: -12px 0 32px rgb(15 23 42 / 0.10);
+  animation: novaEvIn 200ms var(--ai-ease-move) both;
+}
+@keyframes novaEvIn {
+  from { transform: translateX(24px); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+
+.nova-ev-tab {
+  padding: 6px 8px 8px;
+  border-bottom: 2px solid transparent;
+  font-size: var(--ask-fs-sm);
+  font-weight: 500;
+  color: var(--nova-ink-muted);
+}
+.nova-ev-tab[data-active='true'] {
+  color: var(--nova-ink);
+  border-bottom-color: var(--nova-primary);
+}
+.nova-ev-tab:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: -2px; }
+
+.nova-ev-filter {
+  padding: 3px 8px;
+  border: 1px solid var(--nova-rule);
+  border-radius: 999px;
+  font-size: var(--ask-fs-sm);
+  color: var(--nova-ink-muted);
+}
+.nova-ev-filter[data-active='true'] {
+  border-color: var(--nova-primary);
+  background: #F5F9FC;
+  color: var(--nova-ink);
+}
+
+/* One source. `data-focused` is how CLAIM → SOURCE lands: the row the citation named, lit. */
+.nova-ev-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--nova-rule);
+  border-radius: 8px;
+  transition: border-color 160ms var(--ai-ease-move), background 160ms var(--ai-ease-move);
+}
+.nova-ev-row[data-focused='true'] {
+  border-color: var(--nova-primary);
+  background: #F5F9FC;
+}
+.nova-ev-label {
+  font-size: var(--ask-fs-base);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-ink);
+}
+.nova-ev-detail {
+  margin-top: 2px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+
+/* WHAT KIND OF TRUTH: quiet everywhere, except an AI inference — the one label a reader must
+   never miss, in the module's own violet so it reads as Nova speaking. */
+.nova-ev-type {
+  display: inline-block;
+  font-size: var(--ask-fs-xs);
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nova-ink-muted);
+}
+.nova-ev-type[data-authority='inference'] {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #F3EFFC;
+  color: #7B5BD6;
+}
+.nova-ev-fresh {
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-faint);
+}
+
+.nova-ev-find + .nova-ev-find { border-top: 1px solid var(--nova-rule); padding-top: 12px; }
+.nova-ev-basis {
+  margin: 2px 0 0 20px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+/* The finding's provenance line in "How Nova knows" — indented under its claim. */
+.nova-ev-meta {
+  margin: 2px 0 0 20px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  color: var(--nova-ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nova-ev-sheet { animation: none; }
+  .nova-cite, .nova-src-btn, .nova-ev-row { transition: none; }
+}
+
+/* ── tertiary control ─────────────────────────────────────────────────
+   The labelled quiet way in: brand ink, no fill until hover, compact visual with the pressable
+   area padded to 44px by .nova-hit. Sits between a ghost button (anonymous) and a secondary
+   (bordered) — for controls that OFFER a section without competing with the content above. */
+.nova-tertiary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: var(--ask-fs-sm);
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-primary);
+}
+.nova-tertiary:hover { background: #EAF1F8; color: var(--nova-primary-hover); }
+
+/* ── the live scope strip ──────────────────────────────────────────────
+   A changed number remounts (keyed by value) and replays this small entrance — the "still
+   gathering" cue. Subtle by design: 220ms, 3px, no counting animation. Tabular figures so a
+   value growing from 9 to 12 does not shove its neighbours sideways. */
+.nova-live-num {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  animation: novaNumIn 220ms var(--ai-ease-move) both;
+}
+@keyframes novaNumIn {
+  from { opacity: 0.25; transform: translateY(3px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nova-live-num { animation: none; }
+}
+
 /* ── asking the reader ───────────────────────────────────────
    THE ONE BORDERED OBJECT IN A TURN, and it earns the border by being the only thing in the
    drawer the reader has to act on. Everything else Nova produces is unboxed prose, so a card
@@ -2298,9 +2494,9 @@ button:not(:disabled),
   font-weight: 400;
   color: var(--nova-ink);
 }
-/* Not yet reached. Quiet, but still legible — it is there to show what is left, and a row the
-   reader cannot read does not do that. */
-.nova-ask-q[data-ahead='true'] { color: var(--nova-ink-muted); }
+/* (The unreached-question rows — and the `data-ahead` dimming they carried — were REMOVED on
+   feedback: a row with no badge and no control read as dead text. The header's "N of M
+   answered" counter is what carries how much is left.) */
 .nova-ask-tail {
   display: flex;
   flex-shrink: 0;
@@ -2396,17 +2592,56 @@ button:not(:disabled),
   color: var(--nova-ink-muted);
 }
 
+/* "Something else" — the typed answer. Indented to the choice labels so the field reads as the
+   body of that option, and confirmed explicitly: a half-typed sentence must not release a
+   parked stream, so unlike the radios it does not answer on first touch. */
+.nova-ask-other {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 4px 26px;
+}
+.nova-ask-other-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid #C7D6E4;
+  border-radius: 6px;
+  background: #fff;
+  font-size: var(--ask-fs-base);
+  color: var(--nova-ink);
+}
+.nova-ask-other-input:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: 1px; }
+.nova-ask-other-input::placeholder { color: var(--nova-ink-faint); }
+.nova-ask-other-go {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: var(--ask-fs-sm);
+  font-weight: 500;
+}
+
 .nova-ask-foot {
   border-top: 1px solid var(--nova-rule);
-  padding: 4px 8px;
+  padding: 6px 8px;
 }
+/* TERTIARY, on feedback — the ghost treatment made the only way past a blocking card nearly
+   invisible. Brand ink at weight 500 with a real hover fill: below the answers in emphasis
+   (law 7 — they are the primary path), but a button anyone can find. #2D74AE on white is
+   4.98:1. */
 .nova-ask-skip {
   min-height: 44px;
-  padding: 0 8px;
-  border-radius: 4px;
+  padding: 0 12px;
+  border-radius: 6px;
   font-size: var(--ask-fs-sm);
   line-height: 1.4;
+  font-weight: 500;
+  color: var(--nova-primary);
+  background: transparent;
 }
+.nova-ask-skip:hover  { background: #EAF1F8; color: var(--nova-primary-hover); }
+.nova-ask-skip:active { background: #DCE9F5; }
 
 @media (prefers-reduced-motion: reduce) {
   .nova-ask-closed, .nova-ask-choice { transition: none; }
@@ -2524,39 +2759,51 @@ tbody tr + tr .nova-td { border-top: 1px solid var(--nova-rule); }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
-  padding: 8px 16px;
-  border: 1px solid #BBD7F0;
-  border-radius: 8px;
+  /* 30px visual, on feedback (was 36 via min-height, which is why trimming padding alone
+     changed nothing). The PRESSABLE area stays 44px through .nova-hit. */
+  min-height: 30px;
+  padding: 5px 14px;
+  /* A PLAIN HAIRLINE in the theme's border token (the cool→warm gradient border was retired on
+     feedback — the orb is the module's only gradient). Shape + the speech-bubble glyph carry
+     the identity; the accent arrives on interaction, not at rest. */
+  border: 1px solid var(--nova-rule);
+  border-radius: 10px;
   background: #fff;
   box-shadow: 0 1px 2px rgba(54, 70, 88, 0.04);
-  font-size: var(--ask-fs-base);
+  /* sm, on feedback — one step under the body it follows, matching the reference's density. */
+  font-size: var(--ask-fs-sm);
   line-height: 1.55;
   color: var(--nova-ink);
   text-align: left;
-  transition:
-    border-color var(--ai-dur-fast) linear,
-    background-color var(--ai-dur-fast) linear,
-    box-shadow var(--ai-dur-fast) linear;
+  transition: box-shadow var(--ai-dur-fast) linear;
 }
-.nova-pill:hover {
+.nova-pill:hover:not([disabled]) {
   border-color: var(--nova-primary);
   background: #F7FBFF;
   box-shadow: 0 1px 3px rgba(45, 116, 174, 0.12);
 }
-.nova-pill:active { background: #EDF4FB; }
+.nova-pill:active:not([disabled]) {
+  background: #EDF4FB;
+}
+/* Inert, not gone — the same pill with the colour drained, so an old turn's offers still read
+   as what they were. */
 .nova-pill[disabled] {
-  border-color: var(--nova-rule);
-  background: transparent;
+  background: #fff;
   box-shadow: none;
   color: var(--nova-ink-faint);
   cursor: default;
 }
+/* Authored-but-not-in-this-demo — visible so the intent is shown, and the cursor says why it
+   will not press. */
+.nova-pill-off[disabled] { cursor: not-allowed; }
 /* The glyph is load-bearing, not decoration — see the note above. It stays visible at rest so
    the group reads as questions before anything is hovered. */
-.nova-pill-icon { flex-shrink: 0; color: #7FA8CE; }
+.nova-pill-icon { flex-shrink: 0; color: #3D8BD0; }
 .nova-pill:hover .nova-pill-icon { color: var(--nova-primary); }
 .nova-pill[disabled] .nova-pill-icon { color: var(--nova-ink-faint); }
+
+/* (`.nova-pill-swap` / `.nova-pill-next` — the one-at-a-time ⟳ cycle — were REMOVED with the
+   feature: the pills render together again, in the reference's gradient treatment above.) */
 
 /* ── LEVEL 5 · the caveat ───────────────────────────────────────────
    Visible, never dominant. It is a limit on the answer, so it must not be hideable — but it is
