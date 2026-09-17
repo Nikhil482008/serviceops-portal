@@ -1,5 +1,6 @@
 import { SCRIPTS } from '../scripts/registry';
 import type { Turn } from '../turnModel';
+import type { DoIcon } from '../tech/icons';
 import { closeTicket, getDraft, getTicket, listOpenForUser, updateTicket } from '../mockTickets';
 import {
   choose, mark, proposalKey, runProposal, settleProposal,
@@ -49,8 +50,15 @@ export type NextStepKind = 'mutate' | 'ask' | 'navigate';
 export interface NextStep {
   id: string;
   label: string;
+  /** The one-line consequence under the label. EMPTY means the row is single-line — a technician
+   *  action with no meta ("Send", "Save the refs") has nothing to add and should not be given a
+   *  second line of filler to say it. */
   detail: string;
   kind: NextStepKind;
+  /** The AUTHORED verb, when the action declares one (every technician do-action does). It wins
+   *  over the label derivation so the glyph on the row and the glyph on the reader's own turn are
+   *  the same fact — see dock/stepIcon.tsx. */
+  icon?: DoIcon;
   recommended?: boolean;
   disabled?: boolean;
   /** The tooltip while disabled. Absent means "Not in this demo". */

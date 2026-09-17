@@ -1111,8 +1111,8 @@ export function RequesterBlocks({ blocks, question, context, variants = {}, chan
           case 'problems': return <ProblemCards key={key} onAsk={onAsk} />;
           case 'incident-detail': return <IncidentDetail key={key} id={b.id} />;
           /* ── technician ─────────────────────────────────────────────── */
-          /* NO ACTION LISTS HERE. Every technician card's forward action is attached under the
-             TURN (tech/AttachedActions.tsx); a card collects the inputs and renders no button. */
+          /* NO ACTION LISTS HERE. Every technician card's forward action is a row in the
+             ActionDock (dock/techSteps.ts); a card collects the inputs and renders no button. */
           case 'techchips': return <TechStatChips key={key} set={b.set} active={filter} onPick={setFilter} />;
           case 'queue': return (
             <QueueList key={key} top={b.top ?? 3} why={b.why} full={!!variants.fullQueue}

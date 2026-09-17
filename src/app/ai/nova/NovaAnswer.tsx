@@ -16,7 +16,6 @@ import { downloadCsv, primaryCsv } from './conversation/LeadershipCharts';
 import { RequesterDockCtx } from './dock/RequesterDockCtx';
 import { TurnOutcomes } from './dock/TurnOutcomes';
 import { TechTurnCtx } from './tech/TechTurnCtx';
-import { AttachedActions } from './tech/AttachedActions';
 import { useTechActions } from './tech/useTechActions';
 
 /* The response, in the order a reader wants it.
@@ -40,35 +39,16 @@ import { useTechActions } from './tech/useTechActions';
  * the machine, and the guard below is the last link: `answering | settled`, and `settled` is
  * unreachable except from `answering` (turnModel.setState).
  */
-/** THE CHIPS CARRY THE REMAINDER. The dock and the follow-ups were authored from the same
- *  questions — the dock's requester options in `nextSteps.ts` are those questions, copied — so
- *  restoring the chips without this puts REQ-02's three questions on screen twice, six inches
- *  apart. The dock wins: it is nearer the hand, larger, and holds actions the chips cannot.
- *
- *  Matched on letters and digits only, so "Tell Priya it's urgent" cannot slip past on an
- *  apostrophe, while "What was the fix?" and "What was the fix for the card?" stay two
- *  questions — they are, and the shorter one is worth asking after the longer one is answered. */
-const plain = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, '');
-
-function spare(
-  questions: Array<string | { label: string; disabled?: boolean }>,
-  offered?: string[],
-): Array<string | { label: string; disabled?: boolean }> {
-  if (!offered?.length) return questions;
-  const taken = new Set(offered.map(plain));
-  return questions.filter((q) => !taken.has(plain(typeof q === 'string' ? q : q.label)));
-}
-
-export function NovaAnswer({ turn, live, dense, requester, offered, onFollowUp, onRetry }: {
+export function NovaAnswer({ turn, live, dense, requester, hideFollowUps, onFollowUp, onRetry }: {
   turn: Turn;
   /** False once a newer turn exists — and then a past answer offers nothing. */
   live: boolean;
-  /** A REQUESTER turn: forward actions live in the Next-step dock. The cards register their
-   *  runners instead of drawing buttons, the dock's chosen lines render beneath the answer, and
-   *  there is no chips row. Technician and leadership turns keep both. */
+  /** A REQUESTER turn: the cards register their runners instead of drawing buttons, and the
+   *  dock's chosen lines render beneath the answer. Every persona's forward actions are the
+   *  ActionDock's now; this flag is about the CARDS. */
   requester?: boolean;
-  /** Labels the dock is already offering. See `spare` below. */
-  offered?: string[];
+  /** The dock is OPEN, so these stand down. See the chips section below. */
+  hideFollowUps?: boolean;
   /** The technician register — references in the caveat and the fold are clickable chips. */
   dense?: boolean;
   /** A follow-up, with optional context — a drill carries `{ caseId, filter }`. */
@@ -94,8 +74,8 @@ export function NovaAnswer({ turn, live, dense, requester, offered, onFollowUp, 
   /* Stable identity, or every card would re-register with the dock on every render. */
   const dockCtx = useMemo(() => (requester ? { turnId: turn.id } : null), [requester, turn.id]);
   /* A TECHNICIAN ACTION TURN (TEC-01..06 and the scripts their actions reach). Its cards render
-     no buttons and register their inputs; the do-actions are attached under the turn. A null set
-     is every other turn — TEC-07, a leadership turn, a requester turn — and nothing changes. */
+     no buttons and register their inputs; the actions themselves are the dock's. A null set is
+     every other turn — TEC-07, a leadership turn, a requester turn — and nothing changes. */
   const techSet = useTechActions(turn);
   const techCtx = useMemo(() => (techSet ? { turnId: turn.id, live } : null), [techSet, turn.id, live]);
   const bump = (k: string, v: unknown) => setVariants((x) => ({ ...x, [k]: v }));
@@ -243,10 +223,21 @@ export function NovaAnswer({ turn, live, dense, requester, offered, onFollowUp, 
           something.
 
           They sit UNDER THE ANSWER, where the thing they are about is - the dock is a different
-          place for a different kind of move. */}
-      {(a.form !== 'draft' || !a.footer || a.footer.runAsks || acted) && (
+          place for a different kind of move.
+
+          ⚠️ BUT NEVER AT THE SAME TIME AS THE DOCK. Two offers on screen at once is two answers
+          to "what now", which is the exact problem the dock taking the input's seat exists to
+          solve; and on a leadership turn they were literally the same two sentences, because the
+          dock's rows were authored FROM these follow-ups.
+          An earlier pass filtered the chips by comparing their LABELS against the dock's — which
+          decided by wording, so it only caught the collision when the strings matched, and the
+          price of catching it was a row of chips with nothing left in it. The question was never
+          whether the two lists overlap. It is how many offers should be on screen, and the answer
+          is one. So: the dock open, and these are not drawn; the dock folded to the band, or
+          dismissed, and they come back WHOLE. */}
+      {!hideFollowUps && (a.form !== 'draft' || !a.footer || a.footer.runAsks || acted) && (
         <FollowUpSuggestions
-          questions={spare((acted && a.followUpsAfter) || a.followUps || [], offered)}
+          questions={(acted && a.followUpsAfter) || a.followUps || []}
           live={live}
           onAsk={onFollowUp}
           onLocal={onLocal}
@@ -259,9 +250,12 @@ export function NovaAnswer({ turn, live, dense, requester, offered, onFollowUp, 
           onClose={() => setEvidence({ open: false })}
         />
       )}
-      {/* WHAT I CAN DO — attached under the turn, with the └ connector. Every forward action
-          this turn offers, in one place; a past turn's are greyed and not focusable. */}
-      {techSet && <AttachedActions turnId={turn.id} live={live} set={techSet} />}
+      {/* WHAT I CAN DO is NOT HERE any more. A technician turn's actions used to hang beneath
+          it on a └ connector, under a "NOVA RECOMMENDS" eyebrow, as a stack of chips — one of
+          four places in this product where a forward action could appear. They are rows in the
+          ActionDock now, at the bottom of the drawer, which is where a requester's and an
+          executive's have been. `techSet` still matters here: it is what tells the cards in this
+          turn to register their inputs instead of drawing their own buttons. */}
     </div>
   );
 

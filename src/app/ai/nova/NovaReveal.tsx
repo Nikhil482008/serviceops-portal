@@ -31,13 +31,12 @@ import { ExecutionProgress } from './conversation/ExecutionProgress';
  * ⚠️ Same turn, same events, same reducer as the other views. No timers here drive order.
  */
 
-export function NovaReveal({ turn, onRetry, onPlanRespond, onPlanModify, onAsk }: {
+export function NovaReveal({ turn, onRetry, onPlanRespond, onAsk }: {
   turn: Turn;
   onRetry?: () => void;
-  /** Release a stream parked on a plan proposal or a failed execution step. */
+  /** Release a stream parked on a FAILED EXECUTION STEP. The plan proposal itself is released
+   *  from the dock; what is left here is the retry inside the execution list. */
   onPlanRespond?: (id: string, payload: Record<string, string>) => void;
-  /** "Modify plan" — seed the composer with the command and hand over the caret. */
-  onPlanModify?: () => void;
   /** A reference in a row or a finding is a chip that opens that record — through askNova. */
   onAsk?: (q: string) => void;
 }) {
@@ -47,14 +46,10 @@ export function NovaReveal({ turn, onRetry, onPlanRespond, onPlanModify, onAsk }
      behind the row, because at that point it is provenance rather than a claim of live work. */
   const planOnly = !!turn.plan && !hasAnswer && (!!turn.revisionOf || turn.steps.length === 0);
 
-  const plan = turn.plan && (
-    <PlanCard
-      plan={turn.plan}
-      live={!turn.stopped && turn.state !== 'error' && !!onPlanRespond}
-      onRespond={(a) => onPlanRespond?.(turn.plan!.proposal.id, a as unknown as Record<string, string>)}
-      onModify={onPlanModify}
-    />
-  );
+  /* THE PLAN IS READ HERE AND ACTED ON IN THE DOCK. Approving it and changing it are this
+     turn's two actions, and a technician turn's actions are the ActionDock's — see
+     dock/planSteps.ts, which reads the same `planPending` this card's own liveness used to. */
+  const plan = turn.plan && <PlanCard plan={turn.plan} />;
   const execution = turn.execution && (
     <ExecutionProgress
       steps={turn.execution.steps}

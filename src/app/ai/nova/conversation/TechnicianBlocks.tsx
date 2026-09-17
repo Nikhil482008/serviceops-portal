@@ -31,12 +31,14 @@ import { chaseNote, kbResolutionNote, patternNote } from '../tech/mutations';
 /* THE TECHNICIAN PRIMITIVES — evidence-first, precise, and NO BUTTONS.
  *
  * ── ACTION AS TURN ──────────────────────────────────────────────────────────────────────────
- * What the reader can do with a card is attached under the TURN (tech/AttachedActions.tsx),
- * derived per turn by tech/techActions.ts. A card here collects INPUTS — the hold as edited, the
- * quote as it stands, the refs as typed — and registers them with `useTurnInputs`; the attached
- * action carries them to the reply's stream, which performs the mutation and reports what
- * changed. Rows in a list are TARGETS: click opens the record (a navigate action), a checkbox
- * selects it, and the attached action relabels to the selection.
+ * What the reader can do with a card is a ROW IN THE ACTION DOCK at the bottom of the drawer —
+ * derived per turn by tech/techActions.ts, still, and adapted to the dock's shape by
+ * dock/techSteps.ts. (It used to hang under the turn on a └ connector; the surface moved, the
+ * data did not.) A card here collects INPUTS — the hold as edited, the quote as it stands, the
+ * refs as typed — and registers them with `useTurnInputs`; the dock row calls the card back for
+ * them at the moment it runs and carries them to the reply's stream, which performs the mutation
+ * and reports what changed. Rows in a list are TARGETS: click opens the record (a navigate
+ * action), a checkbox selects it, and the dock's recommended row relabels to the selection.
  *
  * ── IMMUTABLE ───────────────────────────────────────────────────────────────────────────────
  * A card's store data is SNAPSHOT when it mounts (`useFrozen`). A later mutation never rewrites

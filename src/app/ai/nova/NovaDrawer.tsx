@@ -15,12 +15,14 @@ import { NovaChatHistory } from './conversation/NovaChatHistory';
 import { NovaDeletePrompt, NovaPromptDialog } from './conversation/NovaPromptDialog';
 import { addPrompt, promptNameFor, removePrompt, updatePrompt, type SavedPrompt } from './novaPrompts';
 import { caseIdFor, roleOfCase } from './novaChats';
-import { RequesterDock, type ComposerSeat } from './dock/RequesterDock';
-import { clearCompose, useComposeRequest } from './dock/composeRequest';
+import { ActionDock, type ComposerSeat, type DockMode, type DockPersona } from './dock/ActionDock';
+import { clearCompose, requestCompose, useComposeRequest } from './dock/composeRequest';
 import { nextStepsFor, type DockEnv, type NextStep } from './dock/nextSteps';
+import { techStepsFor } from './dock/techSteps';
+import { leadershipStepsFor } from './dock/leadershipSteps';
+import { planStepsFor } from './dock/planSteps';
 import { useDockStore } from './dock/proposals';
 import { useTicketStore } from './mockTickets';
-import { TechAskChips } from './tech/TechAskChips';
 import { useTechActions } from './tech/useTechActions';
 import { clearFocus, useTechStore } from './tech/techStore';
 
@@ -145,17 +147,17 @@ export function NovaDrawer({
   const running = !!latest && (latest.state === 'investigating' || latest.state === 'answering')
     && !planPending(latest);
 
-  // ══ the next-step dock ═══════════════════════════════════════════════════════════════════
+  // ══ the action dock — ONE surface, every persona ═════════════════════════════════════════
   /* DERIVED ON EVERY RENDER from the turns, the ticket store and the dock store — never kept.
      The env is how an option opens a turn: `ask` as a chip did, `navigate` as a reply whose
      chosen line stands where the question would. Both remember the turn they opened so focus
      can follow its headline once it lands. */
   const [dockH, setDockH] = useState(0);
-  /* WHAT OVERLAYS THE THREAD, measured. The requester's dock is in FLOW now — it sits in the
-     input's own seat, so it cannot cover a message and needs no padding. What is still over the
-     thread is the fade the seat sits on (and, for a technician, the ask-chips floating on it),
-     and the scroll area pads by exactly that, re-read whenever it changes and whenever the
-     drawer is resized. Never a constant: the chips wrap at narrow widths. */
+  /* WHAT OVERLAYS THE THREAD, measured. The dock is in FLOW — it sits in the input's own seat,
+     so it cannot cover a message and needs no padding of its own, in any of its three shapes, on
+     any persona. What is still over the thread is the FADE the seat sits on, and the scroll area
+     pads by exactly that, re-read whenever it changes and whenever the drawer is resized. Never
+     a constant: the seat's height is however many actions this turn produced. */
   const overlayRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     const el = overlayRef.current;
@@ -175,26 +177,75 @@ export function NovaDrawer({
       pendingFocus.current = askNova(label, { caseId, context: { chosen: { n, label }, ...(ref ? { ref } : {}) } }) ?? null;
     },
   }), [askNova]);
+  /* THE TECHNICIAN'S SET for the newest turn. It used to feed TWO surfaces — the do-actions
+     attached under the turn and the ask-chips floating above the box — and now feeds one. */
+  const techSet = useTechActions(technician ? latest : undefined);
+  const techStore = useTechStore();
+  const persona: DockPersona = leadership ? 'leadership' : technician ? 'technician' : 'requester';
+  /* ONE LIST, FOUR SELECTORS. Each persona already derived its actions somewhere; what changed
+     is that all of them now arrive in one shape, at one place, for the LATEST turn only.
+       a parked plan   planStepsFor        — approve it, or say what to change
+       leadership      leadershipStepsFor  — the CXO case's own follow-ups
+       technician      techActionsFor      — unchanged as DATA, adapted by techStepsFor
+       requester       nextStepsFor        — the cards, the stores, the walk back
+     The plan comes first because a turn waiting on a plan has no answer yet: the walk the other
+     three do would step straight past it to the turn underneath. */
   const steps = useMemo<NextStep[]>(
-    () => (requester ? nextStepsFor({ turns, dock: dockSnap }, dockEnv) : []),
+    () => {
+      if (latest && planPending(latest)) {
+        return planStepsFor(
+          latest,
+          (id, payload) => respondToPlan(latest.id, id, payload),
+          /* THE DOCK HAS THE BOX'S SEAT, so "Change the plan" cannot fill an input that is not
+             rendered. It asks the seat to fold to the band and hands the prefix over with the
+             caret at the END — the reader continues it, they do not replace it. */
+          () => requestCompose(`${MODIFY_COMMAND} `, 'end'),
+        );
+      }
+      if (leadership) {
+        return leadershipStepsFor(turns, (label, caseId) => {
+          pendingFocus.current = askNova(label, { caseId }) ?? null;
+        });
+      }
+      if (technician) return latest && techSet ? techStepsFor(latest, techSet, askNova) : [];
+      return nextStepsFor({ turns, dock: dockSnap }, dockEnv);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `tickets` is the store's snapshot: a new one means re-derive
-    [requester, turns, dockSnap, dockEnv, tickets],
+    [leadership, technician, latest, techSet, turns, dockSnap, dockEnv, tickets, askNova, respondToPlan],
   );
-  /* Not while an investigation runs — it would be offering the LAST turn's steps under a
+  /* Not while an investigation runs — it would be offering the LAST turn's actions under a
      question that is still being answered. Not when there is nothing left to offer either:
-     then the input says "Anything else?" instead. */
-  const dockShown = phase === 'live' && !history && requester && !running && steps.length > 0;
-  const dockEmpty = phase === 'live' && requester && !running && steps.length === 0;
+     then there is no dock, no band, and the input says "Anything else?" instead. */
+  const dockShown = phase === 'live' && !history && !running && steps.length > 0;
+  const dockEmpty = phase === 'live' && !running && steps.length === 0;
+  /* WHICH SHAPE THE SEAT IS IN, held BESIDE THE OPTION SET IT BELONGS TO. A plain piece of state
+     would go stale for one frame every time a new turn brought a fresh dock — the seat remounts
+     and reports 'dock' in an effect, which lands after the paint, and the chips would flash. Read
+     through the key instead and a stale value cannot be read at all. */
+  const stepKey = steps.map((x) => x.id).join('|');
+  const [seatShape, setSeatShape] = useState<{ key: string; mode: DockMode }>({ key: stepKey, mode: 'dock' });
+  const dockMode: DockMode = seatShape.key === stepKey ? seatShape.mode : 'dock';
+  /* THE CHIPS WAIT THEIR TURN. While the options are open they are the offer; folded away, the
+     questions under the answer are. Never both — see NovaAnswer for why that is a rule about
+     COUNT rather than about wording. */
+  const hideFollowUps = dockShown && dockMode === 'dock';
 
-  /* "NOT WHAT I MEANT?" — the reading was wrong and the reader is about to say it again. The
-     original message goes back into the box SELECTED, because the next thing they type is meant
-     to replace it. The dock, if one is up, has already opened the composer for it to land in. */
+  /* TEXT INTO THE BOX, from something that is not the box. Two callers, opposite instructions:
+     "Not what I meant?" hands back the original message SELECTED, because the next thing typed
+     replaces it; "Change the plan" hands back a PREFIX with the caret at the end, because the
+     next thing typed continues it. The dock, if one is up, has already folded to the band so
+     there is a box for either to land in. */
   const compose = useComposeRequest();
   const composeSeen = useRef(compose?.nonce);
   useEffect(() => {
     if (!compose || compose.nonce === composeSeen.current) return;
     composeSeen.current = compose.nonce;
-    setSeed({ text: compose.text, nonce: compose.nonce, selectAll: true });
+    setSeed({
+      text: compose.text,
+      nonce: compose.nonce,
+      selectAll: compose.select === 'all',
+      clearable: compose.select === 'end',
+    });
     clearCompose();
   }, [compose]);
 
@@ -211,14 +262,6 @@ export function NovaDrawer({
       panelRef.current?.querySelector<HTMLElement>(`[data-turn="${id}"] .nova-headline`)?.focus();
     });
   }, [turns]);
-  // ══ the technician's ask-chips ═══════════════════════════════════════════════════════════
-  /* THE SAME SELECTOR the attached do-actions use, for the newest turn — so what the reader can
-     ASK and what they can DO are two halves of one set rather than two lists that drift. */
-  const techSet = useTechActions(technician ? latest : undefined);
-  const techStore = useTechStore();
-  const askChips = techSet?.asks ?? [];
-  const chipsShown = phase === 'live' && !history && !running && askChips.length > 0;
-
   /* FOCUS FOLLOWS AN ACTION'S REPLY. The action asked for it when it opened the turn; once the
      answer lands, focus goes to its headline and the request is cleared. */
   useEffect(() => {
@@ -622,8 +665,12 @@ export function NovaDrawer({
           ref={scrollerRef}
           className="relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-2"
           data-scroller
-          /* THE DOCK OVERLAYS THE TAIL of this area, so the area pads by the dock's MEASURED
-             height (plus its 10px stand-off) — never a guess, at any option count. */
+          /* THE ONLY THING OVER THIS AREA IS THE FADE, so it pads by the fade's MEASURED height
+             (plus a 10px stand-off) — never a guess. The dock, the band and the box are IN FLOW
+             beneath it, in the seat, on every persona: the last message cannot be behind any of
+             them at any action count, in any of the three shapes, mid-animation included. That
+             is the structural form of the TEC-01 overlap fix, and it is why this number stopped
+             having to grow with the dock. */
           style={dockH ? { paddingBottom: dockH + 10 } : undefined}
         >
           {/* THE HEADER — inside the scroller, sticky, so the thread scrolls BENEATH it and the
@@ -712,12 +759,11 @@ export function NovaDrawer({
                   leadership={leadership}
                   technician={technician}
                   requester={requester}
-                  /* WHAT THE DOCK IS ALREADY OFFERING, so the chips beneath the answer do not
-                     repeat it. The drawer is the only place that holds both lists. */
-                  offered={dockShown ? steps.map((x) => x.label) : undefined}
+                  /* THE DOCK IS OPEN, so the chips beneath the answer stand down. The drawer
+                     is the only place that knows about both. */
+                  hideFollowUps={hideFollowUps}
                   onAnswerAsk={(askId, answers, done) => answerAsk(t.id, askId, answers, done)}
                   onPlanRespond={(id, payload) => respondToPlan(t.id, id, payload)}
-                  onPlanModify={() => setSeed({ text: `${MODIFY_COMMAND} `, nonce: Date.now(), clearable: true })}
                   onSavePrompt={savePromptFor}
                 />
               ))}
@@ -726,32 +772,32 @@ export function NovaDrawer({
         </div>
 
         {!history && (
-        /* THE FOOTER: the dock, docked above the input, and the input. One positioned parent, so
-           the dock sits at `bottom: 100%` of it — over the scroll area's padded tail, 10px above
-           the box — and never takes space of its own. */
+        /* THE FOOTER: the seat, and the fade above it. One positioned parent, so the fade sits
+           at `bottom: 100%` of it — over the scroll area's padded tail — and never takes space of
+           its own. What is IN the seat is the dock, the band and the box, or just the box. */
         <div className="relative" data-dock-footer>
-          {/* ONE OVERLAY, ONE MEASUREMENT. Whatever is docked lives in here; the observer below
-              reads THIS element, so an empty overlay measures zero without anyone reporting it
-              and two docked things cannot overwrite each other's height. */}
-          {/* The technician's ask-chips still float ABOVE the box — they are a second, quieter
-              offer and the box is the first one. The requester's dock is not: it TAKES the seat,
-              which is why it is rendered below rather than here. */}
-          <div ref={overlayRef} className="nova-dock-overlay" data-dock-overlay>
-            {chipsShown && (
-              <TechAskChips chips={askChips} onAsk={(q) => askNova(q)} />
-            )}
-          </div>
+          {/* THE FADE, AND THE MEASUREMENT. Nothing is docked over the thread any more — the
+              technician's ask-chips used to float here, as a second quieter offer beside the box,
+              and they are rows in the dock now. What is left is the gradient the seat sits on,
+              and the observer below reads THIS element so the scroll area's tail is whatever the
+              fade actually measures rather than a number someone typed. */}
+          <div ref={overlayRef} className="nova-dock-overlay" data-dock-overlay />
           {/* ONE SEAT, whatever is in it. 12px either side, 12px beneath, on the fade — the
               geometry the input has always had, kept so that the dock arriving does not move the
               bottom of the drawer. */}
           <div {...rise(staged.input, 0, 'relative bg-white px-3 pb-3 pt-1')} data-dock-seat>
             {dockShown ? (
-              /* KEYED ON THE OPTION SET: a new turn brings a fresh dock, so a folded strip or a
+              /* KEYED ON THE ACTION SET: a new turn brings a fresh dock, so a folded band or a
                  half-typed draft never survives into an answer the reader has not read yet. */
-              <RequesterDock
-                key={steps.map((x) => x.id).join('|')}
+              <ActionDock
+                key={stepKey}
                 steps={steps}
-                onRan={onDockRan}
+                persona={persona}
+                onMode={(mode) => setSeatShape({ key: stepKey, mode })}
+                /* THE CHOSEN LINE is the requester's confirmation for an action with no card of
+                   its own. A technician action opens a REPLY and asks for focus itself
+                   (techStore.requestFocus), and a leadership row is a question. */
+                onRan={persona === 'requester' ? onDockRan : undefined}
                 renderComposer={composerFor}
               />
             ) : composerFor({ bare: false, autoFocus: false, placeholder: dockEmpty ? 'Anything else?' : undefined })}

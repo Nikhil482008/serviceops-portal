@@ -1,15 +1,16 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ChevronRight, Keyboard, X } from 'lucide-react';
 import { DOCK_OFFER, type NextStep } from './nextSteps';
 import { stepIcon } from './stepIcon';
 import { NovaOrb } from '../NovaOrb';
+import { prefersReducedMotion } from '../novaMotion';
 
-/* THE NEXT-ACTION DOCK.
+/* THE DOCK'S ROWS — the expanded state of ActionDock, for every persona.
  *
  * One block at the bottom of the drawer, holding every forward action the reader can take from
- * the conversation's CURRENT state — what the cards' footers, the banners' inline actions and the
- * follow-up chips used to hold between them, in three places, in three shapes. It is always about
- * the last actionable turn; `nextStepsFor` decides what that is.
+ * the conversation's CURRENT state — what the cards' footers, the attached button stacks, the
+ * banners' inline actions and the follow-up chips used to hold between them, in four places, in
+ * four shapes. It is always about the LATEST turn; the selectors decide what that offers.
  *
  * ── IT IS NOT ABOVE THE INPUT. IT IS THE INPUT'S SEAT ────────────────────────────────────────
  * While there is anything to do, the dock sits where the box sits and the box is not drawn. Two
@@ -18,51 +19,90 @@ import { NovaOrb } from '../NovaOrb';
  * that is the right distance for the thing you reach for when none of the named options fit.
  *
  * ── CLICK IS GO ──────────────────────────────────────────────────────────────────────────────
- * No selection state, no separate confirm. Option 1 for a mutate turn IS the confirm step, and
- * the card above the dock is the preview — which is the approval rule, kept by the structure
- * rather than by a second button.
+ * No selection state, no separate confirm. The recommended row on a mutate turn IS the confirm
+ * step, and the card above the dock is the preview — which is the approval rule, kept by the
+ * structure rather than by a second button.
  *
- * ── THE HEADER CARRIES ONE CONTROL ───────────────────────────────────────────────────────────
- * It used to carry three keycaps — 1 · 2 · 3 — restating the number already printed on the left
- * of every row. A hint that repeats what is beside it teaches nothing and costs the only corner
- * the header has. That corner now holds the one thing the reader might actually want from a block
- * that has taken the input's place: the way to put the input back.
+ * ── THE LABEL CAN CHANGE UNDER THE READER ────────────────────────────────────────────────────
+ * Selecting cards in the turn above relabels the recommended row IN PLACE — "Start INC-1077 now"
+ * → "Start 2 selected" — with a 120ms crossfade. The row is not re-mounted and its height does
+ * not change: the thing that moved is the reader's own selection, and a dock that jumped under
+ * their cursor would be arguing with them about it.
  *
  * ── KEYBOARD ─────────────────────────────────────────────────────────────────────────────────
- * Digits 1–4 run the matching option when focus is not in a text field; "/" folds the dock and
- * takes the caret to the box.
- * Both are live only while the options are ON SCREEN — a shortcut that fires an option the reader
+ * Digits 1–4 run the matching row, Cmd/Ctrl+Enter runs the recommended one, and "/" folds the
+ * dock and takes the caret to the box — all only while focus is NOT in a text field.
+ * They are live only while the options are ON SCREEN: a shortcut that fires an option the reader
  * cannot see is a surprise, not a shortcut. The options are real buttons in DOM order, so Tab
  * reaches them after the thread.
  */
+
+/** THE LABEL, CROSSFADING IN PLACE. The outgoing text fades over the incoming one for 120ms; the
+ *  button is not re-mounted, so nothing above it moves and the row keeps its height. */
+function Relabel({ text }: { text: string }) {
+  const [prev, setPrev] = useState<string | null>(null);
+  const last = useRef(text);
+  useEffect(() => {
+    if (last.current === text) return;
+    const from = last.current;
+    last.current = text;
+    /* On this setting the label simply IS the new one. A crossfade is the response, and the
+       response is what someone asked us not to draw. */
+    if (prefersReducedMotion()) return;
+    setPrev(from);
+    const t = window.setTimeout(() => setPrev(null), 120);
+    return () => clearTimeout(t);
+  }, [text]);
+  return (
+    <span className="nova-do-text" data-relabel={prev !== null ? 'true' : 'false'}>
+      <span key={text} className="nova-do-text-in">{text}</span>
+      {prev !== null && <span className="nova-do-text-out" aria-hidden="true">{prev}</span>}
+    </span>
+  );
+}
+
 export function NextStepDock({ steps, onType, onRan, onHide }: {
   steps: NextStep[];
   /** "Ask something else" / "/" — folds the dock to the band and puts the caret in the box. */
   onType: () => void;
   /** An option ran — the drawer moves focus to what it produced. */
   onRan?: (step: NextStep) => void;
-  /** The × — collapse to the strip and give the reader the plain box back. */
+  /** The × — collapse to the band and give the reader the plain box back. */
   onHide: () => void;
 }) {
   const uid = useId();
   const stepsRef = useRef(steps);
   stepsRef.current = steps;
+  const ranRef = useRef(onRan);
+  ranRef.current = onRan;
 
   const run = (s: NextStep) => {
     if (s.disabled) return;
     void s.run();
-    onRan?.(s);
+    ranRef.current?.(s);
   };
+  const runRef = useRef(run);
+  runRef.current = run;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target as HTMLElement | null;
       /* Never while typing: a "1" in the composer is a character, and "/" is a path. */
       const typing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
       if (typing) return;
       /* Nor under a popover, a modal or the evidence drawer — those own the keyboard. */
-      if (document.querySelector('.nova-pop, .nova-modal-scrim, [data-evidence-drawer]')) return;
+      if (document.querySelector('.nova-pop, .nova-modal-scrim, [data-evidence-drawer], [data-kb-sheet]')) return;
+      /* THE RECOMMENDED ONE, from anywhere in the drawer. The same chord the attached actions
+         carried, kept when they became rows: the default should be reachable without aiming. */
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey) {
+        const rec = stepsRef.current.find((s) => s.recommended && !s.disabled);
+        if (!rec) return;
+        e.preventDefault();
+        e.stopPropagation();
+        runRef.current(rec);
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       /* CAPTURE, ON WINDOW, AND STOPPED: the product binds "/" to global search, and with the
          drawer open — a modal dialog — that shortcut must not reach past it. Same for a digit. */
       if (e.key === '/') { e.preventDefault(); e.stopPropagation(); onType(); return; }
@@ -71,18 +111,17 @@ export function NextStepDock({ steps, onType, onRan, onHide }: {
         if (!s || s.disabled) return;
         e.preventDefault();
         e.stopPropagation();
-        run(s);
+        runRef.current(s);
       }
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onType, onRan]);
+  }, [onType]);
 
   if (!steps.length) return null;
 
   /* Re-keyed on the option SET, so a new set remounts the rows and they rise in; a re-render
-     with the same set does not replay the motion. */
+     with the same set — a relabel, a selection — does not replay the motion. */
   const setKey = steps.map((s) => s.id).join('|');
 
   return (
@@ -118,10 +157,11 @@ export function NextStepDock({ steps, onType, onRan, onHide }: {
               type="button"
               className="nova-dock-opt"
               data-dock-option={i + 1}
+              data-step={s.id}
               data-kind={s.kind}
               data-recommended={s.recommended ? 'true' : undefined}
               aria-disabled={s.disabled || undefined}
-              aria-describedby={detailId}
+              aria-describedby={s.detail ? detailId : undefined}
               /* THE DIGIT IS NOT PRINTED, and this is where it survives. The shortcut is real and
                  a listener should hear it; drawing 1 · 2 · 3 back onto the tiles would restore
                  exactly the numbered-checklist reading this change exists to remove. */
@@ -130,19 +170,21 @@ export function NextStepDock({ steps, onType, onRan, onHide }: {
               style={{ ['--i' as string]: i }}
               onClick={() => run(s)}
             >
-              {/* WHAT KIND OF THING THIS DOES, derived from the label — see stepIcon.tsx. It
-                  replaced a boxed number, which told the reader the row's POSITION: the one fact
-                  about a set of choices that is never the one being chosen between. */}
+              {/* WHAT KIND OF THING THIS DOES — the action's own verb where it declares one, and
+                  otherwise read off the label. See stepIcon.tsx. It replaced a boxed number, which
+                  told the reader the row's POSITION: the one fact about a set of choices that is
+                  never the one being chosen between. */}
               <span className="nova-dock-tile" aria-hidden="true"><Verb size={17} strokeWidth={1.75} /></span>
               <span className="nova-dock-text">
                 <span className="nova-dock-label">
-                  {s.label}
+                  <Relabel text={s.label} />
                   {s.recommended && <span className="sr-only"> · Nova recommends this</span>}
                 </span>
-                <span id={detailId} className="nova-dock-detail">{s.detail}</span>
+                {/* NO EMPTY SECOND LINE. A row with nothing to add is a one-line row, not a
+                    two-line row with a blank in it. */}
+                {!!s.detail && <span id={detailId} className="nova-dock-detail">{s.detail}</span>}
               </span>
-              {/* SAME WORDS AS THE TECHNICIAN'S ATTACHED ACTIONS. One recommender, one way of saying so -
-                  "Recommended" here and "Nova recommends" there read as two different systems. */}
+              {/* SAME WORDS EVERYWHERE. One recommender, one way of saying so. */}
               {s.recommended ? <span className="nova-dock-pill" aria-hidden="true">Nova recommends</span> : <span />}
               {/* THE GO. Decorative: the whole row is the button, and a screen reader that
                   announced an arrow after every label would be reading the furniture. */}

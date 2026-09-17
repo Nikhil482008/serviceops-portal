@@ -486,7 +486,7 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   Cursor proximity and composer focus are still written as `--core-mx` / `--core-my` /
   `--core-attend` **onto the element via a ref** — never `setState`, or a 120Hz pointer re-renders
   the whole thread for a 4px lean.
-- **THE REQUESTER'S SEAT (`nova/dock/RequesterDock.tsx`) — one thing at the bottom, never two.**
+- **THE ACTION DOCK (`nova/dock/ActionDock.tsx`) — ONE action surface, all three personas.**
   While a turn has actions, the **dock takes the input's place**; the box is not drawn. Two things
   at the bottom of a drawer are two answers to "what now". Two shapes, one seat:
   **DOCK** (the options) and **BAND** (one row — the orb, "Nova can do this for you", "Show all 3
@@ -507,6 +507,42 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   **`DOCK_OFFER` in `dock/nextSteps.ts` is the single source** of "Nova can do this for you" —
   the open header and the band say the same sentence, so collapsing moves the line rather than
   renaming it.
+  **FOUR SELECTORS, ONE SHAPE.** `dock/nextSteps.ts` (requester), `dock/techSteps.ts` over the
+  unchanged `tech/techActions.ts` (technician), `dock/leadershipSteps.ts` (each CXO case's own
+  follow-ups) and `dock/planSteps.ts` (a parked plan). The drawer asks the plan first, because a
+  turn waiting on one has no answer yet and the other three walk straight past it.
+  **MODULE RULES, all personas:** the dock renders for the LATEST turn only and never during an
+  investigation; exactly one recommended action, always first; **four rows at most plus "Ask
+  something else"**, do-actions outranking asks, and an over-cap ask is dropped disabled-first
+  (the only turn where that bites is TEC-04); remaining valid do-actions **carry forward** onto
+  the next turn's dock.
+  ⚠️ **A ROW HOLDS NO COPY OF WHAT IT WILL SEND.** A card's action calls the card back
+  (`callProposal`) at the moment it runs, which is why Send posts the reader's edit rather than
+  the script's sentence — the one thing that would have broken silently when the button moved out
+  of the turn and into the footer.
+  **SELECTION-AWARENESS LIVES HERE.** Ticking cards relabels the recommended row in place, with a
+  120ms crossfade and no change of height or order; the row's id is stable across a selection so
+  it is never re-mounted. The reader's own turn still shows the RESOLVED form ("Start INC-1112,
+  INC-1108").
+  **ONE LINE VARIES BY PERSONA:** the reassurance under the open dock ("Pick any one — or none…")
+  is the REQUESTER's alone. A technician and an executive are reading a list of things they were
+  going to do anyway.
+  ⚠️ **THE DOCK AND THE FOLLOW-UP CHIPS TAKE TURNS — never both at once.** While the dock is OPEN,
+  `FollowUpSuggestions` is not drawn; fold it to the band, or dismiss it, and the chips come back
+  WHOLE. Two offers at the bottom of one answer is two answers to "what now", which is the exact
+  problem the dock taking the input's seat exists to solve — and on a leadership turn they were
+  the same two sentences, because the dock's rows were authored FROM those follow-ups. An earlier
+  pass filtered the chips by comparing LABELS (`spare`), which decided by wording, only caught the
+  collision when the strings matched, and left the chip row permanently empty when it did. This
+  is the same rule stated as a COUNT. The mode is reported up (`ActionDock`'s `onMode`) and held
+  in the drawer BESIDE the option-set key, so a new turn's fresh dock cannot be read as folded for
+  the one frame before its effect lands.
+  ⚠️ **THE CHARTFRAME TOOLBAR IS NOT THE DOCK'S.** Chart type, group-by, expand, regenerate and
+  add-to-dashboard manipulate the visual in place; a drill is inseparable from the mark that was
+  pressed. Same for a Drill section's breadcrumb. None of them is a conversation action and none
+  belongs in a list under the answer.
+  **`tech/AttachedActions.tsx` and `tech/TechAskChips.tsx` are GONE** — the └ connector, the
+  "NOVA RECOMMENDS" eyebrow, the chip stack and the floating ask strip with them.
 - **THE ENTRY POINT is the edge handle (`ai/NovaHandle.tsx`)**, not a rail item or a FAB: the orb
   at 26px in a white rim, tucked into the right edge with ~20px showing, sliding out on hover into
   a pill that says "Ask Nova" and the real shortcut. It replaced a 26×52 half-circle carrying the
@@ -573,7 +609,8 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   View sources (expands the fold in place), Flag (toast + disabled "Flagged for review").
   Chips: `FollowUpSuggestions` renders `FollowUp = string | {label, disabled}` — three per
   requester answer, third disabled with "Not in this demo"; plain hairline pills (the gradient
-  border was retired; the orb is the module's only gradient).
+  border was retired; the orb is the module's only gradient). They are drawn only while the
+  ACTION DOCK IS FOLDED — see the dock bullet above.
 - **TEC-07 is the PLAN-FIRST interaction** (night-shift handover): planning (TEC-2's tallied
   live strip + "Planning your night-shift handover" identity phase) → a `proposal` beat PARKS
   the stream exactly like an ask → `PlanCard` (numbered steps, "What will change", evidence

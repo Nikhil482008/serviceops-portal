@@ -24,14 +24,13 @@ import { CommandCentre } from './conversation/CommandCentre';
  * chips. Same stream, same pacing, same collapse — no second feed component.
  */
 
-export function NovaFeed({ turn, onRetry, onAnswerAsk, onPlanRespond, onPlanModify, leadership, technician, onAsk }: {
+export function NovaFeed({ turn, onRetry, onAnswerAsk, onPlanRespond, leadership, technician, onAsk }: {
   turn: Turn;
   onRetry?: () => void;
   onAnswerAsk?: (askId: string, answers: Record<string, string>, done: boolean) => void;
   /** Release a stream parked on a plan proposal or a failed execution step (TEC-07/plan). */
   onPlanRespond?: (id: string, payload: Record<string, string>) => void;
   /** "Modify plan" — seed the composer. */
-  onPlanModify?: () => void;
   /** Leadership gets the Command Centre — the SAME turn, drawn as parallel source lanes. */
   leadership?: boolean;
   /** Technicians get the linear feed's dense variant. */
@@ -45,7 +44,7 @@ export function NovaFeed({ turn, onRetry, onAnswerAsk, onPlanRespond, onPlanModi
   const investigation = leadership ? <CommandCentre turn={turn} onRetry={onRetry} />
     : turn.view === 'thinking' ? <NovaThinking turn={turn} />
     : turn.view === 'workspace' ? <NovaWorkspace turn={turn} onRetry={onRetry} />
-      : turn.view === 'reveal' ? <NovaReveal turn={turn} onRetry={onRetry} onPlanRespond={onPlanRespond} onPlanModify={onPlanModify} onAsk={onAsk} />
+      : turn.view === 'reveal' ? <NovaReveal turn={turn} onRetry={onRetry} onPlanRespond={onPlanRespond} onAsk={onAsk} />
         : <InvestigationState turn={turn} onRetry={onRetry} dense={technician} onAsk={onAsk} />;
 
   if (!turn.asks.length) return investigation;

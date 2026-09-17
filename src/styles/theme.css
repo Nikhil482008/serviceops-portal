@@ -4812,18 +4812,6 @@ textarea.nova-inp { resize: vertical; white-space: pre-wrap; padding: 6px 8px; }
   .nova-dock-opt:hover .nova-dock-go, .nova-dock-opt:focus-visible .nova-dock-go { transform: none; }
 }
 .nova-do-text[data-relabel=true] .nova-do-text-in { animation: .12s linear both novaDoIn; }
-.nova-attached[data-live=false] .nova-do, .nova-attached[data-live=false] .nova-do-tag {
-  opacity: .45;
-  cursor: default;
-  box-shadow: none;
-  animation: none;
-}
-.nova-attached[data-live=false] .nova-do:hover {
-  background: var(--nova-surface-subtle);
-  border-color: var(--nova-rule);
-}
-.nova-attached[data-live=false] .nova-do-rec:hover { background: #fff; }
-.nova-do[aria-disabled=true] { opacity: .45; cursor: not-allowed; }
 .nova-sel-row[data-selected=true] { background: var(--nova-accent-bg); }
 .nova-sel-row:hover .nova-sel-check, .nova-sel-row:focus-within .nova-sel-check, .nova-sel-tr:hover .nova-sel-check, .nova-sel-check:checked {
   opacity: 1;
@@ -4836,8 +4824,8 @@ textarea.nova-inp { resize: vertical; white-space: pre-wrap; padding: 6px 8px; }
   position: relative;
 }
 @media (prefers-reduced-motion:reduce) {
-  .nova-do, .nova-do-text-in, .nova-do-text-out { animation: none!important; }
-  .nova-do, .nova-sel-check, .nova-sel-open, .nova-stale { transition: none; }
+  .nova-do-text-in, .nova-do-text-out { animation: none!important; }
+  .nova-sel-check, .nova-sel-open, .nova-stale { transition: none; }
   .nova-do-text-out { display: none; }
 }
 
@@ -5792,75 +5780,11 @@ textarea.nova-inp { resize: vertical; white-space: pre-wrap; padding: 6px 8px; }
 .nova-trail-now { font-weight: 500; color: var(--nova-ink); }
 
 /* ══ ACTION AS TURN — the technician surface ═══════════════════════════════════════════════
-   Every forward action a technician turn offers is ATTACHED under it, with the └ connector;
-   the cards beneath render no buttons at all. Rows are targets: click opens, a checkbox
-   selects, and the attached action relabels to what is selected. Nothing here introduces a
-   type size — the four tokens only — and the only gradient in the module is still the orb's. */
-
-/* ── the attached actions ──────────────────────────────────────────────────────────────── */
-.nova-attached { margin-top: var(--nova-gap-block); }
-.nova-attached-list { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-/* ONE ELBOW PER ACTION. A single connector beside a stack of three reads as belonging to the
-   first of them; every action is its own child of the turn, so every action gets its own. */
-.nova-do-row { display: grid; grid-template-columns: 13px minmax(0, 1fr); column-gap: 7px; align-items: start; }
-/* THE RECOMMENDATION, NAMED. Placed explicitly so it sits over the button rather than over the
-   elbow — it labels that one action, not the group beneath it. */
-.nova-do-row-rec > .nova-do-tag { grid-column: 2; grid-row: 1; }
-.nova-do-row-rec > .nova-attached-conn { grid-column: 1; grid-row: 2; }
-.nova-do-row-rec > .nova-do { grid-column: 2; grid-row: 2; }
-.nova-do-tag {
-  margin-bottom: 5px;
-  font-size: var(--ask-fs-xs); line-height: 1.3; font-weight: 500;
-  letter-spacing: 0.06em; text-transform: uppercase;
-  color: var(--nova-accent);
-}
-.nova-attached-conn {
-  /* TWO BORDERS AND A RADIUS. This used to be the character U+2514 in the mono stack, which is
-     a corner in a terminal font and a capital L in the fallback the UI actually resolved. A
-     drawing does not depend on which font won, and it aligns to the BUTTON rather than to a
-     baseline: the negative top margin brings its corner to the button's vertical centre. */
-  display: block; width: 12px; height: 18px;
-  /* The row is align-items:start so the elbow anchors to the label's FIRST line even when the
-     label wraps. From the row top, the corner lands at 0 + 18px — the vertical centre of a 36px
-     button, and of its first line when it is taller. */
-  margin: 0 0 0 3px;
-  border-left: 1.5px solid var(--nova-g400);
-  border-bottom: 1.5px solid var(--nova-g400);
-  border-bottom-left-radius: 6px;
-}
-
-/* THE SOFT CHIP, from the reference: a 10px radius, a hairline, a quiet fill and a label with
-   real weight in it. EVERY action wears the same chrome — the recommendation is carried by the
-   accent icon and the heavier label, the job the reference gives its brand mark, rather than by
-   lifting one button out of the family. One recommended per turn, still, and still first. */
-.nova-do {
-  display: inline-flex; align-items: flex-start; gap: 9px;
-  min-height: 36px; padding: 8px 14px;
-  border: 1px solid var(--nova-rule); border-radius: 10px;
-  background: var(--nova-surface-subtle);
-  box-shadow: 0 1px 2px rgba(11, 22, 40, 0.04);
-  text-align: left; cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
-  animation: novaDoRise 180ms ease-out both;
-  animation-delay: calc(var(--i, 0) * 30ms);
-}
-.nova-do:hover { background: var(--nova-surface-hover); border-color: var(--nova-g400); }
-.nova-do:active { background: var(--nova-surface-pressed); }
-.nova-do:focus-visible { outline: 2px solid var(--nova-focus); outline-offset: 2px; }
-/* The one lift the family keeps: the recommended chip sits on white, so it reads a half-step
-   forward of its siblings without becoming a different kind of control. */
-.nova-do-rec { background: #fff; }
-.nova-do-rec:hover { background: var(--nova-surface-subtle); }
-.nova-do-icon { display: inline-flex; flex-shrink: 0; margin-top: 1px; color: var(--nova-text-secondary); }
-.nova-do-rec .nova-do-icon { color: var(--nova-accent); }
-.nova-do-label {
-  min-width: 0; font-size: var(--ask-fs-base); line-height: 1.45;
-  font-weight: 500; color: var(--nova-ink);
-}
-.nova-do-rec .nova-do-label { font-weight: 600; }
-/* The muted suffix after a middle dot — the clock, the consequence, never more than ~28 chars.
-   It stays at the body weight so the bold carries the verb and not the aside. */
-.nova-do-meta { font-weight: 400; color: var(--nova-text-muted); }
+   Every forward action a technician turn offers is a ROW IN THE ACTION DOCK; the cards here
+   render no buttons at all. Rows are targets: click opens, a checkbox selects, and the dock's
+   recommended row relabels to what is selected — which is why the crossfade below outlived the
+   button it was written for. Nothing here introduces a type size — the four tokens only — and
+   the only gradient in the module is still the orb's. */
 
 /* RELABEL IN PLACE. The outgoing label fades out over the incoming one for 120ms; the button is
    never re-mounted, so nothing above it moves. */
@@ -5871,35 +5795,8 @@ textarea.nova-inp { resize: vertical; white-space: pre-wrap; padding: 6px 8px; }
   animation: novaDoOut 120ms linear both;
 }
 
-/* A PAST TURN'S ACTIONS ARE INACTIVE. Greyed, and not focusable (the button carries `disabled`,
-   so the tab order skips them) — the turn itself is unchanged. */
-.nova-attached[data-live='false'] .nova-do,
-.nova-attached[data-live='false'] .nova-do-tag {
-  opacity: 0.45; cursor: default; box-shadow: none;
-  animation: none;
-}
-.nova-attached[data-live='false'] .nova-do:hover {
-  background: var(--nova-surface-subtle); border-color: var(--nova-rule);
-}
-.nova-attached[data-live='false'] .nova-do-rec:hover { background: #fff; }
-.nova-do[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
-
-@keyframes novaDoRise {
-  from { opacity: 0; transform: translateY(5px); }
-  to   { opacity: 1; transform: none; }
-}
 @keyframes novaDoIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes novaDoOut { from { opacity: 1; } to { opacity: 0; } }
-
-/* ── the ask-chips, above the input ────────────────────────────────────────────────────── */
-/* The product's existing pill, unchanged — only the place is new. Same fade as the dock's, so
-   the last message dissolves under them rather than being cut by them. */
-.nova-askchips-wrap {
-  padding: 24px 12px 6px;
-  pointer-events: none;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0) 0%, #fff 72%);
-}
-.nova-askchips { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* ── a selectable row ──────────────────────────────────────────────────────────────────── */
 .nova-sel-row {
@@ -6007,7 +5904,7 @@ textarea.nova-inp { resize: vertical; white-space: pre-wrap; padding: 6px 8px; }
 .nova-dot-pick:focus-visible { outline: 2px solid var(--nova-focus); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .nova-do, .nova-do-text-in, .nova-do-text-out { animation: none !important; }
-  .nova-do, .nova-sel-check, .nova-sel-open, .nova-stale { transition: none; }
+  .nova-do-text-in, .nova-do-text-out { animation: none !important; }
+  .nova-sel-check, .nova-sel-open, .nova-stale { transition: none; }
   .nova-do-text-out { display: none; }
 }

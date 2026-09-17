@@ -31,14 +31,14 @@ import { planPending, type Turn } from './turnModel';
  * undifferentiated run of text. The avatar and the orb are decoration and are `aria-hidden`.
  */
 export function NovaTurn(
-  { turn, live, onFollowUp, onEditQuery, onSavePrompt, onRetry, onAnswerAsk, onPlanRespond, onPlanModify, onRegenerate, leadership, technician, requester, offered }: {
+  { turn, live, onFollowUp, onEditQuery, onSavePrompt, onRetry, onAnswerAsk, onPlanRespond, onRegenerate, leadership, technician, requester, hideFollowUps }: {
   turn: Turn;
   /** This is the newest turn. */
   live: boolean;
   /** A requester turn — its forward actions are the Next-step dock's. See NovaAnswer. */
   requester?: boolean;
-  /** Labels the dock is already offering — the follow-up chips drop anything in this list. */
-  offered?: string[];
+  /** The dock is OPEN. The follow-up chips stand down until it is folded. */
+  hideFollowUps?: boolean;
   onFollowUp: (question: string, fromTurnId: string, context?: Record<string, unknown>) => void;
   /** Put this question back in the composer for editing. */
   onEditQuery: (question: string) => void;
@@ -52,8 +52,6 @@ export function NovaTurn(
   onAnswerAsk: (askId: string, answers: Record<string, string>, done: boolean) => void;
   /** Release a stream parked on a plan proposal or a failed execution step (TEC-07/plan). */
   onPlanRespond?: (id: string, payload: Record<string, string>) => void;
-  /** "Modify plan" — seed the composer with `/modify plan ` and focus it. */
-  onPlanModify?: () => void;
   /** The ••• menu's Regenerate — same as onRetry but with the pacing skipped. */
   onRegenerate?: () => void;
   /** Leadership reads the Command Centre feed — lanes scanning in parallel. */
@@ -110,7 +108,6 @@ export function NovaTurn(
             onRetry={onRetry}
             onAnswerAsk={onAnswerAsk}
             onPlanRespond={onPlanRespond}
-            onPlanModify={onPlanModify}
             leadership={leadership}
             technician={technician}
             onAsk={ask}
@@ -120,7 +117,7 @@ export function NovaTurn(
             live={live}
             dense={technician}
             requester={requester}
-            offered={offered}
+            hideFollowUps={hideFollowUps}
             onFollowUp={(q, ctx) => onFollowUp(q, turn.id, ctx)}
             onRetry={onRegenerate ?? onRetry}
           />

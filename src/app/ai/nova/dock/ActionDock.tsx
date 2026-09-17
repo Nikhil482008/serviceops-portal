@@ -7,7 +7,7 @@ import { NovaOrb } from '../NovaOrb';
 import type { NextStep } from './nextSteps';
 import { prefersReducedMotion } from '../novaMotion';
 
-/* WHAT SITS AT THE BOTTOM OF A REQUESTER'S DRAWER — one thing at a time.
+/* WHAT SITS AT THE BOTTOM OF THE DRAWER — one thing at a time, on every persona.
  *
  * There used to be two: the dock, and the input beneath it. Both are answers to "what now", and
  * a reader has to rule one out before they can act on the other. So the dock takes the input's
@@ -15,9 +15,22 @@ import { prefersReducedMotion } from '../novaMotion';
  *
  * TWO SHAPES, one seat:
  *
- *   DOCK   the named options. The box is not drawn.
+ *   DOCK   the named actions. The box is not drawn.
  *   BAND   the dock folded to one row — "Nova can do this for you · Show all 3 actions" — fused
  *          to the top of the box, in one container.
+ *
+ * ── ONE SURFACE FOR EVERY PERSONA ────────────────────────────────────────────────────────────
+ * This was the requester's. It is now where a TECHNICIAN's actions live too — they used to hang
+ * under the turn on a └ connector, under a "NOVA RECOMMENDS" eyebrow, with a second strip of
+ * question-chips floating above the box — and where a LEADERSHIP turn's follow-ups live. Three
+ * personas had three answers to "what can I do from here"; the answer is one place, and the only
+ * thing that varies is what is in it.
+ *
+ * The ONE difference by persona is the reassurance line under the open dock. A requester is being
+ * offered actions on their own ticket by an assistant they did not ask for, and "nothing runs
+ * until you choose" is the sentence that makes reading the list free. A technician and an
+ * executive are reading a list of things they were going to do anyway; there, the line is a
+ * system apologising for showing its work.
  *
  * ── BOTH EXITS LEAD TO THE BAND, AND DIFFER ONLY IN WHERE THE CARET LANDS ────────────────────
  * ✕ says "these options are not what I want right now" and leaves focus on the band. "Ask
@@ -25,13 +38,8 @@ import { prefersReducedMotion } from '../novaMotion';
  * Same container, same one press back to the options, different starting point — which is the
  * whole of the difference between the two intents, and the only part worth expressing.
  *
- * There used to be a third shape: the dock's container MORPHING into the box, with a Back
- * control and a fading ghost of the option rows. Those parts solved a problem the band does not
- * have — the band never hides the way back, so there is nothing to go Back to. Two shapes that
- * end in the same place are one shape and a focus target.
- *
- * ⚠️ THE DRAFT STILL HAS TO BE CARRIED. The dock TAKES this seat, so showing the options unmounts
- * the box and everything typed into it. That is why `draftRef` lives here and not in the box: a
+ * ⚠️ THE DRAFT HAS TO BE CARRIED. The dock TAKES this seat, so showing the options unmounts the
+ * box and everything typed into it. That is why `draftRef` lives here and not in the box: a
  * half-written sentence must not be the price of glancing at the options.
  *
  * ── DISCARDED WITH THE TURN ──────────────────────────────────────────────────────────────────
@@ -41,6 +49,12 @@ import { prefersReducedMotion } from '../novaMotion';
  */
 
 type Mode = 'dock' | 'band' | 'dismissed';
+
+/** Which shape the seat is in. The drawer reads it so the follow-up chips under the answer can
+ *  stay out of the way while the dock is open — see NovaAnswer. */
+export type DockMode = Mode;
+
+export type DockPersona = 'requester' | 'technician' | 'leadership';
 
 /** "Show all 3 actions" / "Show action". The band never renders at zero, so there is no third
  *  form to write — and no "0 actions" state for anyone to reach. */
@@ -59,10 +73,15 @@ export interface ComposerSeat {
   seed?: { text: string; nonce: number } | null;
 }
 
-export function RequesterDock({ steps, renderComposer, onRan }: {
+export function ActionDock({ steps, persona, renderComposer, onRan, onMode }: {
   steps: NextStep[];
+  /** Only the reassurance line reads this. Everything else is identical by design. */
+  persona: DockPersona;
   renderComposer: (seat: ComposerSeat) => React.ReactNode;
   onRan?: (step: NextStep) => void;
+  /** The shape changed. The drawer needs it because the follow-up chips are rendered UP in the
+   *  thread, four components away, and they hide while the options are open. */
+  onMode?: (mode: Mode) => void;
 }) {
   const [mode, setMode] = useState<Mode>('dock');
   /* WHERE THE CARET GOES when the band arrives. ✕ leaves it on the band — folding the options
@@ -96,9 +115,18 @@ export function RequesterDock({ steps, renderComposer, onRan }: {
 
   const reduced = prefersReducedMotion();
 
-  /* A CORRECTION NEEDS A BOX. "Not what I meant?" is pressed while the dock is in the input's
-     seat, so the request folds it to the band first — seeding an input that is not rendered is
-     seeding nothing. The drawer then fills it; this only makes somewhere for the text to land. */
+  /* ONE OFFER ON SCREEN AT A TIME. The chips under the answer read this: open, and they are not
+     drawn; folded, and they come back whole. Reported rather than lifted, because the mode is
+     this component's — the seat is re-keyed on the option set upstream, so a new turn resets it
+     without anyone having to remember to. */
+  const modeRef = useRef(onMode);
+  modeRef.current = onMode;
+  useEffect(() => { modeRef.current?.(mode); }, [mode]);
+
+  /* A CORRECTION, OR A PREFIX, NEEDS A BOX. "Not what I meant?" and "Change the plan" are both
+     pressed while the dock is in the input's seat, so the request folds it to the band first —
+     seeding an input that is not rendered is seeding nothing. The drawer then fills it; this only
+     makes somewhere for the text to land. */
   const compose = useComposeRequest();
   const composeNonce = useRef(compose?.nonce);
   useEffect(() => {
@@ -158,13 +186,10 @@ export function RequesterDock({ steps, renderComposer, onRan }: {
     return () => cancelAnimationFrame(id);
   }, [mode, toBox]);
 
-  const keepDraft = (t: string) => { draftRef.current = t; };
-  const toDock = () => { setDraft(draftRef.current); go('dock'); };
-
   if (!steps.length) return null;
 
   return (
-    <div ref={seatRef} className="nova-dockseat" data-dockseat data-mode={mode} data-h={h || undefined}>
+    <div ref={seatRef} className="nova-dockseat" data-dockseat data-persona={persona} data-mode={mode} data-h={h || undefined}>
       {/* ── the options ───────────────────────────────────────────────────────────────── */}
       {mode === 'dock' && (
         <section
@@ -185,9 +210,11 @@ export function RequesterDock({ steps, renderComposer, onRan }: {
       )}
       {/* ONE LINE, on the drawer surface rather than inside the dock's border — it is about the
           dock, not part of it. It says the thing the rows cannot say about themselves: that they
-          are an offer and not a queue, and that reading them costs nothing. Only while the
-          options are up; on the band there is nothing yet to decline. */}
-      {mode === 'dock' && (
+          are an offer and not a queue, and that reading them costs nothing.
+          REQUESTER ONLY. A technician's rows are the job; an executive's are the next question.
+          Neither needs reassuring that a list is optional, and a system that says so anyway is
+          explaining itself to people who were not worried. */}
+      {mode === 'dock' && persona === 'requester' && (
         <p className="nova-dock-note" data-dock-note>Pick any one — or none. Nothing runs until you choose.</p>
       )}
 
@@ -236,7 +263,8 @@ export function RequesterDock({ steps, renderComposer, onRan }: {
             placeholder: 'Ask Nova anything…',
             onDraft: (t) => { draftRef.current = t; },
             /* `undefined`, not `null`, when there is nothing held — the seat must FALL THROUGH to
-               whatever the drawer is seeding, which is how "Not what I meant?" reaches this box. */
+               whatever the drawer is seeding, which is how "Not what I meant?" and "Change the
+               plan" reach this box. */
             seed: draft ? { text: draft, nonce: seedNonce } : undefined,
           })}
         </div>

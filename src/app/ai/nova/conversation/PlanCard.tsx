@@ -1,8 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { PlanProposal } from '../scripts/registry';
 import { MODIFY_COMMAND, type TurnPlan } from '../turnModel';
-import { ActionRows, type ActionRowItem } from '../tech/AttachedActions';
 import { PlanList } from './PlanList';
 import { PlanSummaryCard } from './PlanSummaryCard';
 
@@ -21,8 +19,8 @@ import { PlanSummaryCard } from './PlanSummaryCard';
  * whole point of this surface.
  *
  * So: the steps are TEXT (PlanList), what approving does is ONE card (PlanSummaryCard), and the
- * two ways forward are ATTACHED ACTIONS — the same rows every other technician turn ends with,
- * so "the thing at the bottom of a turn" means one thing everywhere.
+ * two ways forward are DOCK ROWS — the same surface every other turn's actions use, on every
+ * persona, so "where do I act from" has one answer everywhere.
  *
  *   BUILD THE HANDOVER · you review before it posts   [recommended, mutate]
  *   CHANGE THE PLAN                                   [ask]
@@ -40,8 +38,6 @@ import { PlanSummaryCard } from './PlanSummaryCard';
  * "Why Nova recommends this" lists user-safe facts the investigation established. No "I decided",
  * no chain-of-thought — the same rule the whole module follows.
  */
-
-export type PlanAction = { action: 'approve' } | { action: 'revise'; text: string };
 
 /** The optional evidence fold — points only, the same tertiary treatment as "How Nova knows". */
 export function PlanEvidence({ points }: { points: string[] }) {
@@ -72,23 +68,7 @@ export function PlanEvidence({ points }: { points: string[] }) {
   );
 }
 
-/** The two rows. Declared on the proposal, so the labels the reader approves are the script's
- *  words and not this component's. */
-function planActions(p: PlanProposal): ActionRowItem[] {
-  return [
-    { id: 'plan-build', label: p.approve, meta: p.approveMeta, icon: 'send', kind: 'mutate', recommended: true },
-    { id: 'plan-change', label: p.modify, icon: 'revise', kind: 'ask', recommended: false },
-  ];
-}
-
-export function PlanCard({ plan, live, onRespond, onModify }: {
-  plan: TurnPlan;
-  /** The stream can still be released — false once the turn stopped or failed. */
-  live: boolean;
-  onRespond: (a: PlanAction) => void;
-  /** "Change the plan": seed the composer with the prefix and hand over the caret. */
-  onModify?: () => void;
-}) {
+export function PlanCard({ plan }: { plan: TurnPlan }) {
   const p = plan.proposal;
 
   /* Once approved the proposal freezes into a quiet record — the execution list below it is
@@ -138,17 +118,13 @@ export function PlanCard({ plan, live, onRespond, onModify }: {
         <PlanEvidence points={p.evidence ?? []} />
       </div>
 
-      <ActionRows
-        items={planActions(p)}
-        live={live}
-        label="What to do with this plan"
-        onRun={(item) => {
-          if (!live) return;
-          if (item.id === 'plan-build') onRespond({ action: 'approve' });
-          else onModify?.();
-        }}
-      />
-      <p className="nova-t-meta" style={{ marginTop: 8 }}>
+      {/* THE TWO WAYS FORWARD ARE THE DOCK'S — see dock/planSteps.ts. They were rows here, and
+          before that they were two buttons this card drew itself; both times they were the one
+          turn in the product whose actions lived somewhere other than where every other turn's
+          do. The labels are still the script's (`p.approve` / `p.modify`), and the sentence below
+          still names the boundary, because the reader reads that HERE, above the plan, not down
+          in the dock. */}
+      <p className="nova-t-meta" style={{ marginTop: 16 }}>
         Nothing is posted until you press {p.approve} — and you see the note first.
       </p>
       <span className="sr-only">{`Type your change after "${MODIFY_COMMAND}"`}</span>
