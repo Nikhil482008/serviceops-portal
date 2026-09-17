@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { NovaHost } from '../ai/nova/NovaHost';
-import { ORB_STATES, ORB_STATE_NOTE, AskAiOrb, type OrbState } from '../ai/nova/AskAiOrb';
+import { ORB_STATES, ORB_STATE_NOTE, NovaOrb, type OrbState } from '../ai/nova/NovaOrb';
 import { prefersReducedMotion } from '../ai/nova/novaMotion';
 import type { UserRole } from '../ai/nova/novaSuggestions';
 
@@ -65,9 +65,10 @@ export function NovaDemoPage({ onNavigate }: { onNavigate: (page: string) => voi
             <section>
               <h2 className="text-[15px] font-semibold text-[#364658]">Orb states</h2>
               <p className="mt-1 text-[13px] text-[#7B8FA5]">
-                One component, one <code className="text-[12px]">state</code> prop. Each state changes
-                scale, drift speed and hue — nothing else. The same instance renders in the FAB and
-                in the drawer, so switching here changes both.
+                One component, one <code className="text-[12px]">state</code> prop. A state changes
+                how fast the swirl sweeps and which hue leads — nothing else, and never the
+                construction. The same instance renders in the FAB and in the drawer, so switching
+                here changes both.
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
@@ -92,7 +93,7 @@ export function NovaDemoPage({ onNavigate }: { onNavigate: (page: string) => voi
                       orbState === s ? 'border-[#3D8BD0] bg-[#F7FBFF]' : 'border-[#E5E7EB] bg-white hover:border-[#3D8BD0]'}`}
                   >
                     <span className="flex size-[76px] items-center justify-center">
-                      <AskAiOrb state={s} size={76} />
+                      <NovaOrb state={s} size={76} />
                     </span>
                     <span className="text-[11px] text-[#7B8FA5]">{s}</span>
                   </button>
@@ -104,20 +105,20 @@ export function NovaDemoPage({ onNavigate }: { onNavigate: (page: string) => voi
             <section>
               <h2 className="text-[15px] font-semibold text-[#364658]">Same object, two sizes</h2>
               <p className="mt-1 text-[13px] text-[#7B8FA5]">
-                The trigger orb and the drawer orb, at rest, in the state selected above. One
-                authored 120px body scaled to each — blob insets, drift distances and blur radius
-                are written once, so these are the same object rather than two tunings of it.
+                The trigger orb and the drawer orb, at rest, in the state selected above. Every
+                measurement — the blur, the shadow, the rim — derives from the size, so these are
+                the same object at two distances rather than one drawing scaled to fit the other.
               </p>
               <div className="mt-4 flex items-end gap-10 rounded-lg border border-[#E5E7EB] bg-white px-6 py-5">
                 <div className="flex flex-col items-center gap-2">
                   {/* On a real FAB face, because that is where the bleed showed. */}
                   <span className="flex size-14 items-center justify-center rounded-full border border-[#E5E7EB] bg-white shadow-lg">
-                    <AskAiOrb state={orbState} size={34} />
+                    <NovaOrb state={orbState} size={34} />
                   </span>
                   <span className="text-[11px] text-[#7B8FA5]">trigger · 34px</span>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                  <AskAiOrb state={orbState} size={120} />
+                  <NovaOrb state={orbState} size={120} />
                   <span className="text-[11px] text-[#7B8FA5]">drawer · 120px</span>
                 </div>
               </div>
@@ -171,7 +172,7 @@ export function NovaDemoPage({ onNavigate }: { onNavigate: (page: string) => voi
         </main>
       </div>
 
-      <NovaHost userRole={userRole} orbState={orbState} />
+      <NovaHost userRole={userRole} onRoleChange={setUserRole} orbState={orbState} />
     </div>
   );
 }

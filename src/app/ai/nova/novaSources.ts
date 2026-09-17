@@ -88,36 +88,6 @@ export const DOCUMENTS: NovaDocument[] = [
 
 import type { UserRole } from './novaSuggestions';
 
-/** The "Prompts" menu. Short, imperative, and DIFFERENT from the greeting cards — those are four
- *  fully-formed questions to press, these are starting points to type from.
- *
- *  Role comes from the auth object. There is no role selector anywhere in this UI, by design. */
-export const ROLE_PROMPTS: Record<UserRole, string[]> = {
-  requester: [
-    'Troubleshoot my issue',
-    'Check my ticket status',
-    'Create a ticket',
-    'Find a solution',
-    'I need access to something',
-  ],
-  technician: [
-    'Summarise this ticket',
-    'Find similar incidents',
-    'Suggest a resolution',
-    'Check SLA risk',
-    'Draft an update for the requester',
-  ],
-  leadership: [
-    "What's changed this month?",
-    'Explain this metric',
-    'Show SLA trends',
-    'Find the biggest drivers',
-    'Which service is costing us most?',
-  ],
-};
-
-// ══ context ═════════════════════════════════════════════════════════════════════════════════
-
 export interface NovaContext {
   id: string;
   label: string;

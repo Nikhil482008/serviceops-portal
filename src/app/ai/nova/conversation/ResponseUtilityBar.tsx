@@ -1,28 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BarChart3, Check, ChevronLeft, Copy, Flag, MoreHorizontal, Share2, ShieldCheck,
+  BarChart3, Check, ChevronLeft, Copy, Flag, MoreHorizontal, RotateCcw, Share2, ShieldCheck,
   ThumbsDown, ThumbsUp,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AnswerObject } from '../novaStream';
 import { citationOrder } from './NovaCitations';
+import { blocksToText } from './blockText';
 
 /* THE QUIET LAYER UNDER EVERY ANSWER — "what can I do with this response?"
  *
  * Three levels of action end a response, and they must not compete:
  *   LEVEL 1  the answer itself
  *   LEVEL 2  the contextual follow-up pills — "what should I do next?"  (FollowUpSuggestions)
- *   LEVEL 3  this bar — copy, share, sources, feedback, and the ••• response controls
+ *   LEVEL 3  this bar — judge it on the left, take it away on the right
  *
  * The bar sits under a hairline, all-ghost, icon-sized: a utility layer, never a rival to the
- * pills above it. The sources count is an ENTRY POINT into the existing evidence drawer, not a
- * second source surface — the count is `evidenceOf`'s, the same number the drawer header shows,
- * so the two can never disagree.
+ * pills above it.
+ *
+ * ── TWO GROUPS, TWO JOBS ─────────────────────────────────────────────────────────────────────
+ *   LEFT   helpful / not helpful — judging the answer is about the answer, and reads first
+ *   RIGHT  copy · share · ••• — taking it somewhere else, or changing it
+ * Nothing sits between them. The sources count used to, which put "where did this come from"
+ * in the same breath as "was it any good"; it lives on the "How Nova knows" row now, with the
+ * rest of the provenance.
  *
  * ── THE ••• MENU IS CONTEXTUAL, NOT A DUMP ───────────────────────────────────────────────────
- * Base: shorter / elaborate / regenerate. "Change visual" exists only when the answer actually
- * carries a table or metric cards; "View sources" only when the investigation read any. An
- * option that cannot apply is absent, not disabled.
+ * The common group is three, and they are the three that mean something on EVERY response:
+ * regenerate, double-check, flag. Everything above the divider is authored per answer —
+ * including "Change visual", which exists only when the answer actually carries a table or
+ * metric cards. An option that cannot apply is absent, not disabled.
  */
 
 export type AnswerDensity = 'standard' | 'concise' | 'detailed';
@@ -55,6 +62,9 @@ export function answerToText(a: AnswerObject): string {
   (a.fields ?? []).forEach((f) => push(`${f.label}: ${f.value}${f.inferred ? ' (inferred)' : ''}`));
   push(a.aside);
   if (a.recommendation) push(`Recommended: ${strip(a.recommendation)}`);
+  /* The blocks — the brief's four lines, the facts and steps, the draft as it currently reads,
+     the live handover — so "Copy talking points" copies talking points. */
+  blocksToText(a).forEach((t) => push(t));
   return lines.join('\n');
 }
 
@@ -66,7 +76,7 @@ function visualOptions(a: AnswerObject): Array<{ id: AnswerVisual; label: string
 }
 
 export function ResponseUtilityBar({
-  answer: a, sourceLabels, view, onAction, onOpenSources, onExpandEvidence, onRegenerate, onMenuItem,
+  answer: a, sourceLabels, view, onAction, onRegenerate, onMenuItem,
 }: {
   answer: AnswerObject;
   /** What the investigation actually read — `evidenceOf`'s labels. The count shown, and what
@@ -75,10 +85,6 @@ export function ResponseUtilityBar({
   view: AnswerView;
   /** Applied AFTER the working beat — the parent owns the view state. */
   onAction: (action: UtilityAction) => void;
-  onOpenSources: () => void;
-  /** "View sources" in the menu: expand the evidence fold in place (Part 4), rather than the
-   *  drawer the count button opens. */
-  onExpandEvidence?: () => void;
   /** Regenerate: genuinely re-run this turn's question in place. */
   onRegenerate?: () => void;
   /** An authored type-specific item was chosen (Copy * is handled here first). */
@@ -178,7 +184,7 @@ export function ResponseUtilityBar({
   const visuals = visualOptions(a);
   /* The authored top group, minus anything that belongs to the common group below. */
   const specific = (a.menu ?? []).filter((l) => !/^(Regenerate|View sources|Flag)/i.test(l));
-  const item = 'nova-btn flex w-full items-center gap-2 px-3 py-1.5 text-left ask-text-sm text-[var(--nova-ink)] hover:bg-[#F3F6FA] disabled:opacity-40 disabled:hover:bg-transparent';
+  const item = 'nova-btn flex w-full items-center gap-2 px-3 py-1.5 text-left ask-text-sm text-[var(--nova-ink)] hover:bg-[var(--nova-surface-hover)] disabled:opacity-40 disabled:hover:bg-transparent';
   const iconBtn = 'nova-btn nova-btn-icon nova-hit flex size-7 items-center justify-center rounded';
 
   return (
@@ -188,36 +194,7 @@ export function ResponseUtilityBar({
       data-utility-bar
     >
       <div className="flex flex-wrap items-center gap-1">
-      {/* LEFT — consume the response */}
-      <button type="button" className={iconBtn} aria-label="Copy response" title="Copy response" onClick={copy}>
-        {copied
-          ? <Check size={13} className="text-[#12805C]" aria-hidden="true" />
-          : <Copy size={13} aria-hidden="true" />}
-      </button>
-      <button
-        type="button"
-        className={iconBtn}
-        aria-label="Share"
-        title="Share"
-        onClick={() => toast('Share — conversations aren’t shareable in this prototype')}
-      >
-        <Share2 size={13} aria-hidden="true" />
-      </button>
-
-      <span className="flex-1" />
-
-      {/* RIGHT — provenance, feedback, controls */}
-      {working && <span className="nova-t-meta mr-1" data-working>Updating…</span>}
-      {sourcesCount > 0 && (
-        <button
-          type="button"
-          className="nova-btn nova-hit nova-tertiary"
-          onClick={onOpenSources}
-          data-sources-count
-        >
-          {sourcesCount} source{sourcesCount === 1 ? '' : 's'}
-        </button>
-      )}
+      {/* LEFT — judge the response */}
       <button
         type="button"
         className={iconBtn}
@@ -237,6 +214,25 @@ export function ResponseUtilityBar({
         onClick={() => setVote((v) => (v === 'down' ? null : 'down'))}
       >
         <ThumbsDown size={13} aria-hidden="true" className={vote === 'down' ? 'text-[var(--nova-primary)]' : ''} />
+      </button>
+
+      <span className="flex-1" />
+
+      {/* RIGHT — take it away, or change it */}
+      {working && <span className="nova-t-meta mr-1" data-working>Updating…</span>}
+      <button type="button" className={iconBtn} aria-label="Copy response" title="Copy response" onClick={copy}>
+        {copied
+          ? <Check size={13} className="text-[var(--nova-text-secondary)]" aria-hidden="true" />
+          : <Copy size={13} aria-hidden="true" />}
+      </button>
+      <button
+        type="button"
+        className={iconBtn}
+        aria-label="Share"
+        title="Share"
+        onClick={() => toast('Share — conversations aren’t shareable in this prototype')}
+      >
+        <Share2 size={13} aria-hidden="true" />
       </button>
 
       <div ref={wrapRef} className="relative">
@@ -272,30 +268,29 @@ export function ResponseUtilityBar({
                     onClick={() => authored(label)}
                   >{label}</button>
                 ))}
-                {specific.length > 0 && (
-                  <div className="my-1 border-t border-[var(--nova-rule)]" aria-hidden="true" />
-                )}
-
-                {/* COMMON group — on every response. */}
-                <button type="button" role="menuitem" className={item} onClick={regenerate}>
-                  Regenerate response
-                </button>
+                {/* DYNAMIC too, and it was in the common group by mistake: a visual can only be
+                    changed when the answer has one. */}
                 {visuals.length > 0 && (
                   <button type="button" role="menuitem" className={item} onClick={() => setMenu('visual')}>
                     <BarChart3 size={12} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />
                     Change visual
                   </button>
                 )}
+                {(specific.length > 0 || visuals.length > 0) && (
+                  <div className="my-1 border-t border-[var(--nova-rule)]" aria-hidden="true" />
+                )}
+
+                {/* THE COMMON THREE — on every response, in the order a reader reaches for them:
+                    try again · check it · report it. */}
+                <button type="button" role="menuitem" className={item} onClick={regenerate}>
+                  <RotateCcw size={12} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />
+                  Regenerate response
+                </button>
                 {sourcesCount > 0 && (
                   <button type="button" role="menuitem" className={item} onClick={doubleCheck}>
                     <ShieldCheck size={12} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />
                     Double-check response
                   </button>
-                )}
-                {sourcesCount > 0 && (
-                  <button type="button" role="menuitem" className={item}
-                    onClick={() => { setMenu('closed'); (onExpandEvidence ?? onOpenSources)(); }}
-                  >View sources</button>
                 )}
                 <button type="button" role="menuitem" className={item} disabled={flagged} onClick={flag}>
                   <Flag size={12} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />
@@ -336,7 +331,7 @@ export function ResponseUtilityBar({
         <p className="nova-t-meta mt-1.5 flex items-start gap-1.5" role="status" data-doublecheck>
           {checked.ok ? (
             <>
-              <span className="flex-shrink-0 text-[#12805C]" aria-hidden="true">✓</span>
+              <span className="flex-shrink-0 text-[var(--nova-text-secondary)]" aria-hidden="true">✓</span>
               <span>
                 Double-checked — {checked.claims === 0
                   ? `the answer rests on ${sourcesCount} source${sourcesCount === 1 ? '' : 's'} Nova read directly`
@@ -345,7 +340,7 @@ export function ResponseUtilityBar({
             </>
           ) : (
             <>
-              <span className="flex-shrink-0 text-[#B98900]" aria-hidden="true">⚠</span>
+              <span className="flex-shrink-0 text-[var(--nova-warning)]" aria-hidden="true">⚠</span>
               <span>Double-checked — some claims could not be traced to a source. Review the evidence before relying on them.</span>
             </>
           )}

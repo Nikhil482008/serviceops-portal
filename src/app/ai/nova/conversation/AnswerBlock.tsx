@@ -1,4 +1,6 @@
+import { NovaChip, priorityFamily } from './NovaChip';
 import type { AnswerObject } from '../novaStream';
+import { CardRows } from './CardRow';
 import { Emph, NovaDataTable, NovaHeadline, NovaInsight, NovaKeyValues, NovaMetrics } from './blocks';
 import { DEFAULT_VIEW, type AnswerView } from './ResponseUtilityBar';
 
@@ -23,17 +25,15 @@ import { DEFAULT_VIEW, type AnswerView } from './ResponseUtilityBar';
  * start reading as a form.
  */
 
-/** Severity as a badge, so it is scannable without reading. Ink is dark on a pale tint in every
- *  case — a pale-on-pale "subtle" pill is a pill nobody can read. */
-const PRIORITY_TONE: Record<string, string> = {
-  critical: 'bg-[#FCEDEC] text-[#8C2018]',
-  high: 'bg-[#FCEDEC] text-[#8C2018]',
-  medium: 'bg-[#FBF2E3] text-[#7A5200]',
-  low: 'bg-[#EDF3F9] text-[#2D5478]',
-};
+/* Severity was a private tone table here. It is the palette's chip now, and the family a
+   priority wears is decided once, in NovaChip's table, for every card that shows one. */
 
-export function AnswerBlock({ answer: a, view = DEFAULT_VIEW }: {
+export function AnswerBlock({ answer: a, view = DEFAULT_VIEW, titleLed = true }: {
   answer: AnswerObject;
+  /** False when a block below supplies the turn's conclusion. Without a headline the title is
+   *  normally promoted into that slot; a requester status answer writes its own from the record,
+   *  and two headlines is one too many. */
+  titleLed?: boolean;
   /** The reader's chosen rendering of THIS answer — density (••• "Make it shorter") and
    *  visual (••• "Change visual"). The facts never change; only how much prose surrounds
    *  them and which shape the data takes. */
@@ -79,7 +79,7 @@ export function AnswerBlock({ answer: a, view = DEFAULT_VIEW }: {
           being the caption of whatever object sits below it. */}
       {a.headline
         ? <NovaHeadline>{a.headline}</NovaHeadline>
-        : (!draft && <NovaHeadline>{a.title}</NovaHeadline>)}
+        : (!draft && titleLed && <NovaHeadline>{a.title}</NovaHeadline>)}
 
       {/* LEVEL 2 — the reading of the data, BEFORE the data. */}
       {a.insight && <NovaInsight>{a.insight}</NovaInsight>}
@@ -102,24 +102,18 @@ export function AnswerBlock({ answer: a, view = DEFAULT_VIEW }: {
       {!!a.fields?.length && (
         <div className="mt-4 overflow-hidden rounded-lg border border-[var(--nova-rule)] bg-[var(--nova-surface)]">
           {draft && a.title && (
-            <p className="nova-t-label border-b border-[var(--nova-rule)] px-4 py-3">{a.title}</p>
+            <p className="nova-card-head">{a.title}</p>
           )}
-          <dl className="px-4 py-1">
-            {a.fields.map((f, i) => {
+          <CardRows>
+            {a.fields.map((f) => {
               const isPriority = f.label.toLowerCase() === 'priority';
               const isSubject = f.label.toLowerCase() === 'subject';
               return (
-                <div
-                  key={f.label}
-                  className={`flex items-baseline gap-4 py-2 ${
-                    i > 0 ? 'border-t border-[var(--nova-rule)]' : ''}`}
-                >
-                  <dt className="nova-t-label w-[104px] flex-shrink-0">{f.label}</dt>
-                  <dd className="min-w-0 flex-1">
+                <div key={f.label} className="nova-row" data-row-kind="value">
+                  <dt className="nova-row-label">{f.label}</dt>
+                  <dd className="nova-row-val">
                     {isPriority ? (
-                      <span className={`inline-flex items-center rounded-full px-2 py-[1px] ask-text-sm ask-w-500 ${
-                        PRIORITY_TONE[f.value.toLowerCase()] ?? PRIORITY_TONE.low}`}
-                      >{f.value}</span>
+                      <NovaChip family={priorityFamily(f.value)}>{f.value}</NovaChip>
                     ) : (
                       /* Subject carries slightly more weight than its siblings — it is the one
                          value a reader checks before pressing the primary action. */
@@ -132,17 +126,17 @@ export function AnswerBlock({ answer: a, view = DEFAULT_VIEW }: {
                 </div>
               );
             })}
-          </dl>
+          </CardRows>
         </div>
       )}
 
       {/* ── the report form ───────────────────────────────────────── */}
       {a.form === 'report' && a.metric && (
-        <div className="mt-3 rounded-lg border border-[var(--nova-rule)] bg-[var(--nova-surface)] px-3 py-2.5">
+        <div className="mt-3 rounded-lg border border-[var(--nova-rule)] bg-[var(--nova-surface-subtle)] px-3 py-2.5">
           <p className="flex items-baseline gap-1.5">
             <span className="nova-t-label">{a.metric.label}</span>
             <span className={`ask-text-lg ask-w-600 ${
-              a.metric.direction === 'up' ? 'text-[#8C2018]' : 'text-[#0F6E4F]'}`}
+              a.metric.direction === 'up' ? 'text-[var(--nova-error)]' : 'text-[var(--nova-success)]'}`}
             >
               {a.metric.direction === 'up' ? '↑' : a.metric.direction === 'down' ? '↓' : ''}
               {a.metric.value}
@@ -162,7 +156,7 @@ export function AnswerBlock({ answer: a, view = DEFAULT_VIEW }: {
                       className="nova-bar w-full rounded-sm"
                       style={{
                         height: `${Math.round((c.value / max) * 40)}px`,
-                        background: i === a.chart!.length - 1 ? 'var(--nova-primary)' : '#D7E3F2',
+                        background: i === a.chart!.length - 1 ? 'var(--nova-primary)' : 'var(--nova-g300)',
                         animationDelay: `${i * 60}ms`,
                       }}
                     />
@@ -193,7 +187,7 @@ export function AnswerBlock({ answer: a, view = DEFAULT_VIEW }: {
           something Nova concluded. */}
       {a.devNote && (
         <p className="nova-devnote mt-4 rounded-r px-3 py-2">
-          <span className="nova-t-label mr-2 align-middle text-[#8A6D1F]">Dev</span>
+          <span className="nova-t-label mr-2 align-middle text-[var(--nova-warning)]">Dev</span>
           {a.devNote}
         </p>
       )}

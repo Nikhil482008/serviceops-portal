@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Sparkles } from 'lucide-react';
-import { activeIndex, turnCounts, type FeedDiscovery, type FeedStep, type Turn } from './turnModel';
+import { Sparkles } from 'lucide-react';
+import { activeIndex, type FeedDiscovery, type FeedStep, type Turn } from './turnModel';
 import { prefersReducedMotion } from './novaMotion';
 import { NovaFailure } from './NovaFailure';
+import { NovaThinkingSummary } from './conversation/NovaThinkingSummary';
 
 /* The LEADERSHIP view: a live workspace rather than a queue.
  *
- * The other two views are lists — the requester's full one, the technician's two-line one. Both
+ * The other views are lists — the requester's full one, the technician's two-line one. Both
  * answer "what is it doing right now". Leadership is not asking that. They are asking whether the
  * answer is worth acting on, and the thing that earns that is seeing the BREADTH: several lanes
  * of work running at once, across sources they know exist, resolving into numbers.
@@ -15,25 +16,16 @@ import { NovaFailure } from './NovaFailure';
  * every pass is there from the first frame. Nothing appears late and nothing reflows; what
  * changes is that rows resolve from a verb ("Counting breaches") into a fact ("27 breached").
  *
- * ⚠️ THE SAME TURN, THE SAME EVENTS, THE SAME REDUCER as the other two views. This file contains
- * no timers driving order and no content of its own — it is a third way of drawing `Turn`.
+ * ── BEHIND THE ONE ROW ──────────────────────────────────────────────────────────────────────
+ * The passes used to sit in a bordered card with their own header. They are the trail now,
+ * behind the same thinking row every view shares, and the card's chrome went with the header.
+ *
+ * ⚠️ THE SAME TURN, THE SAME EVENTS, THE SAME REDUCER as the other views. This file contains
+ * no timers driving order and no content of its own — it is one more way of drawing `Turn`.
  */
 
-const COLLAPSE_DELAY_MS = 300;
-
 export function NovaWorkspace({ turn, onRetry }: { turn: Turn; onRetry?: () => void }) {
-  const [open, setOpen] = useState(true);
-  const [userToggled, setUserToggled] = useState(false);
-  const hasAnswer = !!turn.answer;
-
-  useEffect(() => {
-    if (!hasAnswer || userToggled) return;
-    const t = window.setTimeout(() => setOpen(false), prefersReducedMotion() ? 0 : COLLAPSE_DELAY_MS);
-    return () => clearTimeout(t);
-  }, [hasAnswer, userToggled]);
-
   const live = activeIndex(turn);
-  const counts = turnCounts(turn);
 
   /* phase → lane → steps, in the order the plan declared them. A Map keeps insertion order, so
      the passes read top to bottom exactly as the script wrote them. */
@@ -67,82 +59,52 @@ export function NovaWorkspace({ turn, onRetry }: { turn: Turn; onRetry?: () => v
     return m;
   }, [turn.discoveries]);
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        aria-expanded={false}
-        onClick={() => { setUserToggled(true); setOpen(true); }}
-        className="nova-fold flex items-center gap-2 rounded px-1 py-1 ask-text-sm text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
-      >
-        <span className="text-[#12805C]" aria-hidden="true">✓</span>
-        {counts.checks} check{counts.checks === 1 ? '' : 's'} across {passes.length} pass{passes.length === 1 ? '' : 'es'}
-        {counts.findings > 0 && ` · ${counts.findings} finding${counts.findings === 1 ? '' : 's'}`}
-        <ChevronDown size={12} className="-rotate-90" aria-hidden="true" />
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border border-[#E5E7EB] bg-white/70 backdrop-blur-sm">
-      {/* ── the header: what this is working across ─────────────────── */}
-      <div className="border-b border-[#EEF2F6] px-3.5 py-2.5">
-        <div className="flex items-baseline gap-2">
-          <p className="ask-text-base ask-w-600 text-[#364658]">
-            Investigating {turn.topic || 'your question'}
-          </p>
-          {hasAnswer && (
-            <button
-              type="button"
-              aria-expanded
-              onClick={() => { setUserToggled(true); setOpen(false); }}
-              className="ml-auto rounded px-1.5 py-0.5 ask-text-sm text-[#9CA3AF] transition-colors hover:bg-[#F5F7FA] hover:text-[#7B8FA5]"
-            >
-              Hide
-            </button>
-          )}
+  const trail = (
+    <div className="space-y-3">
+      {/* What this is working across — the authored scope, first. */}
+      {!!turn.scope?.length && (
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          {turn.scope.map((s) => (
+            <span key={s.label} className="ask-text-sm text-[var(--nova-text-muted)]">
+              <b className="ask-w-600 text-[var(--nova-text-primary)]">{s.value}</b> {s.label}
+            </span>
+          ))}
         </div>
-        {!!turn.scope?.length && (
-          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            {turn.scope.map((s) => (
-              <span key={s.label} className="ask-text-sm text-[#9CA3AF]">
-                <b className="ask-w-600 text-[#364658]">{s.value}</b> {s.label}
-              </span>
+      )}
+
+      {passes.filter((p) => p.started).map((p, pi) => (
+        <section key={p.phase} className={pi > 0 ? 'nova-feed-in' : undefined}>
+          <h3 className="ask-text-xs ask-w-600 uppercase tracking-[0.08em] text-[var(--nova-text-muted)]">
+            {p.phase}
+          </h3>
+          <div className="mt-1.5 space-y-2">
+            {p.lanes.map((l) => (
+              <div key={l.name} className="grid grid-cols-[68px_1fr] gap-2">
+                <span className="pt-[3px] ask-text-sm ask-w-500 text-[var(--nova-text-muted)]">{l.name}</span>
+                <div className="space-y-0.5">
+                  {l.steps.map((s) => (
+                    <Row key={s.id} step={s} isLive={turn.steps.indexOf(s) === live} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
-        )}
-      </div>
+          {/* Findings raised by the last check in this pass. */}
+          {p.lanes.flatMap((l) => l.steps).flatMap((s) => foundAfter.get(s.id) ?? []).map((d) => (
+            <Found key={d.id} d={d} />
+          ))}
+        </section>
+      ))}
 
-      <div className="space-y-3 px-3.5 py-3">
-        {passes.filter((p) => p.started).map((p, pi) => (
-          <section key={p.phase} className={pi > 0 ? 'nova-feed-in' : undefined}>
-            <h3 className="ask-text-xs ask-w-600 uppercase tracking-[0.08em] text-[#B6C1CE]">
-              {p.phase}
-            </h3>
-            <div className="mt-1.5 space-y-2">
-              {p.lanes.map((l) => (
-                <div key={l.name} className="grid grid-cols-[68px_1fr] gap-2">
-                  <span className="pt-[3px] ask-text-sm ask-w-500 text-[#9CA3AF]">{l.name}</span>
-                  <div className="space-y-0.5">
-                    {l.steps.map((s) => (
-                      <Row key={s.id} step={s} isLive={turn.steps.indexOf(s) === live} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Findings raised by the last check in this pass. */}
-            {p.lanes.flatMap((l) => l.steps).flatMap((s) => foundAfter.get(s.id) ?? []).map((d) => (
-              <Found key={d.id} d={d} />
-            ))}
-          </section>
-        ))}
+      {/* Findings with no step behind them (a stream that raised one before any check finished). */}
+      {(foundAfter.get('') ?? []).map((d) => <Found key={d.id} d={d} />)}
+    </div>
+  );
 
-        {/* Findings with no step behind them (a stream that raised one before any check finished). */}
-        {(foundAfter.get('') ?? []).map((d) => <Found key={d.id} d={d} />)}
-
-        <NovaFailure turn={turn} onRetry={onRetry} />
-      </div>
+  return (
+    <div>
+      <NovaThinkingSummary turn={turn} history={trail} />
+      <NovaFailure turn={turn} onRetry={onRetry} />
     </div>
   );
 }
@@ -155,15 +117,15 @@ function Row({ step, isLive }: { step: FeedStep; isLive: boolean }) {
     <p
       {...(isLive ? { role: 'status' as const, 'aria-live': 'off' as const } : {})}
       className={`flex items-baseline gap-1.5 ask-text-sm ${
-        complete ? 'text-[#7B8FA5]' : isLive ? 'text-[#364658]' : 'text-[#C6CFDA]'}`}
+        complete ? 'text-[var(--nova-text-secondary)]' : isLive ? 'text-[var(--nova-text-primary)]' : 'text-[var(--nova-text-disabled)]'}`}
     >
       <span aria-hidden="true" className="w-2.5 flex-shrink-0 ask-text-sm">
-        {complete ? <span className="text-[#12805C]">✓</span>
-          : isLive ? <span className="nova-pulse inline-block size-[6px] rounded-full bg-[#3D8BD0] align-middle" />
+        {complete ? <span className="text-[var(--nova-text-secondary)]">✓</span>
+          : isLive ? <span className="nova-pulse inline-block size-[6px] rounded-full bg-[var(--nova-action)] align-middle" />
             : '·'}
       </span>
       {complete && step.metric
-        ? <span><CountUp value={step.metric.value} /> <span className="text-[#9CA3AF]">{step.metric.label}</span></span>
+        ? <span><CountUp value={step.metric.value} /> <span className="text-[var(--nova-text-muted)]">{step.metric.label}</span></span>
         : <span className={isLive ? 'nova-shimmer' : ''}>{step.label}</span>}
     </p>
   );
@@ -195,18 +157,18 @@ function CountUp({ value }: { value: string }) {
     return () => cancelAnimationFrame(raf.current);
   }, [numeric, target]);
 
-  if (!numeric) return <b className="ask-w-500 text-[#364658]">{value}</b>;
-  return <b className="ask-w-500 tabular-nums text-[#364658]">{n.toLocaleString()}</b>;
+  if (!numeric) return <b className="ask-w-500 text-[var(--nova-text-primary)]">{value}</b>;
+  return <b className="ask-w-500 tabular-nums text-[var(--nova-text-primary)]">{n.toLocaleString()}</b>;
 }
 
 function Found({ d }: { d: FeedDiscovery }) {
   return (
-    <div className="nova-disc mt-2.5 rounded border border-[#E7DEF9] bg-[#FAF7FF] px-2.5 py-2" aria-live="polite">
-      <p className="flex items-center gap-1.5 ask-text-xs ask-w-600 uppercase tracking-wider text-[#7B5BD6]">
+    <div className="nova-disc mt-2.5 rounded border border-[var(--nova-border)] bg-[var(--nova-surface-subtle)] px-2.5 py-2" aria-live="polite">
+      <p className="flex items-center gap-1.5 ask-text-xs ask-w-600 uppercase tracking-wider text-[var(--nova-text-secondary)]">
         <Sparkles size={11} /> Nova found something
       </p>
-      <p className="mt-1 ask-text-sm ask-w-600 leading-[1.45] text-[#364658]">{d.headline}</p>
-      <p className="mt-0.5 ask-text-sm leading-[1.5] text-[#7B8FA5]">{d.detail}</p>
+      <p className="mt-1 ask-text-sm ask-w-600 leading-[1.45] text-[var(--nova-text-primary)]">{d.headline}</p>
+      <p className="mt-0.5 ask-text-sm leading-[1.5] text-[var(--nova-text-secondary)]">{d.detail}</p>
     </div>
   );
 }

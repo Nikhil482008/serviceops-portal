@@ -44,12 +44,12 @@ export function ActionGroup({ answer: a, onAsk, onDiscard, onDone }: {
   if (phase === 'done') {
     return (
       <section style={{ marginTop: 16 }}>
-        <p className="flex items-center gap-1.5 ask-text-base ask-w-500 text-[#0F6E4F]">
+        <p className="flex items-center gap-1.5 ask-text-base ask-w-500 text-[var(--nova-success)]">
           <Check size={14} aria-hidden="true" />
           {f.run}
         </p>
         <p className="nova-devnote mt-2 rounded-r px-2.5 py-1.5">
-          <span className="nova-t-label mr-2 align-middle text-[#8A6D1F]">Dev</span>
+          <span className="nova-t-label mr-2 align-middle text-[var(--nova-warning)]">Dev</span>
           Prototype — nothing was created, changed or opened. This confirms the interaction, not
           a record.
         </p>

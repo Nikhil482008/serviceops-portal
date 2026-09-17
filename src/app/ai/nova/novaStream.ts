@@ -10,6 +10,8 @@
  * is a change to this file and nothing else — the consumer is never handed anything but an
  * iterator, so it cannot tell the difference.
  */
+import { revisePlan } from './tech/planRevise';
+import { withSummaryRows } from './conversation/planSummary';
 import {
   scriptFor, scriptForQuestion,
   type AnswerObject, type AskQuestion, type Beat, type DiscoveryRole, type PlanDiff,
@@ -17,6 +19,28 @@ import {
   type ScriptView, type StepMetric, type StepSource,
 } from './scripts/registry';
 import { fallbackScript, intentOf } from './scripts/fallbacks';
+import { fill } from './mockAnalytics';
+import { runMutationOnce, type ChangeResult, type MutationCall } from './tech/mutations';
+
+/** Resolve every `{{key}}` in a script's strings against the analytics VALUES — labels, metrics,
+ *  discoveries, the whole answer payload — so a leadership script never types a numeral.
+ *  RegExps and other non-plain objects pass through untouched. */
+function deepFill<T>(v: T, extra: Record<string, string> = {}): T {
+  if (typeof v === 'string') {
+    /* The turn's own keys first — `{{qref}}` / `{{qrefs}}`, the records named in the QUESTION;
+       `{{cref}}` / `{{crefs}}`, the records a mutation CHANGED, filled after it ran — then the
+       analytics values. A key nobody supplied is left standing for a later pass. */
+    const s = v.replace(/\{\{(\w+)\}\}/g, (m, k: string) => (k in extra ? extra[k] : m));
+    return fill(s) as unknown as T;
+  }
+  if (Array.isArray(v)) return v.map((x) => deepFill(x, extra)) as unknown as T;
+  if (v && typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v as Record<string, unknown>)) out[k] = deepFill(x, extra);
+    return out as T;
+  }
+  return v;
+}
 
 export interface NovaStep {
   id: string;
@@ -40,9 +64,11 @@ export type NovaEvent =
    *  fabrication the brief forbids for discoveries. A stream that omits it simply has no pending
    *  rows and is otherwise identical. */
   | { type: 'plan'; steps: NovaStep[] }
-  | { type: 'step_start'; id: string; label: string }
+  /** `lane` is WHICH SOURCE a check is scanning (Tickets, SLA, Teams…) — the leadership feed
+   *  draws one block per lane and keeps one active check per lane. */
+  | { type: 'step_start'; id: string; label: string; lane?: string }
   | { type: 'step_complete'; id: string; label: string; sources?: StepSource[];
-      tally?: Record<string, number> }
+      tally?: Record<string, number>; lane?: string }
   | { type: 'discovery'; id: string; role: DiscoveryRole; headline: string; detail: string;
       tease?: string; support?: string[]; inference?: boolean; basis?: string }
   /** Nova needs something from the reader before it can carry on.
@@ -55,7 +81,10 @@ export type NovaEvent =
   /** A PLAN for review. The stream is parked exactly as on an ask — nothing executes until
    *  `respond(proposal.id, { action: 'approve' })`. Every modification re-emits this event with
    *  a NEW proposal id and the diff, so an approval always names the exact plan it approves. */
-  | { type: 'plan_proposed'; proposal: PlanProposal; diff?: PlanDiff }
+  | { type: 'plan_proposed'; proposal: PlanProposal; diff?: PlanDiff;
+      /** ONE LINE, when the change asked for is not one this prototype can make. The plan is
+       *  unchanged and there is no diff — saying so beats applying something else. */
+      note?: string }
   /** Execution begins — over the APPROVED proposal's steps, derived from nothing else. */
   | { type: 'exec_begin'; steps: Array<{ id: string; label: string }> }
   /** One execution step's progress. A `failed` step parks the stream awaiting
@@ -111,14 +140,17 @@ const sleep = (ms: number, signal: AbortSignal) => new Promise<void>((res, rej) 
 /** Randomised, and never twice at nearly the same interval.
  *
  * The rejection is the point. Plain `Math.random` in a range happily produces 900, 905, 898, and
- * three near-identical gaps in a row is exactly the evenly-spaced tick the brief rules out. */
-function* pacing(): Generator<number> {
+ * three near-identical gaps in a row is exactly the evenly-spaced tick the brief rules out.
+ * A script may bring its own window (a What-changed feed: 600–900). */
+function* pacing(range: [number, number] = [PACE_MIN, PACE_MAX]): Generator<number> {
+  const [lo, hi] = range;
+  const spread = Math.min(PACE_SPREAD, Math.max(0, hi - lo) / 2);
   let last = 0;
   for (;;) {
     let ms = 0;
     for (let tries = 0; tries < 24; tries++) {
-      ms = PACE_MIN + Math.floor(Math.random() * (PACE_MAX - PACE_MIN + 1));
-      if (Math.abs(ms - last) >= PACE_SPREAD) break;
+      ms = lo + Math.floor(Math.random() * (hi - lo + 1));
+      if (Math.abs(ms - last) >= spread) break;
     }
     last = ms;
     yield ms;
@@ -155,8 +187,21 @@ export function mockInvestigation(
   question: string,
   caseId?: string,
   instant = false,
+  /** The turn's context. A do-action's reply carries the mutation to run here. */
+  context?: Record<string, unknown>,
+  /** The turn's id — the key a mutation's result is remembered under, so a replayed stream
+   *  (a regenerate) reports the change rather than making it twice. */
+  turnId?: string,
 ): NovaInvestigation {
-  const script = pickScript(question, caseId);
+  /* `{{qref}}` is the record the QUESTION names ("Open INC-0611") — so one ref script can
+     speak about whichever ticket a chip pointed at; `{{qrefs}}` is all of them, listed. */
+  const allRefs = [...question.matchAll(/\b((?:INC|REQ|PRB|CHG|KB)-\d{3,5})\b/gi)].map((m) => m[1].toUpperCase());
+  const qref = allRefs[0] ?? '';
+  const script = deepFill(pickScript(question, caseId), { qref, qrefs: allRefs.join(', ') });
+  const mutation = context && typeof context.mutation === 'object' && context.mutation
+    && typeof (context.mutation as MutationCall).name === 'string'
+    ? context.mutation as MutationCall : null;
+  let changed: ChangeResult | null = null;
   /* Streams parked on an ask, by ask id. A Map rather than a single slot because nothing in the
      contract says a script may only ever have one question set outstanding. */
   const parked = new Map<string, (answers: Record<string, string>) => void>();
@@ -173,7 +218,7 @@ export function mockInvestigation(
       release(answers);
     },
     async *run(signal: AbortSignal) {
-      const gaps = pacing();
+      const gaps = pacing(script.pace);
       const pause = async () => { if (!instant) await sleep(gaps.next().value as number, signal); };
       /* Park the stream on an id until `respond` releases it. The ask branch below predates this
          helper and keeps its inline copy; the proposal branch parks repeatedly, so it earns one. */
@@ -194,7 +239,7 @@ export function mockInvestigation(
          draw its columns before any of them has finished. A lane that only appears once its
          first check completes would make the surface jump as it filled. */
       const steps = script.beats
-        .filter((b): b is Extract<Beat, { kind: 'step' }> => b.kind === 'step')
+        .flatMap((b) => (b.kind === 'step' ? [b] : b.kind === 'burst' ? b.steps : []))
         .map((b) => ({
           id: b.id, label: b.label, lane: b.lane, phase: b.phase,
           metric: b.metric, sources: b.sources, tally: b.tally,
@@ -206,12 +251,24 @@ export function mockInvestigation(
         if (signal.aborted) return;
 
         if (b.kind === 'step') {
-          yield { type: 'step_start', id: b.id, label: b.label };
+          yield { type: 'step_start', id: b.id, label: b.label, lane: b.lane };
           await pause();
           if (signal.aborted) return;
-          yield { type: 'step_complete', id: b.id, label: b.label, sources: b.sources, tally: b.tally };
+          yield { type: 'step_complete', id: b.id, label: b.label, sources: b.sources, tally: b.tally, lane: b.lane };
           /* A discovery or an answer that follows a step rides on it with NO pause, so the list
              never flickers through a frame in which nothing is running. */
+          continue;
+        }
+
+        if (b.kind === 'burst') {
+          /* Everything in the burst starts NOW — several lanes lit at once — then each check
+             lands at the usual irregular pace. */
+          for (const s of b.steps) yield { type: 'step_start', id: s.id, label: s.label, lane: s.lane };
+          for (const s of b.steps) {
+            await pause();
+            if (signal.aborted) return;
+            yield { type: 'step_complete', id: s.id, label: s.label, sources: s.sources, tally: s.tally, lane: s.lane };
+          }
           continue;
         }
 
@@ -247,43 +304,30 @@ export function mockInvestigation(
         if (b.kind === 'proposal') {
           let current: PlanProposal = b.proposal;
           let diff: PlanDiff | undefined;
+          let note: string | undefined;
           let rev = 0;
-          /* REVIEW LOOP. Approve breaks out; every other action derives a NEW proposal (new id,
-             visible diff) and parks again — a modified plan always needs approval again. */
+          /* REVIEW LOOP. Approve breaks out; a described change derives a NEW proposal (new id,
+             a diff computed against the one it replaces) and parks again — a modified plan always
+             needs approval again. */
           for (;;) {
-            yield { type: 'plan_proposed', proposal: current, diff };
+            yield { type: 'plan_proposed', proposal: current, diff, note };
             const res = await park(current.id);
             const action = res.action ?? 'approve';
             if (action === 'approve') break;
-            const bump = (p: PlanProposal, d: PlanDiff): void => {
-              rev += 1;
-              current = { ...p, id: `${b.proposal.id}-r${rev}`, intro: 'Plan updated.' };
-              diff = d;
-            };
             if (action === 'revise') {
-              /* The deterministic demo modification — whatever was typed, this is what the
-                 prototype knows how to change. An honest mock, not a parser. */
-              bump(b.revision.proposal, b.revision.diff);
-            } else if (action === 'remove_step') {
-              const gone = current.steps.find((s) => s.id === res.step);
-              if (!gone) continue;
-              bump({
-                ...current,
-                steps: current.steps.filter((s) => s.id !== res.step),
-                impact: current.impact.filter((i) => i.stepId !== res.step),
-              }, { removed: [gone.label] });
-            } else if (action === 'edit_step') {
-              const was = current.steps.find((s) => s.id === res.step);
-              if (!was || !res.label || res.label === was.label) continue;
-              bump({
-                ...current,
-                steps: current.steps.map((s) => (s.id === res.step ? { ...s, label: res.label } : s)),
-              }, { updated: [{ label: 'Step', from: was.label, to: res.label }] });
-            } else if (action === 'add_step') {
-              const add = current.addable;
-              if (!add || current.steps.some((s) => s.id === add.id)) continue;
-              bump({ ...current, steps: [...current.steps, add], addable: undefined },
-                { added: [add.label] });
+              const was = current;
+              const r = revisePlan(was, res.text ?? '');
+              if (r.ask) {
+                /* AN HONEST NO. The plan is unchanged, so there is no diff to draw; the note is
+                   the whole of what came back. */
+                note = r.ask;
+                diff = undefined;
+              } else {
+                rev += 1;
+                current = { ...r.proposal, id: `${b.proposal.id}-r${rev}`, intro: 'Plan updated.' };
+                diff = withSummaryRows(was, current);
+                note = undefined;
+              }
             }
             await pause();
           }
@@ -313,14 +357,30 @@ export function mockInvestigation(
           continue;
         }
 
+        if (b.kind === 'mutate') {
+          /* THE ACTION RUNS HERE — after the feed has said what it is setting, before the answer
+             says what it set. Once per turn: a regenerate replays the stream and gets the same
+             result back rather than chasing twice. */
+          if (mutation) changed = runMutationOnce(turnId, mutation);
+          continue;
+        }
+
         if (b.kind === 'answer') {
           /* A plan-first turn's completion DERIVES its checklist from the approved plan's own
              `done` rows — a removed step's outcome cannot appear, a swapped notification reads
              as what actually ran. */
-          const payload = approvedPlan
+          const payload = changed
+            ? {
+              ...deepFill(b.payload, { cref: changed.refs[0] ?? qref, crefs: changed.refs.join(', ') || qref }),
+              changed,
+            }
+            : approvedPlan
             ? {
               ...b.payload,
               kv: approvedPlan.steps.map((s) => s.done).filter((x): x is NonNullable<typeof x> => !!x),
+              /* Which steps ran — a block can read it (TEC-07's document includes its closed-today
+                 section only when that step was approved). */
+              planSteps: approvedPlan.steps.map((s) => s.id),
             }
             : b.payload;
           yield { type: 'answer', payload };

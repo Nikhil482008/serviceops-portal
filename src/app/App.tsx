@@ -21,7 +21,6 @@ import { VulnerabilitiesListPage } from './components/VulnerabilitiesListPage';
 import { DetectedCvesListPage } from './components/DetectedCvesListPage';
 import { AskAiUseCasesPage } from './components/AskAiUseCasesPage';
 import { NovaDemoPage } from './components/NovaDemoPage';
-import { Tec8Page } from './components/Tec8Page';
 import { BomDashboardPage } from './components/BomDashboardPage';
 import { BomDashboard2Page } from './components/BomDashboard2Page';
 import { BomInventoryListPage } from './components/BomInventoryListPage';
@@ -33,15 +32,15 @@ import { DrawerStackProvider } from './components/DrawerStack';
 import { GlobalSearch } from './components/GlobalSearch';
 import { Toaster } from 'sonner';
 
-type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom-dashboard' | 'bom-dashboard-2' | 'bom' | 'software-components' | 'ai-components' | 'compliance-reports' | 'compliance-reports-2' | 'ask-ai-cases' | 'nova-demo' | 'tec8' | 'admin';
+type Page = 'request' | 'problem' | 'change' | 'release' | 'hardware-assets' | 'software-assets' | 'non-it-assets' | 'consumable-assets' | 'software-licenses' | 'contracts' | 'purchases' | 'cmdb' | 'patches' | 'patch-deployments' | 'endpoints' | 'vulnerabilities' | 'detected-cves' | 'bom-dashboard' | 'bom-dashboard-2' | 'bom' | 'software-components' | 'ai-components' | 'compliance-reports' | 'compliance-reports-2' | 'ask-ai-cases' | 'nova-demo' | 'admin';
 
 /* Pages that can be opened by link, opt-in one at a time.
  *
  * ⚠️ DELIBERATELY NOT THE WHOLE `Page` UNION. A query parameter that can open any screen is a
  * router, and this app already decided not to have one — `activePage` is a `useState` and the
- * rail sets it. This is the smallest thing that makes `?page=tec8&state=plan` a real link for
+ * rail sets it. This is the smallest thing that makes `?page=ask-ai-cases` a real link for
  * design review without a second navigation system growing around it. */
-const LINKABLE: string[] = ['tec8', 'ask-ai-cases', 'nova-demo'];
+const LINKABLE: string[] = ['ask-ai-cases', 'nova-demo'];
 
 export default function App() {
   const [activePage, setActivePage] = useState<Page>(() => {
@@ -104,7 +103,6 @@ export default function App() {
       {activePage === 'compliance-reports-2' && <ComplianceReports2Module onNavigate={navigate} />}
       {activePage === 'ask-ai-cases' && <AskAiUseCasesPage onNavigate={navigate} />}
       {activePage === 'nova-demo' && <NovaDemoPage onNavigate={navigate} />}
-      {activePage === 'tec8' && <Tec8Page onNavigate={navigate} />}
       {activePage === 'admin' && <AdminPage onNavigate={navigate} />}
       {/* Mounted once, inside the drawer host, so search works on every page and can open any
           module's real detail drawer as a tab. */}

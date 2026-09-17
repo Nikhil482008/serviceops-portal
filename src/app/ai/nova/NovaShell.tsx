@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AskAiOrb, ORB_BASE, type OrbState } from './AskAiOrb';
+import { ORB_BASE, type OrbState } from './NovaOrb';
+import { AskAiCore } from './AskAiCore';
 import { NovaDrawer, NOVA_EXIT_MS } from './NovaDrawer';
 import { NOVA_STAGE, NOVA_DUR, prefersReducedMotion, stageAt } from './novaMotion';
 import { getOpener, useAskAiActions, useAskAiState } from '../AskAiProvider';
@@ -62,9 +63,16 @@ export function NovaShell({ orbState = 'idle', userRole = 'technician' }: {
   /* Attention is a fact about the DRAWER — caret in the composer — that the Core expresses. It
      lives here because the Core lives here. */
   const [attend, setAttend] = useState(false);
-  const drawerSlotRef = useRef<HTMLDivElement | null>(null);
+  /* STILL while seated in the header — the drawer says when. */
+  const [still, setStill] = useState(false);
+  /* DEV ONLY: the dev-tools role switcher overrides the stub prop for this session. */
+  const [role, setRole] = useState<UserRole>(userRole);
+  const drawerSlotRef = useRef<HTMLElement | null>(null);
   const layerRef = useRef<HTMLDivElement | null>(null);
   const flightRef = useRef<Flight | null>(null);
+  /* `flying` as a ref, so the re-seat observer can ask whether a flight is in the air without
+     re-subscribing every time one starts or ends. */
+  const flyingRef = useRef<'none' | 'true' | 'exit'>('none');
   const timers = useRef<number[]>([]);
 
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
@@ -208,12 +216,33 @@ export function NovaShell({ orbState = 'idle', userRole = 'technician' }: {
      taking `flight` as a dependency and re-subscribing on every frame of the flight itself. */
   flightRef.current = flight;
 
+  flyingRef.current = flying;
+
   /* Re-seat on resize: the orb is fixed against a viewport that can change under it. */
   useEffect(() => {
     const onResize = () => setFlight(closing || !open ? seatOnOpener() : seatInDrawer());
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [open, closing, seatOnOpener, seatInDrawer]);
+
+  /* THE DRAWER RESIZES WITHOUT THE WINDOW DOING. The seat above is a measurement of the
+     slot, and the drawer widens on its own once an answer arrives - so a seat taken at the
+     opening width leaves the Core where the header marker USED to be, which is how it ended
+     up sitting on the conversation title. A ResizeObserver on the drawer is the missing
+     signal. No `data-flying`: the orb has not moved, its frame has, and animating a
+     correction reads as drift. Held off mid-flight so the observer's first callback - it
+     fires the moment you observe - cannot snap the opening flight to its destination. */
+  useEffect(() => {
+    if (!open || closing) return;
+    const frame = drawerSlotRef.current?.closest('.nova-drawer');
+    if (!frame || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (flyingRef.current !== 'none') return;
+      setFlight(seatInDrawer());
+    });
+    ro.observe(frame);
+    return () => ro.disconnect();
+  }, [open, closing, seatInDrawer]);
 
   if (!open) return null;
 
@@ -223,11 +252,13 @@ export function NovaShell({ orbState = 'idle', userRole = 'technician' }: {
         open={open && !closing}
         closing={closing}
         onClose={doClose}
-        userRole={userRole}
+        userRole={role}
+        onRoleChange={setRole}
         orbState={orbState}
         orbSlotRef={drawerSlotRef}
         onOrbSlotChange={moveOrb}
         onOrbState={setLiveOrb}
+        onOrbStill={setStill}
         onAttend={setAttend}
         context={context}
       />
@@ -247,7 +278,7 @@ export function NovaShell({ orbState = 'idle', userRole = 'technician' }: {
           ['--core-attend' as string]: attend ? '1' : '0',
         }}
       >
-        <AskAiOrb state={closing ? 'dormant' : (liveOrb ?? orbState)} size={ORB_BASE} detail />
+        <AskAiCore state={closing ? 'dormant' : (liveOrb ?? orbState)} size={ORB_BASE} detail still={still} />
       </div>
     </>
   );

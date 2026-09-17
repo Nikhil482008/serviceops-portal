@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+import { NovaChip, personaFamily } from '../ai/nova/conversation/NovaChip';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useNovaActionsOptional } from '../ai/nova/NovaConversationProvider';
@@ -32,8 +33,8 @@ function FilterPill({ label, active, onClick }: {
       aria-pressed={active}
       className={`inline-flex h-[34px] items-center rounded-full px-4 text-[13px] font-medium transition-colors ${
         active
-          ? 'bg-[#3D8BD0] text-white'
-          : 'border border-[#DFE5ED] bg-white text-[#364658] hover:border-[#3D8BD0] hover:bg-[#F5F7FA]'
+          ? 'bg-[var(--nova-action)] text-white'
+          : 'border border-[var(--nova-border)] bg-white text-[var(--nova-text-secondary)] hover:border-[var(--nova-action)] hover:bg-[var(--nova-surface-hover)]'
       }`}
     >{label}</button>
   );
@@ -57,11 +58,10 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
      It replaced `askQuestion`, which set a pending string the drawer had to notice; that seam
      could deliver a question WITHOUT an investigation, and this task is about making that
      structurally impossible rather than merely unused. */
+  /* EVERY row goes through the ONE entry point. There is no exception and no second path: a row
+     that could reach a surface without opening a turn is how a question gets on screen with no
+     investigation behind it. */
   const ask = (question: string, caseId: string) => {
-    /* TEC-8 is not an investigation that ends in an answer — it is a plan the reader approves,
-       with nine states a reviewer needs to reach directly. It gets its own surface; every other
-       row still goes through the ONE entry point. */
-    if (caseId === 'TEC-8') { onNavigate('tec8'); return; }
     nova?.askNova(question, { caseId });
   };
 
@@ -86,7 +86,7 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
               {/* Separated from the pills: they narrow this page, this leaves it. */}
               <button
                 onClick={() => ai?.open()}
-                className="ml-2 inline-flex h-[34px] items-center gap-1.5 rounded border border-[#3D8BD0] bg-white px-4 text-[13px] font-medium text-[#3D8BD0] transition-colors hover:bg-[#F5FAFF]"
+                className="ml-2 inline-flex h-[34px] items-center gap-1.5 rounded border border-[var(--nova-action)] bg-white px-4 text-[13px] font-medium text-[var(--nova-action)] transition-colors hover:bg-[var(--ng-blue-5)]"
               >
                 Open chat <ArrowRight size={14} />
               </button>
@@ -132,10 +132,12 @@ export function AskAiUseCasesPage({ onNavigate }: { onNavigate: (page: string) =
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ask(c.question, c.id); }
                   }}
-                  className="cursor-pointer transition-colors hover:bg-[#f9fafb] focus-visible:bg-[#f9fafb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3D8BD0]"
+                  className="cursor-pointer transition-colors hover:bg-[var(--nova-surface-hover)] focus-visible:bg-[var(--nova-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--nova-focus)]"
                 >
-                  <td className="px-6 py-3.5 align-top text-[13px] font-medium text-[#3D8BD0]">{c.id}</td>
-                  <td className="px-6 py-3.5 align-top text-[13px] text-[#364658]">{c.persona}</td>
+                  <td className="px-6 py-3.5 align-top text-[13px] font-medium text-[var(--ng-blue-text)]">{c.id}</td>
+                  <td className="px-6 py-3.5 align-top text-[13px]">
+                    <NovaChip family={personaFamily(c.persona)}>{c.persona}</NovaChip>
+                  </td>
                   {/* The question WRAPS. It is the reason the row exists, and a truncated question
                       is a different question. */}
                   <td className="px-6 py-3.5 text-[13px] leading-[1.6] text-[#364658]">{c.question}</td>

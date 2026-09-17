@@ -14,9 +14,9 @@
  * The glyph is drawn as a masked CSS gradient rather than an SVG fill — see AskAiGlyph for why
  * that is what makes the animation switchable by a media query at all.
  *
- * Contrast, measured: --ai-accent on the rail's #F9FAFB is 4.72:1 and on white 4.86:1 — both
- * clear AA text and comfortably clear the 3:1 non-text threshold. The selected state paints white
- * on #3D8BD0 and needs no separate argument.
+ * The glyph is Nova's ink (#212529 — 15:1 on the rail's #F9FAFB) with a silver band sweeping
+ * across it; the rail's own selected state — white on its brand blue — is the rail's convention
+ * and is left to it.
  */
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { AskAiGlyph } from './AskAiGlyph';
@@ -52,13 +52,13 @@ export function AskAiRailButton() {
         rememberOpener(e.currentTarget);
         actions.toggle();
       }}
-      className={`flex h-[40px] w-full items-center justify-center transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3D8BD0] ${
+      className={`flex h-[40px] w-full items-center justify-center transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--nova-focus)] ${
         active
-          ? 'bg-[#3D8BD0]'
-          : 'bg-transparent hover:bg-[#e9ebef]'
+          ? 'bg-[var(--nova-action)]'
+          : 'bg-transparent hover:bg-[var(--ng-neutral-20)]'
       }`}
     >
-      {active && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#2d6ca0]" />}
+      {active && <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[var(--nova-action-pressed)]" />}
       <div className="flex items-center justify-center size-[20px]">
         {/* Selected → flat white, exactly as the rail paints its active icon, and the animation
             stops. Otherwise the gradient sparkle with its sheen: the one thing marking this as an

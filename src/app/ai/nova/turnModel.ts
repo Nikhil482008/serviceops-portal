@@ -50,12 +50,25 @@ export interface FeedAsk {
   status: 'pending' | 'resolved';
 }
 
+/** The composer command a plan modification is typed after. A modification is a MESSAGE, not a
+ *  form: the reader types it in the composer and it appears in the thread like anything else. */
+/* THE WORDS ON THE BUTTON, not a slash command. "Change the plan" is what the action is
+   called, so "Change the plan: " is what it writes into the box — nothing to learn, nothing to
+   remember, and the draft in the composer is self-describing to anyone who looks at it later. */
+export const MODIFY_COMMAND = 'Change the plan:';
+
 /** The plan a plan-first turn is parked on (or has approved). `diff` is what the latest
- *  modification changed — kept beside the proposal so a revision is always visible. */
+ *  modification changed — kept beside the proposal so a revision is always visible.
+ *
+ *  `superseded` is a plan that a later reply replaced: its card stays in the thread as a record
+ *  of what was proposed, with no buttons, because two live plans would be two things to approve. */
 export interface TurnPlan {
   proposal: PlanProposal;
   diff?: PlanDiff;
-  status: 'review' | 'approved';
+  /** ONE LINE, when the change the reader described is not one this prototype can make. The plan
+   *  is unchanged and `diff` is absent — nothing is marked, because nothing moved. */
+  note?: string;
+  status: 'review' | 'approved' | 'superseded';
 }
 
 /** One step of the approved plan, executing. */
@@ -94,6 +107,10 @@ export interface Turn {
   asks: FeedAsk[];
   /** The plan-first surface. Only a script with a `proposal` beat produces either. */
   plan: TurnPlan | null;
+  /** This turn is a REVISION of an earlier one: the reader asked for a change and the revised
+   *  plan arrived here as the reply. It carries the original investigation's checks (the answer
+   *  still rests on them) but performs none of its own. */
+  revisionOf?: string;
   execution: { steps: ExecStepState[] } | null;
   /** The identity row's action phrase, when the investigation named one. */
   activity?: string;
@@ -107,6 +124,13 @@ export interface Turn {
    *  two need opposite tones: a failure is red and unexpected, a stop is neutral and was asked
    *  for. Conflating them would tell someone their own decision went wrong. */
   stopped: boolean;
+  /** THE CLOCK, for "Thought for 14s". Written only by the controller and read by nothing that
+   *  decides anything: `thinkingSince` is set while Nova is actively working — cleared while the
+   *  stream is parked on the reader, and once the work is over — and `thoughtMs` holds the
+   *  stretches already finished. Both absent means nothing was measured (an instant replay), and
+   *  a view leaves the clock out rather than print zero. */
+  thoughtMs?: number;
+  thinkingSince?: number;
 }
 
 export const newTurn = (
@@ -162,14 +186,18 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
 
     case 'step_start': {
       const seen = t.steps.some((x) => x.id === e.id);
-      /* One active at a time. Anything overtaken is completed — a backend that drops a
-         `step_complete` must not leave two rows pulsing. */
+      const lane = e.lane ?? t.steps.find((x) => x.id === e.id)?.lane;
+      /* One active at a time PER LANE. Anything overtaken in the same lane (or with no lane at
+         all) is completed — a backend that drops a `step_complete` must not leave two rows
+         pulsing. A step starting in a DIFFERENT lane leaves the others running: that is what
+         lets the leadership feed scan several sources at once. */
       const steps = t.steps.map((x) => (
-        x.id === e.id ? { ...x, label: e.label, status: 'active' as StepStatus }
-          : x.status === 'active' ? { ...x, status: 'complete' as StepStatus }
+        x.id === e.id ? { ...x, label: e.label, status: 'active' as StepStatus, lane: x.lane ?? lane }
+          : x.status === 'active' && (!lane || !x.lane || x.lane === lane)
+            ? { ...x, status: 'complete' as StepStatus }
             : x
       ));
-      return { ...t, steps: seen ? steps : [...steps, { id: e.id, label: e.label, status: 'active' }] };
+      return { ...t, steps: seen ? steps : [...steps, { id: e.id, label: e.label, status: 'active', lane }] };
     }
 
     case 'step_complete': {
@@ -219,7 +247,7 @@ export function applyEvent(t: Turn, e: NovaEvent): Turn {
         /* The investigation is over the moment a plan is up for review — nothing may look like
            it is still running behind a decision the reader now owns. */
         steps: t.steps.map((x) => (x.status === 'active' ? { ...x, status: 'complete' as StepStatus } : x)),
-        plan: { proposal: e.proposal, diff: e.diff, status: 'review' },
+        plan: { proposal: e.proposal, diff: e.diff, note: e.note, status: 'review' },
       };
 
     case 'exec_begin':
@@ -299,6 +327,17 @@ export function recordAsk(
   };
 }
 
+/** WAS THIS TYPED, BY A REQUESTER? Two conditions, and both matter.
+ *
+ *  TYPED, because a dock option, a suggestion card and a use-case row all open turns whose
+ *  question is a sentence NOVA wrote — there is nothing to restate, and saying "reading it as"
+ *  over its own words would be the assistant reading its own handwriting aloud.
+ *
+ *  BY A REQUESTER, because the reading is a requester-persona change and `NovaThinkingSummary` is
+ *  shared by all three. The persona is stamped on the turn rather than threaded down, so the row
+ *  can read it without every view in between carrying a prop about a thing none of them do. */
+export const wasTyped = (t: Turn): boolean => t.context?.typed === 'requester';
+
 /** Has every question in this set been answered? The card asks before it closes the set, so the
  *  rule lives here rather than being re-derived at each call site. */
 export const askComplete = (a: FeedAsk): boolean =>
@@ -308,7 +347,8 @@ export const askComplete = (a: FeedAsk): boolean =>
 export const pendingAsk = (t: Turn): FeedAsk | null =>
   t.asks.find((a) => a.status === 'pending') ?? null;
 
-/** Parked on a plan awaiting the reader's approval. */
+/** Parked on a plan awaiting the reader's approval. A superseded plan is a record, not a
+ *  decision — the reply below it holds the one that is still open. */
 export const planPending = (t: Turn): boolean =>
   !!t.plan && t.plan.status === 'review' && !t.answer && !t.stopped && t.state !== 'error';
 
@@ -323,6 +363,16 @@ export function setState(t: Turn, state: TurnState): Turn {
   if (state === 'answering' && t.state !== 'investigating') return t;
   return { ...t, state };
 }
+
+/** IS THE ANSWER ON SCREEN? Not the same question as "does the turn have an answer".
+ *
+ *  `applyEvent` stores the answer the moment the stream emits it; the reader meets it only once
+ *  the controller advances the state — after the minimum-visible floor and after the thinking
+ *  mark has finished its pass. Everything that reacts to "the answer arrived" — folding the
+ *  investigation away, opening the trail, saying the work is over — means THIS, and reading
+ *  `t.answer` instead makes all of it happen seconds before anything replaces it. */
+export const answerVisible = (t: Turn): boolean =>
+  t.state === 'answering' || t.state === 'settled';
 
 /** Which row is pulsing.
  *
@@ -431,6 +481,14 @@ export const turnCounts = (t: Turn) => ({
   checks: completedCount(t),
   findings: t.discoveries.length,
 });
+
+/** How long Nova has thought, in ms — the finished stretches plus the one running now — or
+ *  `null` when the turn was never timed. Pure: `now` is a parameter so a test can hand it a
+ *  clock. */
+export const thoughtFor = (t: Turn, now = Date.now()): number | null => {
+  if (t.thoughtMs === undefined && t.thinkingSince === undefined) return null;
+  return (t.thoughtMs ?? 0) + (t.thinkingSince !== undefined ? Math.max(0, now - t.thinkingSince) : 0);
+};
 
 /** Steps hidden behind the "N checks completed" row while a long investigation is running.
  *  Only COMPLETED steps at the head can collapse: the active row and whatever the plan says is

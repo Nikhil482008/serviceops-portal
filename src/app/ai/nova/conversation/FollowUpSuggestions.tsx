@@ -9,22 +9,40 @@ import type { FollowUp } from '../scripts/registry';
  * feedback — the shape and the speech-bubble glyph carry the identity; the gradient was the one
  * gradient outside the orb, and the orb is supposed to be the only one.)
  *
- * ── A DISABLED CHIP IS STILL SHOWN ───────────────────────────────────────────────────────────
- * A chip authored `{ label, disabled: true }` renders muted with "Not in this demo" — the intent
- * stays visible, the dead end is honest. It never gets hover, and the cursor says so.
+ * ── EVERY CHIP IS LIVE ───────────────────────────────────────────────────────────────────────
+ * There is no disabled variant. A chip that cannot be answered is not authored at all: a reader
+ * reads it, weighs it, reaches for it and is told it was never going to work, which costs more
+ * attention than the visible intent was worth. `FollowUp` has no `disabled` member, so this is
+ * enforced at the type rather than trusted to the author.
+ *
+ * ── A LOCAL CHIP NEVER OPENS A TURN ──────────────────────────────────────────────────────────
+ * A chip authored `{ label, local }` is a variant switch on THIS answer (TEC-05's "Make it
+ * shorter" swaps the draft's tone). It calls `onLocal`, never askNova — the one exception to
+ * "every chip is a question", declared on the fixture rather than sniffed from the label.
+ *
+ * ── THEY BELONG TO THE NEWEST ANSWER ONLY ────────────────────────────────────────────────────
+ * Asking something else takes them away. They used to stay on screen greyed out, on the argument
+ * that removing them rewrites the history the reader is scrolling through — but a suggestion is
+ * not history. It is an offer about what to do NEXT, and once the reader has done something
+ * next the offer has been answered: a column of dead pills between every pair of turns is the
+ * thread telling you about roads not taken. The answers stay; only the offers go.
  *
  * ── NO VISIBLE HEADING ───────────────────────────────────────────────────────────────────────
  * A pill carrying a speech-bubble glyph and a question is self-describing. The heading survives
  * as `sr-only` because shape and iconography reach no screen reader — without it a listener
  * meets unexplained buttons after the answer.
  */
-export function FollowUpSuggestions({ questions, live, onAsk }: {
+export function FollowUpSuggestions({ questions, live, onAsk, onLocal }: {
   questions: FollowUp[];
-  /** False once a newer turn exists. Old suggestions stay VISIBLE but inert — removing them
-   *  would rewrite the history the reader is scrolling through. */
+  /** False once a newer turn exists — and then there are no suggestions at all. */
   live: boolean;
   onAsk: (question: string) => void;
+  /** A local variant switch — `key` is the authored `local` value. */
+  onLocal?: (key: string) => void;
 }) {
+  /* A PAST ANSWER MAKES NO OFFERS. Not disabled, not faded — gone, so the thread reads as
+     question · answer · question · answer with nothing dead between the pairs. */
+  if (!live) return null;
   const shown = questions.slice(0, 3);
   if (!shown.length) return null;
 
@@ -34,18 +52,15 @@ export function FollowUpSuggestions({ questions, live, onAsk }: {
       <div className="flex flex-wrap gap-2">
         {shown.map((q) => {
           const label = typeof q === 'string' ? q : q.label;
-          const off = typeof q !== 'string' && q.disabled;
+          const local = typeof q !== 'string' && 'local' in q ? q.local : undefined;
           return (
             <button
               key={label}
               type="button"
-              disabled={!live || off}
-              title={off ? 'Not in this demo' : undefined}
-              aria-disabled={off || undefined}
-              onClick={() => onAsk(label)}
+              onClick={() => (local ? onLocal?.(local) : onAsk(label))}
               data-followup
-              data-demo-disabled={off ? 'true' : undefined}
-              className={`nova-btn nova-pill nova-hit ${off ? 'nova-pill-off' : ''}`}
+              data-local={local}
+              className="nova-btn nova-pill nova-hit"
             >
               <MessageSquare size={12} className="nova-pill-icon" aria-hidden="true" />
               {label}

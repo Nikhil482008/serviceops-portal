@@ -1,18 +1,20 @@
-/* The right-edge tabs: Ask AI, and chat.
+/* The right edge: the Nova handle, and a chat tab.
  *
- * Two half-circles flush to the right edge, vertically centred — 26px of protrusion on a 52px
- * face, so the flat side is the viewport edge and the curve bulges into the page.
+ * The handle is the orb itself, tucked into the edge and sliding out to say its name when a
+ * pointer arrives — see NovaHandle.tsx. Beside it, one 26x52 half-circle for the chat window,
+ * flat side to the viewport edge, curve bulging into the page.
  *
- * This replaces a full-height 5px ribbon, and the change fixes a real problem rather than only
+ * Both replace a full-height 5px ribbon, and that change fixed a real problem rather than only
  * looking different. Every list page ends in `flex-1 overflow-auto` running to this same edge with
  * an 8px scrollbar gutter; a full-height strip sat over the whole track, so reaching for the thumb
- * widened the strip instead. Two 52px tabs leave the rest of the track clear.
+ * widened the strip instead. Two small tabs leave the rest of the track clear.
  *
  * STILL TRUE, and handled: `MinimizedDrawerRail` is `fixed right-0 top-0 h-screen w-7 hover:w-9 …
  * z-50` — the strip a minimised record collapses to. These tabs sit at z-40, BELOW it, so an open
  * record always wins the edge.
  */
 import { MessageSquare } from 'lucide-react';
+import { NovaHandle } from './NovaHandle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../components/ui/tooltip';
 import { isAskAiEnabled, isNovaShell } from './flags';
 import { rememberOpener, useAskAiActionsOptional, useAskAiStateOptional } from './AskAiProvider';
@@ -42,24 +44,12 @@ export function AskAiEdge() {
 
   return (
     <div className="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 flex-col gap-2">
-      {/* Ask AI — the animated one. Its outline is a conic gradient rotating around the tab, so
-          the colour travels the curve rather than sliding across it; on a shape this small a
-          sweep would read as a flicker. */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label="Ask AI"
-            onClick={(e) => openWith(e.currentTarget)}
-            className="askai-tab askai-tab-ai group flex h-[52px] w-[26px] cursor-pointer items-center justify-center rounded-l-full pr-px transition-[width] duration-200 ease-out hover:w-[32px] focus-visible:w-[32px] focus-visible:outline-none"
-          >
-            {/* Two letters is all that fits inside 26px, and it is the only text the shape can
-                carry without turning into a label with a tab attached. */}
-            <span aria-hidden="true" className="askai-tab-text">AI</span>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="text-wrap">Ask AI</TooltipContent>
-      </Tooltip>
+{/* ASK NOVA — the orb itself, tucked into the edge, sliding out to say its name when a
+          pointer arrives. It replaced a 26x52 half-circle carrying the letters "AI": two
+          characters were all that shape could hold, and "AI" is the category rather than the
+          thing. No tooltip — the handle IS the tooltip, and a second one over a control that
+          already opened to name itself would be the same sentence twice. */}
+      <NovaHandle open={state.open} onOpen={(el) => openWith(el)} />
 
       {/* Chat. Quiet by comparison — one animated thing on an edge is a signal, two competing is
           noise, and this is the secondary of the pair. */}

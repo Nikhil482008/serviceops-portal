@@ -4,6 +4,7 @@ import { NovaWorkspace } from './NovaWorkspace';
 import { NovaReveal } from './NovaReveal';
 import { InvestigationState } from './conversation/InvestigationState';
 import { AskUserQuestion } from './conversation/AskUserQuestion';
+import { CommandCentre } from './conversation/CommandCentre';
 
 /* The investigation, rendered.
  *
@@ -16,22 +17,36 @@ import { AskUserQuestion } from './conversation/AskUserQuestion';
  * `conversation/InvestigationState`, beside the other conversation layers, so the four roles a
  * turn has — said / doing / found / concluded — are four files rather than three files and a
  * long one.
+ *
+ * ── WHO IS READING ───────────────────────────────────────────────────────────────────────────
+ * Leadership gets the Command Centre. Technicians get the SAME linear feed a requester gets, in
+ * its `dense` variant: source-sized step labels (authored) and references as clickable mono
+ * chips. Same stream, same pacing, same collapse — no second feed component.
  */
 
-export function NovaFeed({ turn, onRetry, onAnswerAsk, onPlanRespond }: {
+export function NovaFeed({ turn, onRetry, onAnswerAsk, onPlanRespond, onPlanModify, leadership, technician, onAsk }: {
   turn: Turn;
   onRetry?: () => void;
   onAnswerAsk?: (askId: string, answers: Record<string, string>, done: boolean) => void;
-  /** Release a stream parked on a plan proposal or a failed execution step (TEC-07). */
+  /** Release a stream parked on a plan proposal or a failed execution step (TEC-07/plan). */
   onPlanRespond?: (id: string, payload: Record<string, string>) => void;
+  /** "Modify plan" — seed the composer. */
+  onPlanModify?: () => void;
+  /** Leadership gets the Command Centre — the SAME turn, drawn as parallel source lanes. */
+  leadership?: boolean;
+  /** Technicians get the linear feed's dense variant. */
+  technician?: boolean;
+  /** A reference chip in the feed asks Nova to open that record — through askNova. */
+  onAsk?: (q: string) => void;
 }) {
-  /* Two presentations of the SAME turn. The view is a property of the investigation, chosen by
+  /* Presentations of the SAME turn. The view is a property of the investigation, chosen by
      whoever produced it — so this is a render branch, not a second feature with its own state,
      its own reducer and its own chance to disagree about what happened. */
-  const investigation = turn.view === 'thinking' ? <NovaThinking turn={turn} />
+  const investigation = leadership ? <CommandCentre turn={turn} onRetry={onRetry} />
+    : turn.view === 'thinking' ? <NovaThinking turn={turn} />
     : turn.view === 'workspace' ? <NovaWorkspace turn={turn} onRetry={onRetry} />
-      : turn.view === 'reveal' ? <NovaReveal turn={turn} onRetry={onRetry} onPlanRespond={onPlanRespond} />
-        : <InvestigationState turn={turn} onRetry={onRetry} />;
+      : turn.view === 'reveal' ? <NovaReveal turn={turn} onRetry={onRetry} onPlanRespond={onPlanRespond} onPlanModify={onPlanModify} onAsk={onAsk} />
+        : <InvestigationState turn={turn} onRetry={onRetry} dense={technician} onAsk={onAsk} />;
 
   if (!turn.asks.length) return investigation;
 

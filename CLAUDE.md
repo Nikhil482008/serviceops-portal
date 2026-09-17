@@ -458,21 +458,68 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   suggestion row, a use-case row, a follow-up pill and the composer all call it), split
   volatile/stable contexts, and `MIN_INVESTIGATION_MS = 2400` is a floor an early answer WAITS
   for. Turn state lives above the drawer so an investigation outlives the view.
-- **THE NOVA CORE (`AskAiOrb` + the `.nova-core` block in `theme.css`).** `.nova-core` is the root
-  and `.orb` beneath it is only the CLIPPED mass — the halo, the expanding ring and the 14-particle
-  field must sit OUTSIDE that clip, because the field is drawn INTO the body from beyond it. The
-  clip itself is load-bearing (an 11px blur tail once painted a soft rectangle over neighbouring
-  cards); the particles are safe outside it only because they are 3px dots with a ~2px tail.
-  **The motion is a grammar, not decoration**, and it is the thing to preserve: RADIAL DIRECTION
-  carries data flow (wander = idle, stream INWARD = investigating, cast OUTWARD once = answer
-  ready), amplitude carries attention, density and speed carry effort, one flash is a discrete
-  event, and hue carries almost nothing because it is the least discriminable channel at 34px.
-  Direction is CATEGORICAL, which is why it survives a glance where "slightly faster" does not.
-  ⚠️ **Every period in the system is pairwise near-coprime** — the three lobes are 7500 / 9825 /
-  6225ms and each particle carries its own orbit AND twinkle period. Replacing any of them with a
-  round number (8000, 12000) is what would make the field visibly cycle. Cursor proximity and
-  composer focus are written as `--core-mx` / `--core-my` / `--core-attend` **onto the element via
-  a ref** — never `setState`, or a 120Hz pointer re-renders the whole thread for a 4px lean.
+- **THE ORB — `components/ui/siri-orb` is the one construction, and `nova/NovaOrb.tsx` is the
+  state map over it.** Six conic gradients over a single registered `--orb-angle`, at multiples
+  ×2 ×2 ×-3 ×2 ×1 ×-2 (two negative), so the six only return to their starting arrangement when
+  all six coincide — a single shared cycle is learnable in about a minute. A `::after` fades to
+  the ground at the centre and lays a top-left sheen: **that is what makes it a lit sphere rather
+  than a swirl in a mask, and it is not optional.**
+  **Nova's identity is `NOVA_ORB_COLORS`, in oklch, and nowhere else** — violet / magenta / sky at
+  equal lightness, which is what a perceptual space gets right and sRGB does not. No call site
+  passes colours; `polish.mjs` asserts both halves of that.
+  **Every measurement derives from `size`** (blur `size*0.09`, shadow `size*0.06/0.2`), so the 8px
+  label dot and the 120px hero are one object at two distances. ⚠️ Never scale an orb with a
+  `transform` — that scales its rim and its shadow too, which is exactly the flaw in the orb this
+  replaced.
+  **States are speed and hue, never a second component:** dormant 22s · arriving 14s · idle 20s ·
+  listening 18s · investigating 9s with `c1` cooled 300°→270° · discovery 6s + one 1.06 pulse for
+  700ms then back to investigating · settled 20s.
+  **`@property` fallback:** no `@supports` can test an at-rule, so the component asks
+  `CSS.registerProperty` and sets `data-static`, which paints one static Nova disc. Leaving the
+  keyframes on an unregistered property gives a *twitch every twenty seconds*, which is worse
+  than stillness.
+  ⚠️ **There is a SECOND, deliberate construction: `nova/AskAiCore.tsx`**, restored by request for
+  the FLIGHT LAYER only — the single element that travels between the trigger, the drawer greeting
+  and the header seat. It cannot be narrowed further, because that layer is one element by design.
+  Everything else — the 14px turn marks, the 8px label dots, the 26px edge handle, the demo
+  gallery — is `siri-orb`. `usecases.mjs` asserts the line between them.
+  Cursor proximity and composer focus are still written as `--core-mx` / `--core-my` /
+  `--core-attend` **onto the element via a ref** — never `setState`, or a 120Hz pointer re-renders
+  the whole thread for a 4px lean.
+- **THE REQUESTER'S SEAT (`nova/dock/RequesterDock.tsx`) — one thing at the bottom, never two.**
+  While a turn has actions, the **dock takes the input's place**; the box is not drawn. Two things
+  at the bottom of a drawer are two answers to "what now". Two shapes, one seat:
+  **DOCK** (the options) and **BAND** (one row — the orb, "Nova can do this for you", "Show all 3
+  actions", ✕ — **fused to the top of the box in one container**, never a strip floating above
+  one). ✕ and "Ask something else" (and `/`) both fold to the band and **differ only in where the
+  caret lands**: ✕ leaves focus on the band, the other two put it in the box.
+  ⚠️ **The dock UNMOUNTS the box**, so a half-typed draft is held in the seat (`draftRef`) and
+  handed back — losing someone's sentence because they glanced at the options is the plainest
+  violation of "preserve the user's work", and a suite caught exactly that.
+  ✕ dismisses for the CURRENT turn only (the seat is keyed on the option set upstream, so the
+  next answer brings its band back) — but **there is no path back to the actions after ✕ within
+  that turn**; that is a known recoverability gap, not an oversight.
+  **Row anatomy:** a 34px verb tile (`dock/stepIcon.tsx`, derived from the LABEL — `kind` is
+  `mutate|ask|navigate`, which is the plumbing's vocabulary, not the reader's), the body, the
+  recommended pill, and a go-arrow. No number badges: the digits 1–4 still RUN, and survive in
+  `aria-keyshortcuts` rather than being printed, because printing them restores the
+  numbered-checklist reading the tiles exist to remove.
+  **`DOCK_OFFER` in `dock/nextSteps.ts` is the single source** of "Nova can do this for you" —
+  the open header and the band say the same sentence, so collapsing moves the line rather than
+  renaming it.
+- **THE ENTRY POINT is the edge handle (`ai/NovaHandle.tsx`)**, not a rail item or a FAB: the orb
+  at 26px in a white rim, tucked into the right edge with ~20px showing, sliding out on hover into
+  a pill that says "Ask Nova" and the real shortcut. It replaced a 26×52 half-circle carrying the
+  letters "AI" — two characters were all that shape could hold, and "AI" is the category rather
+  than the thing. The glow behind it and the update pip are **wrappers**, deliberately: the orb is
+  one shared component and an entry point's attention-seeking is the entry point's business.
+- **THE REPHRASE (`nova/novaRephrase.ts`).** Every **typed requester** message opens its thinking
+  line with `Reading it as: <restatement>` for a floor of 2s, and the expanded trail leads with
+  YOU WROTE / NOVA READ IT AS plus a quiet "Not what I meant?". ⚠️ **It never changes what runs** —
+  `intentOf` still reads the original and the original wins; `checkRephrase` warns in dev when the
+  two disagree. Seven authored restatements; a short verb-first request is checked **before** the
+  phrase match and comes back "Taken as written."; anything else is a placeholder **marked
+  dev-only on screen**.
 - **The conversation is FOUR LAYERS, one per file, in `nova/conversation/`:** `UserMessage`
   (the reader's turn — the ONLY filled message surface in the drawer) → `InvestigationState`
   (what Nova is doing; collapses itself to a ~40px "✓ 9 checks · 3 findings" once there is an

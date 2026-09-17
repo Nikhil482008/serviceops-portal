@@ -45,7 +45,9 @@ export function Emph({ children }: { children: string }) {
  * The conclusion, and the largest thing in the response. A reader who stops here has the answer;
  * everything below is why. That is the whole progressive-disclosure argument in one element. */
 export function NovaHeadline({ children }: { children: string }) {
-  return <p className="nova-headline"><Emph>{children}</Emph></p>;
+  /* tabIndex -1: not in the tab order, but the drawer can land focus here after a dock option
+     produces this answer — the reader hears the conclusion, not the input. */
+  return <p className="nova-headline" tabIndex={-1}><Emph>{children}</Emph></p>;
 }
 
 /* ── KEY / VALUE ─────────────────────────────────────────────────────────────────────────────
@@ -53,9 +55,9 @@ export function NovaHeadline({ children }: { children: string }) {
  * content and carries the weight. Tone is used sparingly — a paused SLA is worth colouring, an
  * owner is not. */
 const TONE: Record<string, string> = {
-  ok: 'text-[#0F6E4F]',
-  warn: 'text-[#8A6D1F]',
-  risk: 'text-[#B42318]',
+  ok: 'text-[var(--nova-success)]',
+  warn: 'text-[var(--nova-warning)]',
+  risk: 'text-[var(--nova-error)]',
 };
 
 export function NovaKeyValues({ items }: { items: AnswerKV[] }) {

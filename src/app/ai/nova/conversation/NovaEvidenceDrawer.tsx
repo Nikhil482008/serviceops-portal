@@ -7,6 +7,7 @@ import {
   type FeedDiscovery, type Turn,
 } from '../turnModel';
 import type { StepSource } from '../scripts/registry';
+import { KIND_ICON } from './SourceKinds';
 
 /* THE EVIDENCE DRAWER — level 3 of the trust ladder.
  *
@@ -19,6 +20,13 @@ import type { StepSource } from '../scripts/registry';
  * Opened from an inline citation or a Based-on chip, the drawer arrives already on the Sources
  * tab, scrolled to and highlighting that specific source. A reader checking one claim must never
  * be handed the whole pile and told to find it themselves.
+ *
+ * ── SOURCES IS FIRST, AND IS WHAT IT OPENS ON ────────────────────────────────────────────────
+ * Every entrance is about a source — the utility bar's source COUNT, a citation, a Based-on
+ * chip. Findings led the tab strip while two of those three already forced `sources` on arrival,
+ * so the order only ever applied to the reader who came in by the count, and it made them cross
+ * a tab to reach the records they had just clicked the number of. Findings also already show in
+ * the chat, in the fold; the sources do not, which is what this sheet is for.
  *
  * ── EVERYTHING IS DERIVED ────────────────────────────────────────────────────────────────────
  * Findings are the turn's discoveries; sources are what completed checks read; a finding's
@@ -52,6 +60,23 @@ export function NovaSource({ source, focused, refCb }: {
 }) {
   return (
     <li ref={refCb} className="nova-ev-row" data-focused={focused ? 'true' : 'false'}>
+      {/* WHAT KIND OF RECORD THIS IS, before what it is called. The list reads as one column of
+          titles otherwise, and the fact a reader is weighing — a live ticket versus an approved
+          article versus a document — is the one carried by the row's own "SYSTEM RECORD" label,
+          which says the same thing for three of the four. The glyph separates them at a glance
+          and is the SAME map the filter pills and the source count use (SourceKinds' KIND_ICON),
+          so a kind cannot look like one thing here and another there.
+
+          Deliberately unbranded and uncoloured: these are internal records with no logos, and
+          invented colour on a TRUST surface is the one place it must not be. */}
+      {(() => {
+        const Icon = KIND_ICON[source.kind];
+        return (
+          <span className="nova-ev-kind" aria-hidden="true">
+            <Icon size={14} strokeWidth={1.75} />
+          </span>
+        );
+      })()}
       <div className="min-w-0 flex-1">
         <p className="nova-ev-label">{source.label}</p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
@@ -84,7 +109,7 @@ export function NovaFinding({ finding, onJump }: {
   return (
     <li className="nova-ev-find">
       <p className="nova-t-body flex items-start gap-2">
-        <span className="mt-[1px] flex-shrink-0 ask-text-sm text-[#12805C]" aria-hidden="true">✓</span>
+        <span className="mt-[1px] flex-shrink-0 ask-text-sm text-[var(--nova-text-secondary)]" aria-hidden="true">✓</span>
         <span className="min-w-0">
           <span className="ask-w-500 text-[var(--nova-ink)]">{finding.headline}</span>
           {finding.inference && <span className="nova-ev-type ml-2" data-authority="inference">AI inference</span>}
@@ -106,6 +131,9 @@ export function NovaFinding({ finding, onJump }: {
 }
 
 const KIND_FILTERS: Array<{ id: StepSource['kind'] | 'all'; label: string }> = [
+  /* ALL HAS NO ICON, and that is the point: it is not a fifth kind, it is the absence of a
+     filter. A glyph beside it would put it in the same series as the four and make the reader
+     work out what kind of thing "All" is. */
   { id: 'all', label: 'All' },
   { id: 'ticket', label: 'Tickets' },
   { id: 'kb', label: 'Knowledge' },
@@ -120,7 +148,7 @@ export function NovaEvidenceDrawer({ turn, focus, onClose }: {
   onClose: () => void;
 }) {
   const ev = evidenceOf(turn);
-  const [tab, setTab] = useState<'findings' | 'sources'>(focus ? 'sources' : 'findings');
+  const [tab, setTab] = useState<'sources' | 'findings'>('sources');
   const [picked, setPicked] = useState<string | null>(focus ?? null);
   const [q, setQ] = useState('');
   const [kind, setKind] = useState<StepSource['kind'] | 'all'>('all');
@@ -199,7 +227,7 @@ export function NovaEvidenceDrawer({ turn, focus, onClose }: {
       </header>
 
       <div role="tablist" aria-label="Evidence" className="flex gap-1 border-b border-[var(--nova-rule)] px-4 pt-2">
-        {(['findings', 'sources'] as const).map((t) => (
+        {(['sources', 'findings'] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -209,7 +237,7 @@ export function NovaEvidenceDrawer({ turn, focus, onClose }: {
             className="nova-ev-tab"
             data-active={tab === t ? 'true' : 'false'}
           >
-            {t === 'findings' ? `Findings (${ev.findings.length})` : `Sources (${ev.sources.length})`}
+            {t === 'sources' ? `Sources (${ev.sources.length})` : `Findings (${ev.findings.length})`}
           </button>
         ))}
       </div>
@@ -245,6 +273,12 @@ export function NovaEvidenceDrawer({ turn, focus, onClose }: {
                     aria-pressed={kind === f.id}
                     onClick={() => setKind(f.id)}
                   >
+                    {/* The same glyph the source count wears — see SourceKinds' KIND_ICON. The
+                        pill is a filter for a kind, and the kind already has a mark. */}
+                    {f.id !== 'all' && (() => {
+                      const Icon = KIND_ICON[f.id];
+                      return <Icon size={13} strokeWidth={1.75} aria-hidden="true" className="nova-ev-filter-icon" />;
+                    })()}
                     {f.label}
                   </button>
                 ))}

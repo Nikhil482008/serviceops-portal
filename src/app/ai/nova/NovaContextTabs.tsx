@@ -75,20 +75,20 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
     : turn.discoveries;
 
   return (
-    <section className="mt-4 rounded-lg border border-[#EEF2F6] bg-[#FBFCFD]">
+    <section className="mt-4 rounded-lg border border-[var(--nova-border)] bg-[var(--nova-surface-subtle)]">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[#F5F7FA]"
+        className="flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--nova-surface-hover)]"
       >
-        <span className="ask-text-sm ask-w-600 text-[#364658]">Context</span>
-        <span className="ask-text-sm text-[#9CA3AF]">
+        <span className="ask-text-sm ask-w-600 text-[var(--nova-text-primary)]">Context</span>
+        <span className="ask-text-sm text-[var(--nova-text-muted)]">
           {total} output{total === 1 ? '' : 's'} · {sources.length} source{sources.length === 1 ? '' : 's'}
         </span>
         <ChevronDown
           size={14}
-          className={`ml-auto text-[#9CA3AF] transition-transform ${open ? '' : '-rotate-90'}`}
+          className={`ml-auto text-[var(--nova-text-muted)] transition-transform ${open ? '' : '-rotate-90'}`}
           aria-hidden="true"
         />
       </button>
@@ -98,7 +98,7 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
           {/* Two tabs, not two panels stacked. The reader is answering one of two questions —
               "what did it conclude" or "what did it look at" — and showing both at once makes
               them scroll past the one they did not ask. */}
-          <div role="tablist" aria-label="Context" className="flex rounded-lg bg-[#F1F5F9] p-0.5">
+          <div role="tablist" aria-label="Context" className="flex rounded-lg bg-[var(--nova-surface-hover)] p-0.5">
             {(['outputs', 'sources'] as const).map((t) => (
               <button
                 key={t}
@@ -107,13 +107,13 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
                 aria-selected={tab === t}
                 onClick={() => setTab(t)}
                 className={`flex-1 rounded-[6px] px-2 py-1 ask-text-sm ask-w-500 capitalize transition-colors ${
-                  tab === t ? 'bg-white text-[#364658] shadow-sm' : 'text-[#7B8FA5] hover:text-[#364658]'}`}
+                  tab === t ? 'bg-white text-[var(--nova-text-primary)] shadow-sm' : 'text-[var(--nova-text-secondary)] hover:text-[var(--nova-text-primary)]'}`}
               >{t}</button>
             ))}
           </div>
 
           <div className="mt-2 flex items-center gap-2">
-            <span className="ask-text-sm text-[#9CA3AF]">
+            <span className="ask-text-sm text-[var(--nova-text-muted)]">
               {tab === 'sources'
                 ? `${shownSources.length} source${shownSources.length === 1 ? '' : 's'}`
                 : `${shownOutputs.length + shownFindings.length} item${shownOutputs.length + shownFindings.length === 1 ? '' : 's'}`}
@@ -126,14 +126,14 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
                 onBlur={() => { if (!q) setSearching(false); }}
                 placeholder="Search context…"
                 aria-label="Search context"
-                className="ml-auto min-w-0 flex-1 bg-transparent ask-text-sm text-[#364658] placeholder:text-[#B6C1CE] focus:outline-none"
+                className="ml-auto min-w-0 flex-1 bg-transparent ask-text-sm text-[var(--nova-text-primary)] placeholder:text-[var(--nova-text-muted)] focus:outline-none"
               />
             ) : (
               <button
                 type="button"
                 onClick={() => setSearching(true)}
                 aria-label="Search context"
-                className="ml-auto flex size-6 items-center justify-center rounded text-[#9CA3AF] transition-colors hover:bg-[#F1F5F9] hover:text-[#364658]"
+                className="ml-auto flex size-6 items-center justify-center rounded text-[var(--nova-text-muted)] transition-colors hover:bg-[var(--nova-surface-hover)] hover:text-[var(--nova-text-primary)]"
               ><Search size={13} /></button>
             )}
           </div>
@@ -143,13 +143,13 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
               <>
                 {shownFindings.map((d) => (
                   <div key={d.id} className="rounded px-1.5 py-1">
-                    <p className="ask-text-sm ask-w-600 leading-[1.4] text-[#364658]">{d.headline}</p>
-                    <p className="ask-text-sm leading-[1.45] text-[#9CA3AF]">{d.detail}</p>
+                    <p className="ask-text-sm ask-w-600 leading-[1.4] text-[var(--nova-text-primary)]">{d.headline}</p>
+                    <p className="ask-text-sm leading-[1.45] text-[var(--nova-text-muted)]">{d.detail}</p>
                   </div>
                 ))}
                 {shownOutputs.map((s) => (
-                  <p key={s.id} className="px-1.5 py-1 ask-text-sm text-[#7B8FA5]">
-                    <b className="ask-w-600 text-[#364658]">{s.metric!.value}</b> {s.metric!.label}
+                  <p key={s.id} className="px-1.5 py-1 ask-text-sm text-[var(--nova-text-secondary)]">
+                    <b className="ask-w-600 text-[var(--nova-text-primary)]">{s.metric!.value}</b> {s.metric!.label}
                   </p>
                 ))}
                 {!shownFindings.length && !shownOutputs.length && <Empty q={q} />}
@@ -160,11 +160,11 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
                   const Icon = KIND_ICON[src.kind];
                   return (
                     <div key={src.label} className="flex items-center gap-2 rounded px-1.5 py-1">
-                      <span className="flex size-5 flex-shrink-0 items-center justify-center rounded bg-[#EFF4FA] text-[#7B9AC0]">
+                      <span className="flex size-5 flex-shrink-0 items-center justify-center rounded bg-[var(--nova-surface-pressed)] text-[var(--nova-text-muted)]">
                         <Icon size={11} />
                       </span>
-                      <span className="min-w-0 flex-1 truncate ask-text-sm text-[#364658]">{src.label}</span>
-                      <span className="flex-shrink-0 ask-text-xs uppercase tracking-wider text-[#B6C1CE]">
+                      <span className="min-w-0 flex-1 truncate ask-text-sm text-[var(--nova-text-primary)]">{src.label}</span>
+                      <span className="flex-shrink-0 ask-text-xs uppercase tracking-wider text-[var(--nova-text-muted)]">
                         {KIND_LABEL[src.kind]}
                       </span>
                     </div>
@@ -182,7 +182,7 @@ export function NovaContextTabs({ turn }: { turn: Turn }) {
 
 function Empty({ q }: { q: string }) {
   return (
-    <p className="px-1.5 py-3 text-center ask-text-sm text-[#B6C1CE]">
+    <p className="px-1.5 py-3 text-center ask-text-sm text-[var(--nova-text-muted)]">
       {q ? `Nothing matches “${q}”` : 'Nothing here yet'}
     </p>
   );

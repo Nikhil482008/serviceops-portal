@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { AUTHORITY_LABEL, evidenceOf, sourceAuthority, type Turn } from '../turnModel';
 import { NovaVerificationNotice } from './NovaVerificationNotice';
+import { RefText } from './TechnicianBlocks';
+import { SourceKinds, sourceKindSentence } from './SourceKinds';
+import { HowNovaKnows } from './HowNovaKnows';
 
 /* HOW NOVA KNOWS — the ONE trust gateway. Replaced "Why Nova says this" (framing), the
  * "Context N outputs · M sources" card (mechanics), and then the "Based on" strip + its
@@ -11,9 +14,16 @@ import { NovaVerificationNotice } from './NovaVerificationNotice';
  * ── THE TRUST LADDER THIS SITS ON ─────────────────────────────────────────────
  *   1 SCAN         the answer — most readers stop there
  *   2 VERIFY       this fold: the key findings with WHERE each one came from and HOW FRESH
- *                  that record is, then the sources themselves as chips
- *   3 INVESTIGATE  the evidence drawer (opened from an inline citation or a source chip
- *                  here), and from it the original records
+ *                  that record is
+ *   3 INVESTIGATE  the evidence drawer — opened from the "N sources" count in the utility bar
+ *                  under the answer, or from an inline citation — and from it the original
+ *                  records
+ *
+ * ⚠️ THE SOURCES ARE NOT LISTED TWICE. The fold used to end in a row of source chips; the bar
+ * directly beneath it already carries "N sources" from the SAME derivation and opens the SAME
+ * drawer, so the chips were a second copy of one list between the answer and the action. The
+ * fold keeps only what nothing else says — each finding's own provenance line, which names its
+ * source in words.
  *
  * ── WHAT A FINDING ROW SAYS ────────────────────────────────────────────────────
  * The claim, then its provenance in one muted line — "INC-4471 · System record · Updated 3h
@@ -24,63 +34,99 @@ import { NovaVerificationNotice } from './NovaVerificationNotice';
  * A GAP is never in the fold. It renders above, always visible, right after the object it
  * qualifies — see NovaVerificationNotice.
  *
+ * ── THE REQUESTER'S FOLD ─────────────────────────────────────────────────────────────────────
+ * A requester answer authors `how` — REASONING, WHAT I CHECKED, WHAT I COULDN'T VERIFY, SOURCES
+ * — and the fold renders that instead of the findings list (see HowNovaKnows). Same trigger,
+ * same place, same visible notice above it; only what the expanded fold says changed, and only
+ * for the seven requester cases. Technician and leadership answers keep the findings.
+ *
  * ── AND HONESTY HAS AN EMPTY STATE ───────────────────────────────────────────────────────────
  * An answer with no sources says so, in words, rather than rendering nothing and hoping nobody
  * asks. "No external sources were consulted" is itself trust information.
  */
-export function EvidenceBlock({ turn, onViewSources, openSignal }: {
+export function EvidenceBlock({ turn, onViewSources, openSignal, dense, onAsk }: {
   turn: Turn;
-  /** Open the evidence drawer — level 3, focused on a source when a chip was the way in. */
+  /** Open the evidence drawer — level 3, focused on a source when a citation was the way in. */
   onViewSources: (focus?: string) => void;
   /** Bump to expand the fold from outside — "Elaborate" reveals the supporting reasoning
    *  rather than inventing prose the script never authored. The reader can still collapse. */
   openSignal?: number;
+  /** The technician variant — references in findings and gaps are clickable chips. */
+  dense?: boolean;
+  onAsk?: (q: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   useEffect(() => { if (openSignal) setOpen(true); }, [openSignal]);
   const ev = evidenceOf(turn);
   const byLabel = new Map(ev.sources.map((s) => [s.label, s]));
   const a = turn.answer;
+  /* What the fold has to SAY. Sources alone are not it — the bar counts those and opens the
+     drawer on them, so a fold holding nothing but a list of them is a control with nothing
+     behind it. */
+  const hasFold = !!a?.how || ev.findings.length > 0 || !!a?.dataScope;
 
-  if (!ev.sources.length && !ev.findings.length) {
+  if (!hasFold) {
     return (
       <section style={{ marginTop: 16 }}>
         {/* A gap is a limit on the answer — it renders even when there is nothing to fold. */}
-        {ev.gaps.map((g) => <NovaVerificationNotice key={g.id} gap={g} />)}
-        <p className="nova-t-meta" data-basedon-empty>
-          Based on available ticket context — no external sources were consulted for this answer.
-        </p>
+        {ev.gaps.map((g) => <NovaVerificationNotice key={g.id} gap={g} dense={dense} onAsk={onAsk} />)}
+        {!ev.sources.length && (
+          <p className="nova-t-meta" data-basedon-empty>
+            Based on available ticket context — no external sources were consulted for this answer.
+          </p>
+        )}
       </section>
     );
   }
 
-  /* The curated few — the answer's own `basedOn` when a completed check actually read it,
-     else the first sources the investigation opened. The full trail lives in the drawer. */
-  const known = new Set(ev.sources.map((s) => s.label));
-  const curated = (a?.basedOn ?? []).filter((l) => known.has(l));
-  const chips = curated.length ? curated : ev.sources.slice(0, 3).map((s) => s.label);
-
   return (
     <section style={{ marginTop: 16 }}>
-      {ev.gaps.map((g) => <NovaVerificationNotice key={g.id} gap={g} />)}
+      {ev.gaps.map((g) => <NovaVerificationNotice key={g.id} gap={g} dense={dense} onAsk={onAsk} />)}
 
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="nova-btn nova-hit nova-tertiary -ml-1 mt-1"
-      >
-        <ChevronDown
-          size={12}
-          className="nova-chev flex-shrink-0"
-          data-open={open ? 'true' : 'false'}
-          aria-hidden="true"
-        />
-        How Nova knows
-      </button>
+      {/* THE PROVENANCE ROW. The fold is the long way into where this came from and the count
+          is the short way — the same question, so they share a line. The count used to sit in
+          the utility bar beside the feedback icons, which asked the reader to read "10 sources"
+          and "was this helpful?" as one thought. */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className="nova-btn nova-hit nova-tertiary -ml-1 mt-1"
+        >
+          <ChevronDown
+            size={12}
+            className="nova-chev flex-shrink-0"
+            data-open={open ? 'true' : 'false'}
+            aria-hidden="true"
+          />
+          How Nova knows
+        </button>
+        <span className="flex-1" />
+        {ev.sources.length > 0 && (
+          <button
+            type="button"
+            className="nova-btn nova-hit nova-tertiary mt-1"
+            onClick={() => onViewSources()}
+            data-sources-count
+          >
+            {/* WHAT KIND, then how many. A quantity is the least interesting thing about
+                evidence — see SourceKinds. The marks are silent; the sentence beside them is
+                what a screen reader hears instead. */}
+            <SourceKinds sources={ev.sources} />
+            {/* The visible count is its own element so that what a reader SEES and what a
+                listener HEARS can be read apart — the sentence after it is for the listener. */}
+            <span data-sources-n>{ev.sources.length} source{ev.sources.length === 1 ? '' : 's'}</span>
+            <span className="sr-only"> — {sourceKindSentence(ev.sources)}</span>
+          </button>
+        )}
+      </div>
 
       {open && (
         <div className="mt-2 pl-1.5" data-how-knows>
+          {a?.how ? (
+            <HowNovaKnows how={a.how} />
+          ) : (<>
           {/* Analytics only: the population behind the numbers, counted and dated. What turns
               "18% up" from an assertion into a checkable statement about 1,284 real tickets. */}
           {a?.dataScope && (
@@ -106,9 +152,9 @@ export function EvidenceBlock({ turn, onViewSources, openSignal }: {
               return (
                 <li key={f.id}>
                   <p className="nova-t-body flex items-start gap-2 text-[var(--nova-ink)]">
-                    <span className="mt-[1px] flex-shrink-0 ask-text-sm text-[#12805C]" aria-hidden="true">✓</span>
+                    <span className="mt-[1px] flex-shrink-0 ask-text-sm text-[var(--nova-text-secondary)]" aria-hidden="true">✓</span>
                     <span className="min-w-0">
-                      {f.headline}
+                      {dense ? <RefText text={f.headline} onAsk={onAsk} /> : f.headline}
                       {f.inference && (
                         <span className="nova-ev-type ml-2" data-authority="inference">AI inference</span>
                       )}
@@ -119,23 +165,7 @@ export function EvidenceBlock({ turn, onViewSources, openSignal }: {
               );
             })}
           </ul>
-          {chips.length > 0 && (
-            <>
-              <p className="nova-t-label" style={{ marginTop: 12 }}>Sources</p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {chips.map((label) => (
-                  <button
-                    key={label}
-                    type="button"
-                    className="nova-src nova-src-btn"
-                    onClick={() => onViewSources(label)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          </>)}
         </div>
       )}
     </section>

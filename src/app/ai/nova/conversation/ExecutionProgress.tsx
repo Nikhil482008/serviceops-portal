@@ -30,14 +30,14 @@ export function ExecutionProgress({ steps, live, onRetry }: {
             className={`flex items-baseline gap-2 ask-text-sm ${
               s.status === 'done' ? 'text-[var(--nova-ink)]'
                 : s.status === 'active' ? 'text-[var(--nova-ink)]'
-                  : s.status === 'failed' ? 'text-[#8C2018]'
+                  : s.status === 'failed' ? 'text-[var(--nova-error)]'
                     : 'text-[var(--nova-ink-faint)]'}`}
             data-exec-step={s.status}
           >
             <span aria-hidden="true" className="w-3 flex-shrink-0 text-center ask-text-sm">
-              {s.status === 'done' ? <span className="text-[#12805C]">✓</span>
-                : s.status === 'active' ? <span className="nova-pulse inline-block size-[6px] rounded-full bg-[#3D8BD0] align-middle" />
-                  : s.status === 'failed' ? <TriangleAlert size={11} className="inline text-[#B98900]" />
+              {s.status === 'done' ? <span className="text-[var(--nova-text-secondary)]">✓</span>
+                : s.status === 'active' ? <span className="nova-pulse inline-block size-[6px] rounded-full bg-[var(--nova-action)] align-middle" />
+                  : s.status === 'failed' ? <TriangleAlert size={11} className="inline text-[var(--nova-warning)]" />
                     : '○'}
             </span>
             <span className={`min-w-0 ${s.status === 'active' ? 'nova-shimmer' : ''}`}>
@@ -55,7 +55,7 @@ export function ExecutionProgress({ steps, live, onRetry }: {
 
       {failed && (
         <div className="mt-2 pl-5" data-exec-failed>
-          <p className="nova-t-meta text-[#8C2018]">{failed.note}</p>
+          <p className="nova-t-meta text-[var(--nova-error)]">{failed.note}</p>
           <button
             type="button"
             disabled={!live}

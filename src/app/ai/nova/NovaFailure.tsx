@@ -31,10 +31,10 @@ export function NovaFailure({ turn, onRetry }: { turn: Turn; onRetry?: () => voi
   return (
     <section
       className={`nova-disc mt-4 rounded-lg border px-3.5 py-3 ${
-        stopped ? 'border-[var(--nova-rule)] bg-[#FAFBFC]' : 'border-[#F3D2D2] bg-[#FDF6F6]'}`}
+        stopped ? 'border-[var(--nova-rule)] bg-[var(--nova-surface-subtle)]' : 'border-[var(--nova-error-border)] bg-[var(--nova-error-tint)]'}`}
     >
       <p className={`flex items-start gap-2 ask-text-base ask-w-500 ${
-        stopped ? 'text-[var(--nova-ink)]' : 'text-[#B42318]'}`}
+        stopped ? 'text-[var(--nova-ink)]' : 'text-[var(--nova-error)]'}`}
       >
         {stopped
           ? <CircleStop size={15} className="mt-px flex-shrink-0 text-[var(--nova-ink-muted)]" />
@@ -58,7 +58,7 @@ export function NovaFailure({ turn, onRetry }: { turn: Turn; onRetry?: () => voi
           <button
             type="button"
             onClick={onRetry}
-            className="nova-btn inline-flex h-8 items-center gap-1.5 rounded border border-[#DFE5ED] bg-white px-3 ask-text-sm ask-w-500 text-[var(--nova-ink)] hover:border-[var(--nova-primary)]"
+            className="nova-btn inline-flex h-8 items-center gap-1.5 rounded border border-[var(--nova-border)] bg-white px-3 ask-text-sm ask-w-500 text-[var(--nova-ink)] hover:border-[var(--nova-primary)]"
           >
             <RotateCcw size={13} aria-hidden="true" /> Try again
           </button>

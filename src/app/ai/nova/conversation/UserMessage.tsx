@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Copy, Check, Pencil, Bookmark } from 'lucide-react';
 
 /* WHAT I SAID.
@@ -17,9 +17,15 @@ import { Copy, Check, Pencil, Bookmark } from 'lucide-react';
  * ⚠️ The identity is no longer on screen, so the visually-hidden heading is the ONLY thing left
  * telling a screen-reader user who is speaking. It is not decoration; do not remove it.
  */
-export function UserMessage({ question, onEditQuery }: {
+export function UserMessage({ question, icon, onEditQuery, onSavePrompt }: {
   question: string;
+  /** AN ACTION IS INPUT. Clicking one appends this turn — the label exactly as it was clicked,
+   *  with the action's own icon, so the thread records what the reader pressed rather than a
+   *  sentence nobody typed. */
+  icon?: ReactNode;
   onEditQuery: (question: string) => void;
+  /** Save this question to the prompt library. Absent where there is no library to save into. */
+  onSavePrompt?: (question: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -35,8 +41,11 @@ export function UserMessage({ question, onEditQuery }: {
     <div className="nova-msg nova-said-wrap">
       <h3 className="sr-only">You asked</h3>
 
-      <div className="nova-said-box">
-        <p className="nova-t-said">{question}</p>
+      <div className="nova-said-box" data-action={icon ? 'true' : undefined}>
+        <p className="nova-t-said">
+          {icon && <span className="nova-said-icon" aria-hidden="true">{icon}</span>}
+          {question}
+        </p>
       </div>
 
       {/* Under the box and aligned to its right edge — beside the thing they act on (law 8).
@@ -54,8 +63,11 @@ export function UserMessage({ question, onEditQuery }: {
           onClick={copy}
         />
         <MsgAction icon={<Pencil size={12} />} label="Edit query" onClick={() => onEditQuery(question)} />
-        {/* STUBBED. There is no prompt library to save into yet. */}
-        <MsgAction icon={<Bookmark size={12} />} label="Save prompt" onClick={() => {}} />
+        {/* The way a prompt enters the library: from beside the message it was asked in, prefilled,
+            never retyped. Only the reader's words can be saved — Nova's answer is not a prompt. */}
+        {onSavePrompt && (
+          <MsgAction icon={<Bookmark size={12} />} label="Save prompt" onClick={() => onSavePrompt(question)} />
+        )}
       </div>
     </div>
   );

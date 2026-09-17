@@ -1,5 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
 import type { FeedDiscovery } from '../turnModel';
+import { RefText } from './TechnicianBlocks';
 
 /* NOT VERIFIED — a limit on the answer, said out loud.
  *
@@ -8,13 +9,17 @@ import type { FeedDiscovery } from '../turnModel';
  * unverified detail does not make the whole answer unreliable, and a caveat dressed as a warning
  * banner would claim exactly that.
  */
-export function NovaVerificationNotice({ gap }: { gap: FeedDiscovery }) {
+export function NovaVerificationNotice({ gap, dense, onAsk }: {
+  gap: FeedDiscovery; dense?: boolean; onAsk?: (q: string) => void;
+}) {
   return (
     <div className="nova-caveat">
-      <TriangleAlert size={13} className="mt-[1px] flex-shrink-0 text-[#B98900]" aria-hidden="true" />
+      {/* CAUTION, not warning. Nothing has gone wrong — this is a claim the reader should weigh
+          before acting on it, and the palette has a family for exactly that. */}
+      <TriangleAlert size={13} className="nova-caveat-icon mt-[1px] flex-shrink-0" aria-hidden="true" />
       <p className="nova-caveat-body">
-        <span className="nova-t-label mr-2 align-middle text-[#8A6D1F]">Not verified</span>
-        {gap.headline}. {gap.detail}
+        <span className="nova-t-label mr-2 align-middle">Not verified</span>
+        {dense ? <RefText text={`${gap.headline}. ${gap.detail}`} onAsk={onAsk} /> : `${gap.headline}. ${gap.detail}`}
       </p>
     </div>
   );

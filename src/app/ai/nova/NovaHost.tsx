@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { AskAiOrb, type OrbState } from './AskAiOrb';
+import { type OrbState } from './NovaOrb';
+import { AskAiCore } from './AskAiCore';
 import { NovaDrawer, NOVA_EXIT_MS } from './NovaDrawer';
 import { NOVA_STAGE, NOVA_DUR, prefersReducedMotion, stageAt } from './novaMotion';
 import type { UserRole } from './novaSuggestions';
@@ -24,8 +25,10 @@ const DRAWER_ORB = 120; // and inside the drawer
  *  being animated, rather than a ref writing style behind React's back. */
 interface Flight { x: number; y: number; scale: number }
 
-export function NovaHost({ userRole, orbState, now }: {
+export function NovaHost({ userRole, onRoleChange, orbState, now }: {
   userRole: UserRole;
+  /** DEV ONLY — the dev-tools role switcher, for the demo page's own role state. */
+  onRoleChange?: (role: UserRole) => void;
   /** The drawer's state. The host does not decide it — a demo or, later, the conversation does. */
   orbState: OrbState;
   now?: Date;
@@ -38,12 +41,16 @@ export function NovaHost({ userRole, orbState, now }: {
   /* Attention is a fact about the DRAWER (is the caret in the composer, is a menu open) that the
      Core expresses. It lives here because the Core lives here. */
   const [attend, setAttend] = useState(false);
+  /* STILL while seated in the header — the drawer says when. */
+  const [still, setStill] = useState(false);
 
   const layerRef = useRef<HTMLDivElement | null>(null);
   const flightRef = useRef<Flight | null>(null);
   const fabRef = useRef<HTMLButtonElement | null>(null);
   const fabSlotRef = useRef<HTMLSpanElement | null>(null);
-  const drawerSlotRef = useRef<HTMLDivElement | null>(null);
+  const drawerSlotRef = useRef<HTMLElement | null>(null);
+  /* `flying` as a ref - see the re-seat observer below. */
+  const flyingRef = useRef<'none' | 'true' | 'exit'>('none');
   const timers = useRef<number[]>([]);
 
   const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
@@ -104,6 +111,27 @@ export function NovaHost({ userRole, orbState, now }: {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [open, closing, seat, seatDrawer]);
+
+  flyingRef.current = flying;
+
+  /* THE DRAWER RESIZES WITHOUT THE WINDOW DOING. The seat above is a measurement of the
+     slot, and the drawer widens on its own once an answer arrives - so a seat taken at the
+     opening width leaves the Core where the header marker USED to be, which is how it ended
+     up sitting on the conversation title. A ResizeObserver on the drawer is the missing
+     signal. No `data-flying`: the orb has not moved, its frame has, and animating a
+     correction reads as drift. Held off mid-flight so the observer's first callback - it
+     fires the moment you observe - cannot snap the opening flight to its destination. */
+  useEffect(() => {
+    if (!open || closing) return;
+    const frame = drawerSlotRef.current?.closest('.nova-drawer');
+    if (!frame || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => {
+      if (flyingRef.current !== 'none') return;
+      setFlight(seatDrawer());
+    });
+    ro.observe(frame);
+    return () => ro.disconnect();
+  }, [open, closing, seatDrawer]);
 
   const doOpen = useCallback(() => {
     if (open) return;
@@ -224,7 +252,7 @@ export function NovaHost({ userRole, orbState, now }: {
         onClick={open ? doClose : doOpen}
         aria-label="Ask AI"
         aria-expanded={open}
-        className="nova-fab fixed bottom-6 right-6 z-[10010] flex size-14 items-center justify-center rounded-full border border-[#E5E7EB] bg-white shadow-lg transition-shadow hover:shadow-xl"
+        className="nova-fab fixed bottom-6 right-6 z-[10010] flex size-14 items-center justify-center rounded-full border border-[var(--nova-border)] bg-white shadow-lg transition-shadow hover:shadow-xl"
         data-shrunk={shrunk ? 'true' : 'false'}
       >
         <span ref={fabSlotRef} className="block size-[34px]" aria-hidden="true" />
@@ -240,7 +268,9 @@ export function NovaHost({ userRole, orbState, now }: {
         now={now}
         onOrbSlotChange={moveOrb}
         onOrbState={setLiveOrb}
+        onOrbStill={setStill}
         onAttend={setAttend}
+        onRoleChange={onRoleChange}
       />
 
       {/* The one orb. Above the drawer so it is never clipped by it mid-flight, and
@@ -261,10 +291,11 @@ export function NovaHost({ userRole, orbState, now }: {
           ['--core-attend' as string]: attend ? '1' : '0',
         }}
       >
-        <AskAiOrb
+        <AskAiCore
           state={open && !closing ? (liveOrb ?? orbState) : 'dormant'}
           size={DRAWER_ORB}
           detail
+          still={still}
         />
       </div>
     </>

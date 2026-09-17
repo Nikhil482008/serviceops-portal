@@ -1,4 +1,5 @@
-/* The Ask AI sparkle, with the Gemini-style sheen.
+/* The Ask AI sparkle, with the Gemini-style sheen — in ink, with a band of silver, since the
+ * surface it opens went monochrome. (`--nova-glyph-sheen`, defined with Nova's ramp.)
  *
  * Drawn as a MASKED GRADIENT rather than an SVG with a gradient fill, and the reason is not
  * stylistic. To sweep light across a glyph you have to move the gradient, and an SVG
@@ -64,7 +65,7 @@ export function AskAiGlyph({ size = 20, active = false }: AskAiGlyphProps) {
         style={{
           width: size * 1.9,
           height: size * 1.9,
-          background: 'radial-gradient(circle, rgba(115,30,251,0.45) 0%, rgba(115,30,251,0) 70%)',
+          background: 'radial-gradient(circle, rgba(52,58,64,0.28) 0%, rgba(52,58,64,0) 70%)',
         }}
       />
       {/* The glyph. `background-size: 250%` gives the gradient room to travel; the keyframes move
@@ -74,7 +75,7 @@ export function AskAiGlyph({ size = 20, active = false }: AskAiGlyphProps) {
         style={{
           width: size,
           height: size,
-          background: 'var(--ai-gradient)',
+          background: 'var(--nova-glyph-sheen)',
           backgroundSize: '250% 100%',
           ...maskStyle,
         }}
