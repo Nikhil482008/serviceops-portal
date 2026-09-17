@@ -220,7 +220,13 @@ export type RequesterBlock =
   /* ── LEADERSHIP (CXO) blocks — numbers-first, every number from mockAnalytics ─────────── */
   /** A KPI strip, by set name (KPI_SETS in mockAnalytics). */
   | { w: 'kpis'; set: string }
-  /** One-line key-driver statement. `{{keys}}` resolve against VALUES. Max one per section. */
+  /** One-line key-driver statement. `{{keys}}` resolve against VALUES. Max one per section.
+   *
+   *  ⚠️ NOT FOR LEADERSHIP. A CXO answer's insight lives in its chart's InsightLine and nowhere
+   *  else — a callout beside a chart said the chart's own fact a second time, in a second colour
+   *  (CXO-02 printed the VPN 41% twice on one turn). The "so what" that used to follow the fact
+   *  is now the chart block's `soWhat`. This block survives for the TECHNICIAN's TEC-04 hold
+   *  note, which sits beside a card, not a chart, and duplicates nothing. */
   | { w: 'callout'; text: string }
   /** A chart inside a ChartFrame. `data` + `groupBy` resolve through `dataset()`; `kinds` is the
    *  chart-type menu (the frame keeps only the types valid for the data's shape); `drill` names
@@ -228,6 +234,15 @@ export type RequesterBlock =
   | { w: 'chart'; id: string; data: string; title: string; groupBy?: Array<{ id: string; label: string }>;
       kinds?: Array<'bars' | 'grouped' | 'line' | 'table' | 'gauge' | 'timeline' | 'list' | 'matrix'>;
       drill?: { case: string }; export?: string;
+      /** THE CONSEQUENCE, appended to the InsightLine as its second sentence.
+       *
+       *  The dataset's headline says WHAT IS TRUE; this says what follows from it — the clause
+       *  the blue-rail callout used to carry ("fix that and we're back above target"). Authored
+       *  here rather than derived, because a consequence is a judgement about the business and
+       *  `insightOf` only reads numbers. NEVER restate the fact: the reader has just read it one
+       *  sentence earlier, and the whole reason the callout went is that it said things twice.
+       *  Ends with a full stop; the frame joins it with a single space. */
+      soWhat?: string;
       /** Technician: the reduced toolbar (group by · table only). */
       compact?: boolean;
       /** Technician: a named row on the chart OPENS its record — a navigate action. */

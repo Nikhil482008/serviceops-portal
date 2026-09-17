@@ -458,6 +458,47 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   suggestion row, a use-case row, a follow-up pill and the composer all call it), split
   volatile/stable contexts, and `MIN_INVESTIGATION_MS = 2400` is a floor an early answer WAITS
   for. Turn state lives above the drawer so an investigation outlives the view.
+- **EVERY CHART IS A `ChartFrame`, and its header is TITLE · CHART TYPE · ⋯.** One named control
+  beside the menu, and it is the one that redraws the picture; "Add to dashboard" is the ⋯ menu's
+  FIRST item (it had the header, and it is a thing most readers do once). The menu is
+  `Add to dashboard · Full screen · Export ▸ · Regenerate`, then `Data filter` — group-by stayed
+  where it lived rather than climbing into the header. **Regenerate re-runs the chart** (the
+  dataset is re-resolved through a nonce the memo depends on); it used to CYCLE chart types
+  without naming the next one, which is what the named menu exists to stop.
+  ⚠️ **THE TYPE MENU OFFERS ONLY WHAT THE DATA SHAPE SUPPORTS** (`KINDS_FOR`), so a gauge is
+  never offered as a timeline — and nothing is ever offered as a pie, at any shape.
+  ⚠️ **EVERY WAY OUT OF A MENU RETURNS THE CARET** to the control that opened it. `useDismiss` is
+  handed the focus-restoring closer, not the bare state setter; passing the setter is how Escape
+  came to close a menu and drop focus on `<body>`.
+- **THE INSIGHT LINE (`insightOf` in `mockAnalytics.ts` → `InsightLine`).** Every chart's sentence
+  is `{state, severity, sentence}`: a 3px rail in the severity's colour, a wash fading out at 60%,
+  and a bold 1–2 word verdict before the explanation.
+  ⚠️ **THE SEVERITY IS COMPUTED FROM THE DATA, never painted per case** — a gauge against its
+  target, a ranking's top share against 35% ("Concentrated"), a volume move against ±2% and ±25%.
+  Move `SLA.compliance` above `SLA.target` and the same insight turns "On track" and green with
+  no edit outside the insight layer. A table of "CXO-02's gauge is red" would be a promise someone
+  has to keep.
+  ⚠️ **NEUTRAL IS GREY AND NEUTRAL IS THE COMMON CASE.** Most charts are registers — which tickets,
+  which updates, which incidents — and a module that colours every sentence has stopped
+  distinguishing anything. No chart is green in the seed data, because nothing in it is winning.
+  ⚠️ **THE SENTENCE IS THE DATASET'S `headline`, used in four places** — the insight, the frame's
+  accessible name, the dashboard tile and the PDF subtitle. The text column is **268px**: about
+  **80 characters** for two lines at the default 462px drawer, bold state and em dash included.
+  Measure it in a browser; word-wrap decides, not arithmetic. An 81-character line fits where an
+  82-character one does not, because the break lands on a word.
+  ⚠️ **THE INSIGHT LINE IS THE ONLY PLACE A LEADERSHIP INSIGHT LIVES.** A blue-rail callout used
+  to sit between the cards saying the same thing a second time — CXO-02 printed "VPN alone is 41%
+  of breaches" twice on one turn, once in grey and once in blue. The section order is
+  **Headline → KpiStrip → ChartFrame → Breakdown → Drill**, with no callout in it, and the clause
+  that used to follow the fact is the chart block's **`soWhat`**, rendered as the insight's second
+  sentence: *"Concentrated — VPN alone is 41% of breaches. Fixing it puts us back above target."*
+  The fact is said ONCE, the consequence is AUTHORED (a judgement about the business; `insightOf`
+  only reads numbers), and the consequence NEVER repaints the rail. A clause with no room in two
+  lines is dropped, or — when it is about the answer rather than the chart — becomes the headline's
+  supporting line (`payload.text`); it is never allowed to wrap to a third line.
+  ⚠️ **`{ w: 'callout' }` IS THE TECHNICIAN'S.** It survives for TEC-04's hold note, which sits
+  beside a card rather than a chart and duplicates nothing. A leadership script must not author
+  one; `cxo7.mjs` walks the registry and fails if any does.
 - **THE ORB — `components/ui/siri-orb` is the one construction, and `nova/NovaOrb.tsx` is the
   state map over it.** Six conic gradients over a single registered `--orb-angle`, at multiples
   ×2 ×2 ×-3 ×2 ×1 ×-2 (two negative), so the six only return to their starting arrangement when
@@ -537,7 +578,7 @@ A high-fidelity UI prototype of the Motadata ServiceOps ITSM product — list pa
   is the same rule stated as a COUNT. The mode is reported up (`ActionDock`'s `onMode`) and held
   in the drawer BESIDE the option-set key, so a new turn's fresh dock cannot be read as folded for
   the one frame before its effect lands.
-  ⚠️ **THE CHARTFRAME TOOLBAR IS NOT THE DOCK'S.** Chart type, group-by, expand, regenerate and
+  ⚠️ **THE CHARTFRAME HEADER IS NOT THE DOCK'S.** Chart type, group-by, expand, regenerate and
   add-to-dashboard manipulate the visual in place; a drill is inseparable from the mark that was
   pressed. Same for a Drill section's breadcrumb. None of them is a conversation action and none
   belongs in a list under the answer.

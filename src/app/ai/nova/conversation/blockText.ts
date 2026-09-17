@@ -49,6 +49,13 @@ export function blocksToText(a: AnswerObject): string[] {
       case 'callout':
         out.push(plainRefs(b.text));
         break;
+      /* THE CONSEQUENCE, which the callout used to contribute to the clipboard before it merged
+         into the chart's insight line. The authored clause only — resolving the dataset here to
+         copy the FACT as well would read the default grouping, and the reader may have changed
+         it on screen; a copy that quietly disagrees with the card is worse than a short one. */
+      case 'chart':
+        if (b.soWhat) out.push(plainRefs(b.soWhat));
+        break;
       case 'status': {
         /* The requester's status answer IS the three sentences - without this the clipboard got
            the turn's title and nothing else. The ref is resolved by the caller's block, so a

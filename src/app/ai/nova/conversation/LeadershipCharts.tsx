@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowDown, ArrowUp, BarChart3, Check, ChevronLeft, ChevronRight, Download, Filter, Info,
-  LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, X,
+  ArrowDown, ArrowUp, BarChart3, Check, ChevronDown, ChevronLeft, ChevronRight, Download, Filter,
+  Info, LayoutDashboard, Maximize2, Minimize2, MoreHorizontal, RotateCw, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  dataset, freshness, kpis, PROBLEMS, SECURITY, type ChartData, type KpiSpec,
+  dataset, freshness, insightOf, kpis, PROBLEMS, SECURITY,
+  type ChartData, type Insight, type KpiSpec,
 } from '../mockAnalytics';
 import { prefersReducedMotion } from '../novaMotion';
 import { addTile, removeTile, useTicketStore, type DashboardTile } from '../mockTickets';
@@ -901,15 +902,16 @@ function FlyoutRow({ id, icon, label, open, onOpen, children }: {
  * what else was on offer to look at one branch of it. A flyout keeps both on screen, which is
  * what the product's own menus do.
  */
-function ChartMenu({ kinds, kind, onKind, groups, group, onGroup, onExpand, expanded, onExportImage, onExportCsv, onExportPdf, onEmailPdf }: {
-  kinds: Array<{ id: string; label: string }>;
-  kind: string;
-  onKind: (id: string) => void;
+function ChartMenu({ groups, group, onGroup, onExpand, expanded, onAddToDashboard, onRegenerate, onExportImage, onExportCsv, onExportPdf, onEmailPdf }: {
   groups: Array<{ id: string; label: string }>;
   group: string | undefined;
   onGroup: (id: string) => void;
   onExpand: () => void;
   expanded: boolean;
+  /** FIRST ITEM. It had the header until Chart type took it — one click further in, not buried. */
+  onAddToDashboard: () => void;
+  /** Re-run the chart: re-resolve the dataset and redraw. */
+  onRegenerate: () => void;
   onExportImage: () => void;
   onExportCsv: () => void;
   onExportPdf: () => void;
@@ -917,22 +919,25 @@ function ChartMenu({ kinds, kind, onKind, groups, group, onGroup, onExpand, expa
 }) {
   const [open, setOpen] = useState(false);
   const [fly, setFly] = useState<Flyout | null>(null);
-  const close = useCallback(() => { setOpen(false); setFly(null); }, []);
-  const ref = useDismiss(open, close);
-  const hasKinds = kinds.length > 1;
+  const btn = useRef<HTMLButtonElement | null>(null);
+  /* THE FOCUS COMES BACK — from Escape and from a click away as much as from a choice, which is
+     why the hook below is handed THIS and not the bare setter. A menu that closes leaving the
+     caret nowhere has taken the keyboard away from whoever opened it. */
+  const shut = useCallback(() => { setOpen(false); setFly(null); btn.current?.focus(); }, []);
+  const ref = useDismiss(open, shut);
   const hasGroups = groups.length > 1;
 
   const choice = (id: string, label: string, active: boolean, pick: () => void) => (
     <button key={id} type="button" role="menuitemradio" aria-checked={active}
       className={`${MENU_ITEM} ${active ? 'ask-w-500 text-[var(--nova-primary)]' : ''}`}
-      data-menu-choice={id} onClick={() => { pick(); close(); }}>
+      data-menu-choice={id} onClick={() => { pick(); shut(); }}>
       <span className="flex-1">{label}</span>
       {active && <Check size={13} aria-hidden="true" className="text-[var(--nova-primary)]" />}
     </button>
   );
   const act = (attr: string, label: string, run: () => void) => (
     <button type="button" role="menuitem" className={MENU_ITEM} data-export={attr}
-      onClick={() => { run(); close(); }}>{label}</button>
+      onClick={() => { run(); shut(); }}>{label}</button>
   );
 
   return (
@@ -944,39 +949,35 @@ function ChartMenu({ kinds, kind, onKind, groups, group, onGroup, onExpand, expa
         aria-haspopup="menu"
         aria-expanded={open}
         className="nova-btn nova-btn-icon nova-hit flex size-7 items-center justify-center rounded"
+        ref={btn}
         data-chart-menu-btn
-        onClick={() => (open ? close() : setOpen(true))}
+        onClick={() => (open ? shut() : setOpen(true))}
       >
         <MoreHorizontal size={14} aria-hidden="true" />
       </button>
       {open && (
         <div role="menu" aria-label="Visual controls" data-chart-menu
-          className="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-[var(--nova-rule)] bg-white py-1 shadow-lg">
-          {hasKinds && (
-            <FlyoutRow id="kind" open={fly === 'kind'} onOpen={setFly}
-              icon={<BarChart3 size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />}
-              label="Chart type">
-              {kinds.map((k) => choice(k.id, k.label, k.id === kind, () => onKind(k.id)))}
-            </FlyoutRow>
-          )}
-          {hasGroups && (
-            <FlyoutRow id="filter" open={fly === 'filter'} onOpen={setFly}
-              icon={<Filter size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />}
-              label="Data filter">
-              {groups.map((g) => choice(g.id, g.label, g.id === group, () => onGroup(g.id)))}
-            </FlyoutRow>
-          )}
-          {/* Hovering a plain row must close whichever panel is open, or a flyout hangs beside a
-              row it does not belong to. */}
+          className="absolute right-0 top-full z-30 mt-1 min-w-[210px] rounded-[12px] border border-[var(--nova-rule)] bg-white py-1 shadow-lg">
+          {/* ── 1 · the one that moved off the header ──────────────────────────────────────
+              FIRST, so trading places with Chart type cost it one click and not its standing.
+              Hovering a plain row closes whichever flyout is open, or a panel hangs beside a row
+              it does not belong to. */}
           <div onMouseEnter={() => setFly(null)}>
+            <button type="button" role="menuitem" className={MENU_ITEM} data-menu-dashboard
+              onClick={() => { onAddToDashboard(); shut(); }}>
+              <LayoutDashboard size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />
+              Add to dashboard
+            </button>
+            <div className="my-1 border-t border-[var(--nova-rule)]" aria-hidden="true" />
+            {/* ── 2 · full screen ──────────────────────────────────────────────────────── */}
             <button type="button" role="menuitem" className={MENU_ITEM} data-menu-expand
-              onClick={() => { onExpand(); close(); }}>
+              onClick={() => { onExpand(); shut(); }}>
               {expanded ? <Minimize2 size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />
                 : <Maximize2 size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />}
               {expanded ? 'Exit full screen' : 'Full screen'}
             </button>
-            <div className="my-1 border-t border-[var(--nova-rule)]" aria-hidden="true" />
           </div>
+          {/* ── 3 · export ───────────────────────────────────────────────────────────────── */}
           <FlyoutRow id="export" open={fly === 'export'} onOpen={setFly}
             icon={<Download size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />}
             label="Export">
@@ -986,8 +987,141 @@ function ChartMenu({ kinds, kind, onKind, groups, group, onGroup, onExpand, expa
             <div className="my-1 border-t border-[var(--nova-rule)]" aria-hidden="true" />
             {act('email', 'Email as PDF', onEmailPdf)}
           </FlyoutRow>
+          <div onMouseEnter={() => setFly(null)}>
+            {/* ── 4 · regenerate ─────────────────────────────────────────────────────────
+                RE-RUNS THE CHART — re-resolves the dataset and redraws it. It used to CYCLE to
+                the next chart type without naming it, which is a control whose outcome the
+                reader could not predict; that job belongs to the named menu in the header now,
+                and this one does what its word says. */}
+            <button type="button" role="menuitem" className={MENU_ITEM} data-menu-regenerate
+              onClick={() => { onRegenerate(); shut(); }}>
+              <RotateCw size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />
+              Regenerate
+            </button>
+            {/* ── and the group-by, which STAYS WHERE IT LIVED. It is not a header control: the
+                header holds one named thing, and which cut of the data a chart shows is a
+                property of the chart rather than an action on it. */}
+            {hasGroups && <div className="my-1 border-t border-[var(--nova-rule)]" aria-hidden="true" />}
+          </div>
+          {hasGroups && (
+            <FlyoutRow id="filter" open={fly === 'filter'} onOpen={setFly}
+              icon={<Filter size={13} aria-hidden="true" className="text-[var(--nova-ink-muted)]" />}
+              label="Data filter">
+              {groups.map((g) => choice(g.id, g.label, g.id === group, () => { onGroup(g.id); }))}
+            </FlyoutRow>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** CHART TYPE — the header's one named control.
+ *
+ * It used to be a row inside the ••• menu, two hovers deep, beside an export submenu and a
+ * full-screen toggle. Changing how a picture is drawn is the thing a reader reaches for most
+ * often on a chart and the only one that changes the picture itself; "Add to dashboard" — which
+ * had the header — is something most readers do once, if ever. So they traded places.
+ *
+ * The menu lists only the types this DATA SHAPE supports (`KINDS_FOR`), so a gauge is never
+ * offered as a timeline and nothing is ever offered as a pie — this module has none, at any
+ * shape. The current type carries the check.
+ */
+function ChartTypeMenu({ kinds, kind, onKind, disabled }: {
+  kinds: Array<{ id: string; label: string }>;
+  kind: string;
+  onKind: (id: string) => void;
+  /** "Show as table" is on for the whole turn — the type is not this frame's to choose. */
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const btn = useRef<HTMLButtonElement | null>(null);
+  /* EVERY WAY OUT ENDS IN THE SAME PLACE. Escape, a click away, a choice made — all of them put
+     the caret back on the button that opened the menu. The hook is handed THIS, not the bare
+     setter: dismissing by keyboard used to drop focus on the document body. */
+  const shut = useCallback(() => { setOpen(false); btn.current?.focus(); }, []);
+  const ref = useDismiss(open, shut);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        ref={btn}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-disabled={disabled || undefined}
+        className="nova-chart-type"
+        data-chart-type-btn
+        title="Chart type"
+        onClick={() => { if (disabled) return; if (open) shut(); else setOpen(true); }}
+      >
+        <BarChart3 size={15} strokeWidth={1.75} aria-hidden="true" />
+        <span>Chart type</span>
+        <ChevronDown size={12} strokeWidth={2} aria-hidden="true" />
+      </button>
+      {open && (
+        <div role="menu" aria-label="Chart type" data-chart-type-menu
+          className="absolute right-0 top-full z-30 mt-1 min-w-[180px] rounded-[12px] border border-[var(--nova-rule)] bg-white py-1 shadow-lg">
+          {kinds.map((k) => (
+            <button key={k.id} type="button" role="menuitemradio" aria-checked={k.id === kind}
+              className={`${MENU_ITEM} ${k.id === kind ? 'ask-w-500 text-[var(--nova-primary)]' : ''}`}
+              data-menu-choice={k.id}
+              onClick={() => { onKind(k.id); shut(); }}>
+              <span className="flex-1">{k.label}</span>
+              {k.id === kind && <Check size={13} aria-hidden="true" className="text-[var(--nova-primary)]" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** THE INSIGHT LINE — what the picture means, and how worried to be about it.
+ *
+ * It was a bare sentence under the visual, in the same ink as everything else, and it read as a
+ * caption. A caption is a thing you skip. What it actually holds is the reading of the chart,
+ * and the reading has a temperature: a compliance miss and a list of last week's updates are not
+ * the same kind of sentence and should not look the same.
+ *
+ * So: a 3px rail in the severity's colour, a wash that fades out by 60% so the words sit on
+ * white where they are read, and a bold two-word lead that says the verdict before the
+ * explanation — the same bold-lead-in the prose lines and the changed-rows use.
+ *
+ * ⚠️ THE COLOUR IS NOT A STYLE CHOICE. `insightOf` computes it from the dataset's own numbers;
+ * this component only draws what it is handed. Nothing here knows which case it is in.
+ * ⚠️ NEUTRAL IS THE COMMON CASE and it is GREY. Most charts are registers, and a module that
+ * paints every sentence has stopped distinguishing anything.
+ *
+ * ── THE ONLY PLACE AN INSIGHT LIVES ─────────────────────────────────────────────────────────
+ * A leadership answer used to carry a second one: a blue-rail callout between the cards. On
+ * CXO-02 the two said the same thing — "VPN alone is 41% of breaches" printed twice on one
+ * turn, in two colours, one of them claiming an urgency the data had not earned. So the
+ * callout went and its clause came here:
+ *
+ *     <bold state> — <the dataset's fact>. <the chart block's authored `soWhat`>
+ *
+ * The fact is said ONCE, in the insight's own words, and the consequence follows it. The rail
+ * keeps the severity `insightOf` computed; a consequence, however urgent its wording, does not
+ * repaint it. The pair must still read in two lines at the drawer's width — where it would not,
+ * the consequence was dropped rather than allowed to wrap (see HANDOFF).
+ */
+function InsightLine({ insight, soWhat, children }: {
+  insight: Insight;
+  /** The authored consequence — the clause the blue-rail callout used to carry. */
+  soWhat?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="nova-insight" data-insight data-severity={insight.severity}>
+      <p className="nova-insight-text" data-chart-summary>
+        <b className="nova-insight-state" data-insight-state>{insight.state}</b>
+        {' — '}
+        <span data-insight-sentence>{insight.sentence}</span>
+        {/* THE FACT GETS ITS FULL STOP ONLY WHEN SOMETHING FOLLOWS IT. One sentence needs no
+            terminator to be read as finished; two run together without one. */}
+        {soWhat && <>{'. '}<span data-insight-sowhat>{soWhat}</span></>}
+      </p>
+      {children}
     </div>
   );
 }
@@ -1084,7 +1218,15 @@ export function ChartFrame({ block, segment, forceTable, onAsk, compact, onPickR
   const [groupBy, setGroupBy] = useState<string | undefined>(segment ?? block.groupBy?.[0]?.id);
   /* Subscribed to the store: a technician dataset reflects this session's changes. */
   const store = useTicketStore();
-  const data = useMemo(() => dataset(block.data, groupBy), [block.data, groupBy, store]);
+  /* REGENERATE re-runs the chart: the dataset is re-resolved and the visual redrawn. Bumping a
+     nonce the memo depends on is what makes that a real re-run rather than a replayed animation
+     over a cached object — a technician dataset reads the live store, and re-running it after a
+     mutation is the whole point of the control. */
+  const [rerun, setRerun] = useState(0);
+  const data = useMemo(() => dataset(block.data, groupBy), [block.data, groupBy, store, rerun]);
+  /* WHAT THE PICTURE MEANS, and how worried to be — computed from this dataset's own numbers.
+     See mockAnalytics' insight layer; nothing here decides a colour. */
+  const insight: Insight | null = useMemo(() => insightOf(data, block.data), [data, block.data]);
   const kinds = (block.kinds ?? KINDS_FOR[data.shape]).filter((k) => KINDS_FOR[data.shape].includes(k));
   const [kind, setKind] = useState<Kind>(kinds[0]);
   const [anim, setAnim] = useState(0);
@@ -1161,66 +1303,66 @@ export function ChartFrame({ block, segment, forceTable, onAsk, compact, onPickR
           THE HEADER SITS ON THE TINT and the visual below it on white — the product's own card
           shape (`.nova-card-head` does the same for the draft card), and it is what makes a
           chart read as a titled object rather than as a caption with a picture under it. */}
+      {/* TITLE · CHART TYPE · ⋯ — the same three on every frame, compact ones included.
+          ONE NAMED CONTROL beside the menu, and it is the one that changes the picture. "Add to
+          dashboard" had this place and is now the ⋯ menu's first item: it is a thing most readers
+          do once, and it was sitting where the thing they do most often belongs. */}
       <div className="nova-chart-head" data-chart-toolbar>
         <p className="nova-chart-title nova-t-label">{block.title}</p>
-        {!compact && (
-          <div className="relative">
-            <button type="button" aria-haspopup="dialog" aria-expanded={dash === 'pick'}
-              className="nova-btn nova-hit nova-tertiary" onClick={() => setDash((d) => (d === 'pick' ? 'closed' : 'pick'))}
-              title="Add to dashboard" data-add-dashboard>
-              <LayoutDashboard size={12} aria-hidden="true" />
-              {/* THE WORDS GO FIRST WHEN THE COLUMN IS NARROW, not the button. The glyph and its
-                  tooltip carry it, and the control keeps its place and its hit area. */}
-              <span className="nova-chart-addlabel">Add to dashboard</span>
-            </button>
-            {dash === 'pick' && (
-              <AddToDashboard
-                defaultTitle={block.title}
-                onCancel={() => setDash('closed')}
-                onAdd={(dashboardId, title) => {
-                  const d = addTile(dashboardId, {
-                    title, headline: data.headline, freshness: freshness(data.n),
-                    chart: { data: block.data, groupBy, kind: effKind },
-                  });
-                  setDash('closed');
-                  setAdded(d?.name ?? null);
-                }}
-              />
-            )}
-          </div>
-        )}
-        {/* ⚠️ THE MENU IS THE CXO CARD'S. The technician's frame keeps the pills below — see
-            PillRow — because that reorganisation was scoped to CXO. */}
-        {!compact && (
-          <ChartMenu
+        {kinds.length > 1 && (
+          <ChartTypeMenu
             kinds={kinds.map((k) => ({ id: k, label: KIND_LABEL[k] }))}
             kind={effKind}
             onKind={pickKind}
+            /* The turn's ••• put every frame into its table; the type is not this frame's
+               to choose until that is off, and a control that silently does nothing is worse
+               than one that says it cannot. */
+            disabled={forceTable}
+          />
+        )}
+        <div className="relative">
+          <ChartMenu
             groups={block.groupBy ?? []}
             group={groupBy}
             onGroup={setGroupBy}
             onExpand={() => setExpanded((v) => !v)}
             expanded={expanded}
+            onAddToDashboard={() => setDash('pick')}
+            onRegenerate={() => { setRerun((r) => r + 1); setAnim((a) => a + 1); }}
             onExportImage={() => exportImage(frameRef.current, `${block.export?.replace(/\.csv$/, '') ?? block.id}.png`)}
             onExportCsv={() => downloadCsv(block.export ?? `${block.id}.csv`, toCsv(toTable(data)))}
             onExportPdf={() => exportPdf(frameRef.current, block.title, data.headline, freshness(data.n))}
             onEmailPdf={() => emailPdf(frameRef.current, block.title, data.headline, freshness(data.n))}
           />
-        )}
+          {/* THE SAME POPOVER, launched from the menu item instead of a header button. */}
+          {dash === 'pick' && (
+            <AddToDashboard
+              defaultTitle={block.title}
+              onCancel={() => setDash('closed')}
+              onAdd={(dashboardId, title) => {
+                const d = addTile(dashboardId, {
+                  title, headline: data.headline, freshness: freshness(data.n),
+                  chart: { data: block.data, groupBy, kind: effKind },
+                });
+                setDash('closed');
+                setAdded(d?.name ?? null);
+              }}
+            />
+          )}
+        </div>
       </div>
 
       <div className="nova-chart-body">
         {/* THE TECHNICIAN'S CONTROLS, UNCHANGED. Every option on screen, the chosen one filled —
             the right trade at a technician's density, and the one the CXO card moved into its
             menu. Out of scope here by instruction, and the same component either way. */}
-        {compact && (
-          <div className="mt-1.5 space-y-1">
-            <PillRow
-              label="Chart type"
-              options={kinds.map((k) => ({ id: k, label: KIND_LABEL[k] }))}
-              active={effKind}
-              onPick={pickKind}
-            />
+        {/* GROUP BY STAYS WHERE IT LIVED — in the chart, on a compact frame. The Chart-type
+            row that used to sit above it is gone: it is the header's named control now, and two
+            ways to pick a chart type on one card is one too many.
+            ⚠️ NO SCRIPT SETS `compact` — this branch renders on no turn in the product today.
+            It is kept, and kept aligned, so that whenever one does, the rules hold. */}
+        {compact && (block.groupBy?.length ?? 0) > 1 && (
+          <div className="mt-1.5">
             <PillRow
               label="Group by"
               options={(block.groupBy ?? []).map((g) => ({ id: g.id, label: g.label }))}
@@ -1246,24 +1388,14 @@ export function ChartFrame({ block, segment, forceTable, onAsk, compact, onPickR
         {/* ── LINE 2 · the visual, which is what the card is for ─────────────────────────── */}
         <div className="mt-2">{body}</div>
 
-        {/* ── LINE 3 · what it MEANS, and the way to what built it ─────────────────────────
+        {/* ── LINE 3 · WHAT IT MEANS, with a rail saying how worried to be ─────────────────
             `data.headline` is the dataset's own one-line reading, and it was already on this card
             — as the frame's aria-label, which only a screen reader ever met. Printed here it is
-            the sentence the eye lands on after the picture: visual → what it means.
-            The technician's frame keeps its freshness line instead, as it always had. */}
-        {compact ? (
-          <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 ask-text-xs text-[var(--nova-ink-faint)]" data-freshness>
-            <span>{freshness(data.n)}</span>
-            {block.export && (
-              <button type="button" className="nova-btn nova-hit nova-tertiary" onClick={() => downloadCsv(block.export!, toCsv(toTable(data)))}>
-                <Download size={11} aria-hidden="true" />
-                Export
-              </button>
-            )}
-          </p>
-        ) : (
-          <div className="nova-chart-foot" data-chart-foot>
-            <p className="nova-chart-summary" data-chart-summary>{data.headline}</p>
+            the sentence the eye lands on after the picture: visual → what it means → how bad.
+            A dataset with nothing to say renders NO line: an empty rail is a verdict about
+            nothing. */}
+        {insight && (
+          <InsightLine insight={insight} soWhat={block.soWhat}>
             {added && (
               <span className="inline-flex flex-shrink-0 items-center gap-1 ask-text-xs text-[var(--nova-success)]" role="status" data-added>
                 <Check size={11} aria-hidden="true" />
@@ -1272,7 +1404,7 @@ export function ChartFrame({ block, segment, forceTable, onAsk, compact, onPickR
               </span>
             )}
             <ChartInfo dims={chartDimensions(data)} basis={freshness(data.n)} />
-          </div>
+          </InsightLine>
         )}
       </div>
 

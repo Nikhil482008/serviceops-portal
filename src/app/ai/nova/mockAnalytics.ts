@@ -5,7 +5,7 @@ import { technicianDataset } from './mockTickets';
  * figures verbatim, everything else is DERIVED from them by a rule written beside it, and the
  * scripts author `{{keys}}` that resolve against `VALUES` rather than typing numerals. That is
  * what keeps seven cases internally consistent — 27 breaches is 27 breaches in the KPI strip,
- * the gauge, the ranked bars, the drill table and the callout, because there is one 27.
+ * the gauge, the ranked bars, the drill table and the insight line, because there is one 27.
  *
  * `checkSums()` is the self-audit the suite runs: categories sum to the monthly totals,
  * breaches by service/team/priority each sum to 27, teams sum to June, VPN = 11/27 = 41%.
@@ -333,7 +333,8 @@ export const VALUES: Record<string, string> = {
   teamsAffected: String(Math.max(...PROBLEMS.map((p) => p.teams))),
   vpnProblemHours: String(PROBLEMS[0].hours),
   topTwoTickets: String(PROBLEMS[0].tickets + PROBLEMS[1].tickets),
-  /* 117 hours a quarter ÷ ~130 productive hours per FTE-quarter — the assumption the callout states. */
+  /* 117 hours a quarter ÷ ~130 productive hours per FTE-quarter — the assumption CXO-06/savings
+     states under its headline, where the FTE figure it qualifies is printed. */
   fte: (sum(PROBLEMS.map((p) => p.hours)) / 130).toFixed(1),
   fteHoursAssumed: '130',
   hrLast4: String(hrLast4), hrPrev4: String(hrPrev4),
@@ -425,14 +426,19 @@ export function dataset(key: string, groupBy?: string): ChartData {
     case 'vpnDaily':
       return { shape: 'trend', x: VPN_DAILY.map((_, i) => String(i + 1)), series: [{ name: 'VPN tickets', values: [...VPN_DAILY] }],
         annotate: { i: 2, text: 'Password policy changed · 3 Jun' }, n: vpnCat.june,
-        headline: 'Daily VPN tickets tripled in the five days after the 3 June password-policy change' };
+        headline: 'VPN tickets tripled in the five days after the 3 June policy change' };
     case 'breachesByTeam':
       return { shape: 'ranking', rows: SLA.byTeam.map((t) => ({ label: t.id, value: t.n })), unit: 'breaches',
         n: SLA.breaches, headline: `Network carries ${VALUES.networkBreaches} of the ${VALUES.breaches} breaches` };
     case 'sla':
       return { shape: 'gauge', value: SLA.compliance, target: SLA.target,
         trend: { x: [...SLA.trendMonths], values: [...SLA.trend] }, n: SLA.bound,
-        headline: `SLA compliance is ${VALUES.compliance}% against a ${VALUES.target}% target, the first month below target since March` };
+        /* CONDITIONAL, because the second clause is a CLAIM about the first. "The first month
+           below target since March" is only true while the number is below it — and the insight
+           layer's whole argument is that moving the data moves what the card says. */
+        headline: SLA.compliance < SLA.target
+          ? `SLA compliance is ${VALUES.compliance}% against ${VALUES.target}%, first month under since March`
+          : `SLA compliance is ${VALUES.compliance}% against ${VALUES.target}%, back above target` };
     case 'breaches': {
       const src = groupBy === 'team' ? SLA.byTeam : groupBy === 'priority' ? SLA.byPriority : SLA.byService;
       return { shape: 'ranking', rows: src.map((s) => ({ label: s.id, value: s.n })), unit: 'breaches',
@@ -456,7 +462,7 @@ export function dataset(key: string, groupBy?: string): ChartData {
         badge: v.breaches ? `${v.breaches} breach${v.breaches === 1 ? '' : 'es'}` : undefined,
       }));
       return { shape: 'ranking', rows, unit: metric === 'waiting' ? 'tickets waiting' : metric === 'wait' ? 'days' : 'breaches',
-        n: sum(VENDORS.map((v) => v.waiting)), headline: `TelcoNet is the biggest external drag: ${VALUES.telconetWaiting} tickets waiting, ${VALUES.telconetWait} days on average` };
+        n: sum(VENDORS.map((v) => v.waiting)), headline: `TelcoNet is the biggest drag: ${VALUES.telconetWaiting} tickets waiting, ${VALUES.telconetWait} days average` };
     }
     case 'vendorTickets': {
       const v = VENDORS.find((x) => x.id === groupBy) ?? telco;
@@ -478,7 +484,7 @@ export function dataset(key: string, groupBy?: string): ChartData {
       const rows = [...REGULATORY].map((r) => ({ ...r, windowDays: REPORTING_WINDOW_DAYS }))
         .sort((a, b) => (groupBy === 'owner' ? a.owner.localeCompare(b.owner) : a.dueDays - b.dueDays));
       return { shape: 'deadlines', rows, n: REGULATORY.length,
-        headline: `Four regulatory-reportable tickets are open and ${REGULATORY[0].ref} is already past its window` };
+        headline: `Four reportable tickets open; ${REGULATORY[0].ref} is already past its window` };
     }
     case 'securityTimeline':
       return { shape: 'timeline', months: [...SECURITY.months],
@@ -494,7 +500,10 @@ export function dataset(key: string, groupBy?: string): ChartData {
       return { shape: 'matrix', xLabel: 'Effort to fix →', yLabel: 'Recurrence (tickets, 90 days) ↑',
         points: PROBLEMS.map((p) => ({ id: p.id, label: p.name, x: PROBLEM_EFFORT[p.id], y: p.tickets, size: p[sizeKey],
           sizeLabel: `${p[sizeKey]} ${sizeKey === 'hours' ? 'hours' : sizeKey}` })),
-        n: sum(PROBLEMS.map((p) => p.tickets)), headline: 'The VPN cluster is the fix-now problem: highest recurrence, lowest effort' };
+        /* 72 chars ran to three lines once "Concentrated — " was in front of it; the matrix's own
+           axes are labelled "Recurrence" and "Effort to fix", so "cluster" was the word carrying
+           the least. */
+        n: sum(PROBLEMS.map((p) => p.tickets)), headline: 'VPN is the fix-now problem: highest recurrence, lowest effort' };
     }
     case 'problemHours':
       return { shape: 'ranking', rows: PROBLEMS.map((p) => ({ label: p.name, value: p.hours })), unit: 'hours a quarter',
@@ -646,4 +655,162 @@ export function checkSums(): Record<string, boolean> {
     hr: hrLast4 === 86 && hrPrev4 === 70 && HR.series[0][7] >= 2 * HR.series[0][6]
       && sum(HR_PAYROLL_REASONS.map((r) => r.n)) === hrLast[0] && sum(HR_LOCATIONS.map((l) => l.n)) === hrLast4,
   };
+}
+
+/* ══ THE INSIGHT LAYER ═══════════════════════════════════════════════════════════════════════
+ *
+ * A chart's sentence and HOW WORRIED TO BE ABOUT IT, in one object. The sentence is the
+ * dataset's own `headline` — one source, so the card, the aria-label and the dashboard tile
+ * cannot disagree. The state and the severity are DERIVED from the same resolved data.
+ *
+ * ── WHY DERIVED AND NOT AUTHORED PER CASE ────────────────────────────────────────────────────
+ * A table of "CXO-02's gauge is red" is a promise someone has to keep. Every rule here reads the
+ * numbers instead — a gauge against its target, a ranking's top share, a trend's first half
+ * against its last — so the rail is a fact about the data rather than a decision about the card.
+ * Change SLA.compliance to 95.4 and the same insight reads "On track" in green, with no edit
+ * outside this file.
+ *
+ * ── THE FOUR SEVERITIES ──────────────────────────────────────────────────────────────────────
+ *   bad      something is missing its mark and someone has to act
+ *   warn     something is concentrated, drifting, or close to a line
+ *   good     at or beyond the mark
+ *   neutral  the chart is a register, not a verdict — and MOST charts are this. A module that
+ *            colours everything has stopped saying anything.
+ *
+ * ⚠️ NO GREEN IN THE SEED DATA. Nothing in this fixture is above target or improving, so `good`
+ * appears only when the data is changed. That is the honest outcome, not a gap: painting a
+ * neutral register green to have a green on screen is exactly the failure this file avoids.
+ */
+
+export type InsightSeverity = 'bad' | 'warn' | 'good' | 'neutral';
+
+export interface Insight {
+  /** One or two words. The bold lead-in — the verdict, before the explanation. */
+  state: string;
+  severity: InsightSeverity;
+  /** The dataset's own headline. Never written twice. */
+  sentence: string;
+}
+
+/** A top row above this share IS the story, and the chart is about one thing rather than many.
+ *  35% of a set of four or more is a concentration a reader should be told about. */
+const CONCENTRATION_PCT = 35;
+
+/** The biggest row's share of the whole, for the two shapes that rank. Absolute values, because
+ *  `whatMoved` ranks CHANGES and a −18 moved as much as a +18. */
+function topShare(d: ChartData): { label: string; pct: number } | null {
+  if (d.shape === 'ranking' && d.rows.length > 1) {
+    const total = d.rows.reduce((t, r) => t + Math.abs(r.value), 0);
+    if (!total) return null;
+    const top = d.rows.reduce((a, b) => (Math.abs(b.value) > Math.abs(a.value) ? b : a));
+    return { label: top.label, pct: (Math.abs(top.value) / total) * 100 };
+  }
+  if (d.shape === 'matrix' && d.points.length > 1) {
+    const total = d.points.reduce((t, p) => t + p.y, 0);
+    if (!total) return null;
+    const top = d.points.reduce((a, b) => (b.y > a.y ? b : a));
+    return { label: top.label, pct: (top.y / total) * 100 };
+  }
+  return null;
+}
+
+/** A ranking or a matrix: concentrated, or just a list. */
+function byConcentration(d: ChartData): { state: string; severity: InsightSeverity } {
+  const top = topShare(d);
+  return top && top.pct > CONCENTRATION_PCT
+    ? { state: 'Concentrated', severity: 'warn' }
+    : { state: 'For reference', severity: 'neutral' };
+}
+
+/** A count that is SUPPOSED to fall — tickets, cases, breaches. Up is worse. */
+function byVolumeMove(deltaPct: number): { state: string; severity: InsightSeverity } {
+  if (deltaPct > 25) return { state: 'Worsening', severity: 'bad' };
+  if (deltaPct > 2) return { state: 'Worsening', severity: 'warn' };
+  if (deltaPct < -2) return { state: 'Improving', severity: 'good' };
+  return { state: 'Flat', severity: 'neutral' };
+}
+
+/** The month-on-month move of a two-series comparison. */
+function comparisonMove(d: ChartData): number {
+  if (d.shape !== 'comparison' || d.series.length < 2) return 0;
+  const now = d.series[0].values.reduce((t, v) => t + v, 0);
+  const then = d.series[1].values.reduce((t, v) => t + v, 0);
+  return then ? ((now - then) / then) * 100 : 0;
+}
+
+/** A trend's second half against its first — the move a reader sees across the chart. */
+function trendMove(d: ChartData): number {
+  if (d.shape !== 'trend') return 0;
+  const totals = d.x.map((_, i) => d.series.reduce((t, sr) => t + (sr.values[i] ?? 0), 0));
+  const half = Math.ceil(totals.length / 2);
+  const first = totals.slice(0, half).reduce((t, v) => t + v, 0);
+  const last = totals.slice(-half).reduce((t, v) => t + v, 0);
+  return first ? ((last - first) / first) * 100 : 0;
+}
+
+/** THE STATE AND THE SEVERITY for one resolved dataset.
+ *
+ *  Keyed on the dataset, because the CONDITION that matters differs per chart even when the
+ *  shape does not: a gauge is read against its target, a deadline list against its window, and
+ *  `vpnDaily` against the sentence it already carries — a generic "the trend fell" rule would
+ *  have called a spike-then-decay an improvement, which is the opposite of what the card says. */
+function verdict(d: ChartData, key: string): { state: string; severity: InsightSeverity } {
+  switch (key) {
+    /* ── CXO-01 · volume ──────────────────────────────────────────────────────────────── */
+    case 'juneVsMay': return byVolumeMove(comparisonMove(d));
+    case 'whatMoved': case 'categoryByTeam': case 'vpnByTeam': return byConcentration(d);
+    /* THE SPIKE IS THE POINT. The month's second half is quieter than its first, so a trend
+       rule would read this as improving — but the card's sentence is about the three-fold jump
+       that opened it, and a green rail under that sentence would be a contradiction. */
+    case 'vpnDaily': return { state: 'Worsening', severity: 'bad' };
+
+    /* ── CXO-02 · SLA ─────────────────────────────────────────────────────────────────── */
+    case 'sla': {
+      if (d.shape !== 'gauge') return { state: 'For reference', severity: 'neutral' };
+      if (d.value < d.target) return { state: 'Below target', severity: 'bad' };
+      /* Above the line, but inside a point of it — met, not comfortable. */
+      if (d.value < d.target + 1) return { state: 'On track', severity: 'good' };
+      return { state: 'Ahead of plan', severity: 'good' };
+    }
+    case 'breaches': case 'breachesByTeam': return byConcentration(d);
+
+    /* ── CXO-03 · vendors ─────────────────────────────────────────────────────────────── */
+    case 'vendors': return byConcentration(d);
+
+    /* ── CXO-04 · regulatory ──────────────────────────────────────────────────────────── */
+    case 'regulatory': {
+      if (d.shape !== 'deadlines') return { state: 'For reference', severity: 'neutral' };
+      const over = d.rows.filter((r) => r.dueDays <= 0).length;
+      if (over > 0) return { state: 'Past due', severity: 'bad' };
+      const soonest = Math.min(...d.rows.map((r) => r.dueDays));
+      return soonest <= 2 ? { state: 'Worsening', severity: 'warn' } : { state: 'On track', severity: 'good' };
+    }
+
+    /* ── CXO-06 · recurring problems ──────────────────────────────────────────────────── */
+    case 'problems': case 'problemHours': return byConcentration(d);
+
+    /* ── CXO-07 · HR ──────────────────────────────────────────────────────────────────── */
+    /* THE VERDICT AGREES WITH THE SENTENCE. The card says "HR cases are up 22%", and that is
+       the authored figure — so the rail reads it too. Re-deriving the move from the series on
+       screen gave three different answers for one fact, because the location and team cuts are
+       ROUNDED derivations of the same total: a rail that changes colour when you change the
+       grouping is telling the reader something untrue about their data. `trendMove` is still
+       the rule for a trend whose sentence carries no figure of its own. */
+    case 'hrTrend': return byVolumeMove(Number(VALUES.hrDeltaPct) || trendMove(d));
+    case 'hrByType': case 'hrPayrollReasons': case 'hrByLocation': return byConcentration(d);
+
+    /* ── everything else is a REGISTER ────────────────────────────────────────────────────
+       The breached-ticket table, the vendor's tickets, the incident timeline, the two open
+       investigations, the update log, a type's cases. Each answers "which ones", and a colour
+       on an answer to "which ones" is a verdict nobody asked for. */
+    default: return { state: 'For reference', severity: 'neutral' };
+  }
+}
+
+/** The insight for a resolved dataset, or null where there is nothing to say. */
+export function insightOf(d: ChartData, key: string): Insight | null {
+  const sentence = fill(d.headline).trim();
+  if (!sentence || sentence === 'Unknown dataset') return null;
+  const v = verdict(d, key);
+  return { state: v.state, severity: v.severity, sentence };
 }

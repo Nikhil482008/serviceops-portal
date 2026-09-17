@@ -76,7 +76,6 @@ const CXO_01: Script = {
           { w: 'chart', id: 'c1-compare', data: 'juneVsMay', title: 'June vs May by Category',
             groupBy: [{ id: 'category', label: 'By category' }, { id: 'team', label: 'By team' }, { id: 'priority', label: 'By priority' }],
             drill: { case: 'CXO-01/drill' } },
-          { w: 'callout', text: 'VPN +{{vpnDeltaPct}}% — {{vpnDeltaAbs}} more tickets than May, mostly authentication failures after the password-policy change.' },
           { w: 'chart', id: 'c1-moved', data: 'whatMoved', title: 'What Moved · Absolute Change', drill: { case: 'CXO-01/drill' } },
         ],
         basedOn: ['Ticket data · June', 'SLA records · June'],
@@ -128,7 +127,6 @@ const CXO01_CAUSE: Script = {
         form: 'text', title: 'Cause', headline: 'The password-policy change on {{policyChangeDate}}',
         blocks: [
           { w: 'chart', id: 'c1c-daily', data: 'vpnDaily', title: 'Daily VPN Tickets · June' },
-          { w: 'callout', text: 'Tickets rose {{vpnAfterMultiple}}× in the five days after the change.' },
         ],
         basedOn: ['Ticket data · June'],
       },
@@ -151,8 +149,8 @@ const CXO01_TEAM: Script = {
         form: 'text', title: 'Team impact',
         headline: 'Network — {{networkTickets}} tickets and {{networkBreaches}} of the {{breaches}} breaches',
         blocks: [
-          { w: 'chart', id: 'c1t-breaches', data: 'breachesByTeam', title: 'Breaches by Team' },
-          { w: 'callout', text: 'Network carries {{networkBreachShare}}% of breaches on {{networkVolumeShare}}% of volume.' },
+          { w: 'chart', id: 'c1t-breaches', data: 'breachesByTeam', title: 'Breaches by Team',
+            soWhat: 'Just {{networkVolumeShare}}% of the volume.' },
         ],
         basedOn: ['SLA records · June', 'Team roster'],
       },
@@ -205,10 +203,10 @@ const CXO_02: Script = {
         blocks: [
           { w: 'kpis', set: 'cxo02' },
           { w: 'chart', id: 'c2-gauge', data: 'sla', title: 'Compliance · Six Months' },
-          { w: 'callout', text: "VPN alone is {{vpnShare}}% of breaches — fix that and we're back above target." },
           { w: 'chart', id: 'c2-breaches', data: 'breaches', title: 'Breaches',
             groupBy: [{ id: 'service', label: 'By service' }, { id: 'team', label: 'By team' }, { id: 'priority', label: 'By priority' }],
-            drill: { case: 'CXO-02/drill' } },
+            drill: { case: 'CXO-02/drill' },
+            soWhat: 'Fixing it puts us back above target.' },
         ],
         basedOn: ['SLA records · June', 'Team roster'],
         dataScope: '{{slaBound}} SLA-bound tickets · June · all teams',
@@ -266,8 +264,8 @@ const CXO02_NETWORK: Script = {
       payload: {
         form: 'text', title: 'Network', headline: 'Network carries the most breaches of any team',
         blocks: [
-          { w: 'chart', id: 'c2n-team', data: 'breaches', title: 'Breaches by Team', groupBy: [{ id: 'team', label: 'By team' }, { id: 'service', label: 'By service' }] },
-          { w: 'callout', text: 'Network carries {{networkBreachShare}}% of breaches on {{networkVolumeShare}}% of volume.' },
+          { w: 'chart', id: 'c2n-team', data: 'breaches', title: 'Breaches by Team', groupBy: [{ id: 'team', label: 'By team' }, { id: 'service', label: 'By service' }],
+            soWhat: 'Just {{networkVolumeShare}}% of the volume.' },
         ],
         basedOn: ['SLA records · June', 'Team roster'],
       },
@@ -301,7 +299,6 @@ const CXO_03: Script = {
           { w: 'chart', id: 'c3-vendors', data: 'vendors', title: 'Vendors',
             groupBy: [{ id: 'waiting', label: 'Tickets waiting' }, { id: 'wait', label: 'Avg wait' }, { id: 'breaches', label: 'Breaches' }],
             drill: { case: 'CXO-03/drill' } },
-          { w: 'callout', text: "TelcoNet's fibre repairs are the single biggest external drag on SLA." },
         ],
         basedOn: ['Vendor status board', 'SLA records · June'],
         menu: [...COMMON_MENU_HINT, 'Export for vendor review'],
@@ -390,7 +387,6 @@ const CXO_04: Script = {
           { w: 'chart', id: 'c4-deadlines', data: 'regulatory', title: 'Reporting Deadlines',
             groupBy: [{ id: 'deadline', label: 'By deadline' }, { id: 'owner', label: 'By owner' }], kinds: ['list', 'table'],
             drill: { case: 'CXO-04/drill' } },
-          { w: 'callout', text: '{{regOverdueRef}} is a day past its window — the {{regOverdueOwner}} team owns it.' },
         ],
         basedOn: ['Compliance register'],
         menu: [...COMMON_MENU_HINT, 'Export list'],
@@ -496,11 +492,14 @@ const CXO_05: Script = {
       payload: {
         form: 'text', title: 'Security',
         headline: 'No data lost. One incident cost {{secAmount}} and was fully recovered.',
+        /* THE CALLOUT THAT WAS ABOUT THE ANSWER. "Two are still under investigation, I'll flag
+           if that changes" is a commitment about the whole reply, not a reading of the
+           Jan–Sep timeline beside it — so it supports the headline rather than a chart. */
+        text: "Two are still under investigation — I'll flag if their status changes.",
         blocks: [
           { w: 'kpis', set: 'cxo05' },
           { w: 'chart', id: 'c5-timeline', data: 'securityTimeline', title: 'Incidents · Jan–Sep',
             groupBy: [{ id: 'severity', label: 'By severity' }, { id: 'type', label: 'By type' }] },
-          { w: 'callout', text: "Two incidents are still under investigation — I'll flag if their status changes." },
           { w: 'incidents' },
         ],
         basedOn: ['Security incident register'],
@@ -576,7 +575,6 @@ const CXO_06: Script = {
           { w: 'kpis', set: 'cxo06' },
           { w: 'chart', id: 'c6-matrix', data: 'problems', title: 'Effort to Fix vs Recurrence',
             groupBy: [{ id: 'hours', label: 'Size by hours' }, { id: 'tickets', label: 'Size by tickets' }, { id: 'teams', label: 'Size by teams' }] },
-          { w: 'callout', text: 'Fixing the top two removes about {{topTwoTickets}} tickets a quarter.' },
           { w: 'problems' },
         ],
         basedOn: ['Problem candidates · 90 days'],
@@ -633,9 +631,11 @@ const CXO06_SAVE: Script = {
       kind: 'answer',
       payload: {
         form: 'text', title: 'Savings', headline: 'About {{hoursLost}} hours a quarter — roughly {{fte}} FTE',
+        /* THE ASSUMPTION BELONGS TO THE FTE NUMBER, which is in the headline — not to the hours
+           chart below it. An unstated divisor is what makes a capacity claim unarguable. */
+        text: 'Assumes {{fteHoursAssumed}} productive hours per person per quarter.',
         blocks: [
           { w: 'chart', id: 'c6s-hours', data: 'problemHours', title: 'Hours Lost a Quarter, by Cluster' },
-          { w: 'callout', text: 'Assumes {{fteHoursAssumed}} productive hours per person per quarter.' },
         ],
         basedOn: ['Problem candidates · 90 days'],
       },
@@ -663,12 +663,17 @@ const CXO_07: Script = {
       payload: {
         form: 'text', title: 'HR',
         headline: 'HR cases up {{hrDeltaPct}}% — payroll queries are the spike',
+        /* THE ONLY INTERPRETATION ON THE TURN, so it does not get dropped for want of room.
+           The trend chart's insight line is already full at two lines, and this clause is not a
+           reading of that chart anyway — it is what the whole answer concludes. `response.mjs`
+           §8 tests exactly this: an insight that interprets rather than restates, stated before
+           the breakdown. A lead line is both. */
+        text: 'It lines up with the September payroll cycle — likely a process issue, not a system one.',
         blocks: [
           { w: 'kpis', set: 'cxo07' },
           { w: 'chart', id: 'c7-trend', data: 'hrTrend', title: 'Cases by Week',
             groupBy: [{ id: 'type', label: 'By type' }, { id: 'location', label: 'By location' }, { id: 'team', label: 'By team' }],
             drill: { case: 'CXO-07/drill' } },
-          { w: 'callout', text: 'The payroll spike lines up with the September cycle — likely a process issue, not a system one.' },
           { w: 'chart', id: 'c7-types', data: 'hrByType', title: 'Last Four Weeks by Type', drill: { case: 'CXO-07/drill' } },
         ],
         basedOn: ['HR case data · 8 weeks'],
@@ -709,8 +714,8 @@ const CXO07_PAYROLL: Script = {
       payload: {
         form: 'text', title: 'Payroll', headline: 'Four reasons, and one of them is most of it',
         blocks: [
-          { w: 'chart', id: 'c7p-reasons', data: 'hrPayrollReasons', title: 'Payroll Queries by Reason' },
-          { w: 'callout', text: '{{hrTopReason}} — {{hrTopReasonN}} of the {{hrPayroll}} queries.' },
+          { w: 'chart', id: 'c7p-reasons', data: 'hrPayrollReasons', title: 'Payroll Queries by Reason',
+            soWhat: '{{hrTopReasonN}} of {{hrPayroll}}.' },
         ],
         basedOn: ['HR case data · 8 weeks'],
       },
@@ -729,8 +734,8 @@ const CXO07_LOCATION: Script = {
       payload: {
         form: 'text', title: 'Locations', headline: '{{hrTopLocation}} — {{hrTopLocationN}} of the {{hrLast4}} cases',
         blocks: [
-          { w: 'chart', id: 'c7l-loc', data: 'hrByLocation', title: 'Last Four Weeks by Location' },
-          { w: 'callout', text: 'Head office raises the most cases, in line with headcount.' },
+          { w: 'chart', id: 'c7l-loc', data: 'hrByLocation', title: 'Last Four Weeks by Location',
+            soWhat: 'In line with headcount.' },
         ],
         basedOn: ['HR case data · 8 weeks'],
       },

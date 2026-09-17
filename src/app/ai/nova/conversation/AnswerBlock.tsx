@@ -15,7 +15,8 @@ import { DEFAULT_VIEW, type AnswerView } from './ResponseUtilityBar';
  *
  * They are different things depending on the FORM, so the form decides:
  *   draft   `text` is the answer; `title` captions the object being proposed
- *   text    `title` IS the answer; there is no `text`
+ *   text    `title` IS the answer; `text`, where a script writes one, is the line that
+ *           supports the headline — an assumption behind its number, or a commitment
  *   report  `title` is the answer; the metric carries the number
  *
  * ── ONE SURFACE, NOT SEVEN ───────────────────────────────────────────────────────────────────
